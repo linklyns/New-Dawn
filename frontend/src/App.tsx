@@ -62,6 +62,7 @@ function AppContent() {
       >
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/residents" element={<ResidentsList />} />
+        <Route path="/admin/residents/new" element={<ResidentDetail />} />
         <Route path="/admin/residents/:id" element={<ResidentDetail />} />
         <Route path="/admin/case/:residentId/recordings" element={<ProcessRecordingsPage />} />
         <Route path="/admin/case/:residentId/visits" element={<HomeVisitationsPage />} />
