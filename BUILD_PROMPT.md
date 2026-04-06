@@ -242,42 +242,66 @@ You are building "New Dawn," a full-stack web application for a nonprofit that o
 
 ## 7. ML PIPELINES (IS 455 -- 20 pts)
 
-Submit Jupyter notebooks in `ml-pipelines/` folder. Each pipeline must follow the full lifecycle and address a **different business problem**. Target 2-4 quality pipelines.
+Submit Jupyter notebooks in `ml-pipelines/` folder. Each pipeline must demonstrate **pipeline thinking** (Foreword) -- not just algorithm execution, but a complete end-to-end decision system from problem framing through deployment. Each pipeline must address a **genuinely different business problem**. Target 2-4 quality pipelines. Quality over quantity.
+
+### Textbook Chapter-to-Pipeline Mapping
+
+The textbook structures the full pipeline as follows (use this as your chapter reference for each stage):
+
+| Pipeline Stage | Chapters | What to Demonstrate |
+|---|---|---|
+| **Problem Framing** | Foreword, Ch. 1 (CRISP-DM) | Business problem, success criteria, prediction vs. explanation choice, feasibility assessment (practical impact + data availability + analytical feasibility) |
+| **Data Acquisition** | Ch. 4 (Pandas I/O), Ch. 5 (APIs) | Load CSVs from `lighthouse_csv_v7/`, join across tables, document data sources |
+| **Data Preparation** | Ch. 2-3 (DataFrames, Wrangling), Ch. 7 (Automating Data Preparation Pipelines) | Build a **reproducible two-tier pipeline**: (1) dataset-specific `wrangle_*()` function for project-specific cleaning, (2) generalizable functions from `functions.py` -- `bin_categories()`, `skew_correct()`, `missing_drop()`, `missing_fill()`, `clean_outlier()`. Use `unistats()` output as diagnostic input. Handle missing values, outliers, skewed distributions, categorical encoding (dummy-code with reference category dropped), scaling/standardization. Expect 60-80% of pipeline effort here. |
+| **Exploration** | Ch. 6 (Automating Feature-Level Exploration), Ch. 8 (Automating Relationship Discovery) | Run `unistats()` for univariate profiling. Automate bivariate analysis using the four relationship types: N2N (Pearson r, scatterplots), N2C (t-test/ANOVA F, mean-value bar charts), C2C (chi-square, crosstab heatmaps). Document distributions, correlations, anomalies -- these should directly inform modeling choices. |
+| **Modeling** | Ch. 9 (MLR Concepts), Ch. 10 (MLR Diagnostics for Causal Inference), Ch. 11 (MLR for Predictive Inference), Ch. 12 (Decision Trees), Ch. 13 (Classification), Ch. 14 (Ensemble Methods) | For each pipeline, produce **both** a causal/explanatory model and a predictive model. Choose the right tool: explanatory pipelines should use carefully specified MLR with `statsmodels` (interpret coefficients, p-values, R-squared, Adjusted R-squared); predictive pipelines should use `scikit-learn` (train/test split, MAE/RMSE for regression, accuracy/AUC for classification). Available algorithms: MLR (Ch. 9-11), decision trees (Ch. 12), logistic regression and classification decision trees (Ch. 13), ensemble methods -- bagging, boosting (gradient boosting), stacking (Ch. 14). |
+| **Evaluation & Selection** | Ch. 15 (Model Evaluation, Selection & Tuning) | Use proper validation: train/test splits, cross-validation (K-Fold, Stratified K-Fold, GroupKFold, TimeSeriesSplit as appropriate). Hyperparameter tuning via `GridSearchCV` or `RandomizedSearchCV`. Use learning curves and validation curves to diagnose overfitting/underfitting. Nested cross-validation for unbiased performance estimates. Compare multiple algorithms fairly. Interpret results **in business terms** -- not just R-squared or accuracy, but what the numbers mean for the organization's decisions. Discuss real-world consequences of false positives and false negatives. |
+| **Feature Selection** | Ch. 16 (Feature Selection) | Distinguish between **causal feature selection** (focused on coefficient validity, removing confounders/multicollinearity via VIF) and **predictive feature selection** (focused on out-of-sample performance). Apply filter methods (variance thresholds, univariate tests, correlation analysis), wrapper methods (RFECV, sequential selection), and/or permutation feature importance. Integrate feature selection into scikit-learn pipelines to prevent data leakage. |
+| **Deployment** | Ch. 17 (Deploying ML Pipelines) | Implement as an end-to-end ML pipeline with separate training and inference code paths. Use ETL to extract data from the operational database. Serialize trained models using `joblib` with training metadata (versioning). Build inference pipelines that load saved models and generate predictions on new data. Integrate into the web application via API endpoint, dashboard component, or interactive form. Consider scheduled retraining workflows and model drift monitoring. |
 
 ### Pipeline 1: Donor Churn / Lapse Prediction (Predictive)
-- **Problem:** Which donors are at risk of lapsing? Enable proactive retention outreach.
+- **Business Problem (Ch. 1):** The organization depends entirely on donations and loses donors without understanding why. Which donors are at risk of lapsing? This is a **predictive** pipeline -- the goal is to generate reliable classifications on new data so staff can proactively reach out to at-risk donors before they lapse.
 - **Tables:** `supporters`, `donations`, `donation_allocations`, `social_media_posts`
-- **Features to engineer:** days since last donation, donation frequency, average amount, recurring flag, total lifetime value, acquisition channel, relationship type, time since first donation
-- **Model options:** Classification (logistic regression, decision tree, random forest, gradient boosting)
-- **Deploy:** API endpoint + dashboard widget showing at-risk donors
+- **Data Preparation (Ch. 7):** Engineer features: days since last donation, donation frequency, average amount, recurring flag, total lifetime value, acquisition channel, relationship type, time since first donation, donation type mix. Build a reproducible `wrangle_donors()` function, then apply generalizable cleaning pipeline.
+- **Exploration (Ch. 6, 8):** Run `unistats()` on engineered features. Use bivariate automation to discover which features relate to the churn label (N2C: ANOVA F-tests for numeric features vs. churned/retained; C2C: chi-square for categorical features vs. churn).
+- **Modeling (Ch. 13, 14):** Classification problem. Compare logistic regression (Ch. 13), classification decision tree (Ch. 13), and ensemble methods -- random forest, gradient boosting (Ch. 14). For each pipeline, also build an explanatory MLR/logistic model using `statsmodels` to understand which features are most important and why.
+- **Evaluation (Ch. 15):** Stratified K-Fold cross-validation (class imbalance likely). Metrics: accuracy, precision, recall, F1, AUC-ROC. Interpret in business terms: what does a false negative mean (missed an at-risk donor) vs. false positive (wasted outreach on a loyal donor)? Hyperparameter tune the best model via `GridSearchCV`.
+- **Feature Selection (Ch. 16):** Predictive feature selection -- RFECV or permutation importance to identify the minimal feature set that maintains performance.
+- **Deployment (Ch. 17):** Serialize model with `joblib`. Build API endpoint that scores donors on demand. Dashboard widget showing at-risk donors ranked by churn probability.
 
-### Pipeline 2: Social Media Effectiveness -> Donations (Explanatory)
-- **Problem:** What content factors actually drive donation referrals? Guide social media strategy.
-- **Tables:** `social_media_posts`, `donations` (via referral_post_id)
-- **Features:** platform, post_type, media_type, day_of_week, post_hour, content_topic, sentiment_tone, has_call_to_action, call_to_action_type, is_boosted, caption_length, num_hashtags, features_resident_story
-- **Model:** OLS regression for causal interpretation, coefficients matter more than R-squared
-- **Deploy:** Analytics dashboard showing which content strategies convert
+### Pipeline 2: Social Media Content -> Donation Referrals (Explanatory)
+- **Business Problem (Ch. 1):** The founders are not experienced with social media and want data-driven guidance. What content factors actually drive donation referrals? This is an **explanatory** pipeline -- the goal is to understand cause-and-effect relationships between content decisions and donation outcomes so the organization can make better strategic choices. Interpretability and coefficient validity matter more than predictive accuracy.
+- **Tables:** `social_media_posts`, `donations` (linked via `referral_post_id`)
+- **Data Preparation (Ch. 7):** Join posts to donation referral counts. Engineer features from post metadata. Dummy-code categoricals (platform, post_type, media_type, content_topic, sentiment_tone, call_to_action_type) dropping one reference category each to avoid multicollinearity. Apply `skew_correct()` to numeric features (impressions, reach, caption_length).
+- **Exploration (Ch. 6, 8):** N2N analysis (Pearson r between engagement metrics and donation_referrals), N2C analysis (ANOVA F: does donation referral count differ by platform? by post_type?), C2C (chi-square: is call_to_action_type independent of content_topic?).
+- **Modeling (Ch. 9, 10):** Primary model: MLR using `statsmodels` OLS. Interpret coefficients (e.g., "posts with DonateNow CTA are associated with X more referrals, holding other factors constant"). Run full **regression diagnostics (Ch. 10)**: check the five core assumptions -- normality (residual plots, Q-Q), multicollinearity (VIF, correlation heatmaps), autocorrelation, linearity (residual-vs-fitted), homoscedasticity. Apply label transformations (log, Box-Cox, Yeo-Johnson) if residual normality is violated. Address multicollinearity by removing high-VIF features or using polynomial features for nonlinearity. Also build a predictive comparison model with `scikit-learn` to show the tradeoff.
+- **Evaluation (Ch. 15):** For the explanatory model: R-squared, Adjusted R-squared, F-statistic, individual t-values/p-values, coefficient confidence intervals. For predictive comparison: train/test split, MAE, RMSE. Be honest about the limitations -- correlation is not causation, and discuss which causal claims are defensible vs. which are observational associations.
+- **Feature Selection (Ch. 16):** Causal feature selection -- focus on VIF analysis and domain reasoning. Remove features that introduce confounding rather than features that reduce accuracy.
+- **Deployment (Ch. 17):** Analytics dashboard showing coefficient magnitudes and actionable recommendations (e.g., "prioritize Video content on Instagram with DonateNow CTAs"). Not a real-time prediction endpoint -- the value is the insight, not the score.
 
 ### Pipeline 3: Resident Reintegration Readiness (Predictive)
-- **Problem:** Can we forecast which residents are ready for reintegration to help staff prioritize?
+- **Business Problem (Ch. 1):** Staff worry about girls falling through the cracks. Can we forecast which residents are progressing toward reintegration readiness? This is a **predictive** pipeline -- the goal is to generate a readiness score/classification that helps staff prioritize attention, not to explain why certain factors matter (though we will discuss that).
 - **Tables:** `residents`, `process_recordings`, `education_records`, `health_wellbeing_records`, `intervention_plans`, `home_visitations`, `incident_reports`
-- **Features to engineer:** length of stay, education progress trend, health score trend, counseling session count, emotional state improvements, incident frequency, home visit cooperation scores, intervention plan completion rate, risk level trajectory
-- **Model:** Classification (ready vs. not ready) or regression (readiness score)
-- **Deploy:** Staff dashboard indicator per resident
+- **Data Preparation (Ch. 7):** Heavy multi-table join and aggregation. For each resident, engineer: length of stay, mean education progress_percent, education progress trend (slope), mean general_health_score, health trend, total counseling sessions, emotional improvement ratio (sessions ending in positive state / total), incident count and severity distribution, home visit cooperation mode, intervention plan completion rate, risk level trajectory (initial vs. current). Build `wrangle_residents()` to handle all resident-specific joins, then apply generalizable pipeline.
+- **Exploration (Ch. 6, 8):** Automated univariate and bivariate exploration of engineered features against the target (reintegration_status as label). Identify which features show the strongest signal.
+- **Modeling (Ch. 12, 13, 14):** Target: classify reintegration_status (Completed vs. Not Started/In Progress/On Hold). Compare decision tree (Ch. 12 -- useful for interpretability of splits), logistic regression (Ch. 13), and gradient boosting ensemble (Ch. 14). Also build an explanatory MLR with `statsmodels` to identify which features are most associated with readiness.
+- **Evaluation (Ch. 15):** Cross-validation with stratification (class imbalance expected). Metrics: precision (critical -- false positives mean prematurely reintegrating a girl who isn't ready), recall, F1, AUC. Business interpretation: a false positive here has real safety consequences. Tune with `GridSearchCV`.
+- **Feature Selection (Ch. 16):** Permutation feature importance to identify which factors matter most for prediction. Discuss whether the features make domain sense.
+- **Deployment (Ch. 17):** Serialize with `joblib`. API endpoint that scores residents. Staff dashboard with per-resident readiness indicators (color-coded risk levels). Inference pipeline that loads fresh data from the operational DB.
 
-### Pipeline 4 (stretch): Safehouse Resource Optimization (Explanatory)
-- **Problem:** What factors drive better resident outcomes across safehouses?
-- **Tables:** `safehouse_monthly_metrics`, `safehouses`, `partner_assignments`, `residents`
-- **Model:** Regression explaining what operational inputs correlate with better outcomes
-- **Deploy:** Comparative dashboard
+### Pipeline 4 (stretch): Safehouse Operational Effectiveness (Explanatory)
+- **Business Problem (Ch. 1):** What operational factors drive better resident outcomes across safehouses? This is **explanatory** -- the goal is to understand which operational inputs (staffing levels, partner assignments, intervention plans, counseling frequency) are associated with better outcomes, so leadership can allocate resources effectively.
+- **Tables:** `safehouse_monthly_metrics`, `safehouses`, `partner_assignments`, `residents`, `intervention_plans`
+- **Modeling (Ch. 9, 10):** MLR with `statsmodels`. Target: avg_education_progress or avg_health_score from safehouse_monthly_metrics. Full regression diagnostics. Interpret standardized coefficients to compare effect sizes across features.
+- **Deployment (Ch. 17):** Comparative dashboard showing safehouse performance drivers with actionable recommendations.
 
-### Each Notebook Must Include:
-1. **Problem Framing** -- business problem, who cares, predictive vs. explanatory justification
-2. **Data Acquisition, Preparation & Exploration** -- load CSVs, EDA with visualizations, missing value handling, feature engineering, reproducible pipeline
-3. **Modeling & Feature Selection** -- multiple approaches compared, feature selection justified, hyperparameter tuning
-4. **Evaluation & Interpretation** -- proper validation (train/test split, cross-validation), metrics in business terms, real-world consequences of errors
-5. **Causal and Relationship Analysis** -- feature importances, coefficients, honest about correlation vs. causation
-6. **Deployment Notes** -- how it integrates with the web app (API endpoint, dashboard component)
+### Each Notebook Must Include These Sections:
+1. **Problem Framing (Foreword, Ch. 1)** -- Clear written explanation (not just code) of the business problem, who in the organization cares, and why it matters. Explicitly state whether your approach is **predictive** or **explanatory** and justify using the textbook framework. Assess feasibility: practical impact, data availability, analytical feasibility.
+2. **Data Acquisition, Preparation & Exploration (Ch. 2-8)** -- Load relevant CSVs, explore visually (univariate via `unistats()`, bivariate via automated relationship discovery), document findings (distributions, correlations, missing values, outliers). Build a **reproducible data preparation pipeline** (Ch. 7) -- not a one-off script. Show `wrangle_*()` function + generalizable cleaning functions. Document all feature engineering decisions and joins.
+3. **Modeling & Feature Selection (Ch. 9-14, 16)** -- Build both a causal and predictive model for each pipeline. Compare multiple approaches and document choices. For explanatory work: `statsmodels` OLS, interpret coefficients, run diagnostics (Ch. 10), causal feature selection via VIF. For predictive work: `scikit-learn`, train/test split, compare algorithms, predictive feature selection via RFECV or permutation importance. Include hyperparameter tuning where appropriate.
+4. **Evaluation & Interpretation (Ch. 15)** -- Proper validation (train/test split, cross-validation). Appropriate metrics for the problem type. Interpret in **business terms** -- explain what the numbers mean for the organization, not just report a score. Discuss real-world consequences of errors (false positives, false negatives) specific to this context. Use learning curves to diagnose model behavior.
+5. **Causal and Relationship Analysis** -- Written discussion of discovered relationships. What features matter most and why? For explanatory models: are causal claims defensible? For predictive models: what does the model reveal about data structure even if the goal isn't causal? Be honest about correlation vs. causation. This demonstrates understanding of the prediction vs. explanation distinction (Foreword, Ch. 9-11).
+6. **Deployment Notes (Ch. 17)** -- Describe how the model is deployed and integrated into the web application. Include: serialization approach (`joblib`), training vs. inference code path separation, API endpoint or dashboard component, and reference to where integration code lives in the repo. Consider monitoring and retraining strategy.
 
 ---
 
