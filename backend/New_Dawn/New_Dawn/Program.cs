@@ -18,12 +18,15 @@ builder.Services.AddCors(options =>
 });
 
 var connectionString = builder.Configuration.GetConnectionString("Supabase")
-    ?? Environment.GetEnvironmentVariable("SUPABASE_CONNECTION_STRING");
+    ?? Environment.GetEnvironmentVariable("SUPABASE_CONNECTION_STRING")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Supabase")
+    ?? Environment.GetEnvironmentVariable("CUSTOMCONNSTR_Supabase")
+    ?? Environment.GetEnvironmentVariable("POSTGRESQLCONNSTR_Supabase");
 
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException(
-        "Supabase connection string is missing. Set ConnectionStrings:Supabase or SUPABASE_CONNECTION_STRING.");
+        "Supabase connection string is missing. Set SUPABASE_CONNECTION_STRING, ConnectionStrings__Supabase, or an App Service connection string named Supabase.");
 }
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
