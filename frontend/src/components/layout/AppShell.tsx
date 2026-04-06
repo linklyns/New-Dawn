@@ -17,8 +17,11 @@ export function AppShell({ variant }: AppShellProps) {
   if (variant === 'public') {
     return (
       <div className="flex min-h-screen flex-col">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:bg-golden-honey focus:text-slate-navy focus:p-4 focus:text-lg">
+          Skip to main content
+        </a>
         <Navbar />
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           <Outlet />
         </main>
         <Footer />
@@ -28,12 +31,15 @@ export function AppShell({ variant }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-navy">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:bg-golden-honey focus:text-slate-navy focus:p-4 focus:text-lg">
+        Skip to main content
+      </a>
       <Sidebar />
 
       {/* Main content area offset by sidebar */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-slate-navy/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-slate-navy">
+        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-slate-navy/10 bg-white pl-16 pr-6 py-3 lg:pl-6 dark:border-white/10 dark:bg-slate-navy">
           {user && (
             <span className="text-sm text-warm-gray">
               {user.displayName}
@@ -56,7 +62,7 @@ export function AppShell({ variant }: AppShellProps) {
         </header>
 
         {/* Page content */}
-        <main className="p-6">
+        <main id="main-content" className="p-6">
           <Outlet />
         </main>
       </div>

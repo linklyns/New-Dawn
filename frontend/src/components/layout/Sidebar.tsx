@@ -152,7 +152,7 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex items-center gap-3 border-b border-slate-navy/10 px-4 py-4 dark:border-white/10">
-          <img src={logo} alt="New Dawn" className="h-8 w-8" />
+          <img src={logo} alt="New Dawn logo" className="h-8 w-8" />
           <span className="font-heading text-lg font-bold text-slate-navy dark:text-white">
             New Dawn
           </span>

@@ -40,7 +40,7 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <img
             src={logo}
-            alt="New Dawn"
+            alt="New Dawn - A Path to Healing and Hope"
             className="mb-8 h-24 sm:h-32"
           />
           <h1 className="font-heading text-4xl font-bold text-slate-navy dark:text-white sm:text-5xl lg:text-6xl">

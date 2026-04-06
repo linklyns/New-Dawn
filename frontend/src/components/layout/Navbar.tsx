@@ -23,7 +23,7 @@ export function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Left: Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="New Dawn" className="h-10" />
+          <img src={logo} alt="New Dawn - A Path to Healing and Hope" className="h-10" />
         </Link>
 
         {/* Center: Desktop nav links */}

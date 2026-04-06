@@ -86,7 +86,7 @@ export function RegisterPage() {
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
-          <img src={logo} alt="New Dawn" className="h-16" />
+          <img src={logo} alt="New Dawn - A Path to Healing and Hope" className="h-16" />
         </div>
 
         <form onSubmit={handleSubmit(onRegister)} className="flex flex-col gap-4">

@@ -42,12 +42,15 @@ export function Modal({
           {/* Dialog */}
           <motion.div
             className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-navy dark:text-white"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15 }}
           >
-            <h2 className="mb-4 font-heading text-lg font-semibold">{title}</h2>
+            <h2 id="modal-title" className="mb-4 font-heading text-lg font-semibold">{title}</h2>
             <div className="mb-6">{children}</div>
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose}>
