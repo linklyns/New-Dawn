@@ -10,17 +10,32 @@ using New_Dawn.Models;
 
 LoadDotEnv();
 
+// Allow DateTime with Kind=Unspecified to be sent to PostgreSQL timestamptz columns
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var allowedOrigins = new List<string>
+{
+    "http://localhost:5173",
+    "https://new-dawn.azurewebsites.net",
+    "https://newdawn-api.azurewebsites.net",
+    "https://*.azurestaticapps.net"
+};
+var extraOrigin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN");
+if (!string.IsNullOrWhiteSpace(extraOrigin))
+    allowedOrigins.Add(extraOrigin);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://new-dawn.azurewebsites.net")
+        policy.WithOrigins(allowedOrigins.ToArray())
+            .SetIsOriginAllowedToAllowWildcardSubdomains()
             .AllowAnyMethod()
             .AllowAnyHeader();
     });
@@ -38,7 +53,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "Supabase connection string is missing. Set SUPABASE_CONNECTION_STRING, ConnectionStrings__Supabase, or an App Service connection string named Supabase.");
 }
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString)
+        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // ASP.NET Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

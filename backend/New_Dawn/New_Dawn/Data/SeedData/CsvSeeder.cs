@@ -28,30 +28,49 @@ public static class CsvSeeder
         // Seed user accounts
         await SeedUsersAsync(userManager);
 
-        // Only seed CSV data if tables are empty
-        if (await context.Safehouses.AnyAsync())
-        {
-            return;
-        }
+        // Seed each table only if it is empty (idempotent, survives partial failures)
+        if (!await context.Safehouses.AnyAsync())
+            await SeedEntity<Safehouse, SafehouseMap>(context, csvBasePath, "safehouses.csv", context.Safehouses);
+        if (!await context.Partners.AnyAsync())
+            await SeedEntity<Partner, PartnerMap>(context, csvBasePath, "partners.csv", context.Partners);
+        if (!await context.Supporters.AnyAsync())
+            await SeedEntity<Supporter, SupporterMap>(context, csvBasePath, "supporters.csv", context.Supporters);
+        if (!await context.SocialMediaPosts.AnyAsync())
+            await SeedEntity<SocialMediaPost, SocialMediaPostMap>(context, csvBasePath, "social_media_posts.csv", context.SocialMediaPosts);
+        if (!await context.PublicImpactSnapshots.AnyAsync())
+            await SeedEntity<PublicImpactSnapshot, PublicImpactSnapshotMap>(context, csvBasePath, "public_impact_snapshots.csv", context.PublicImpactSnapshots);
+        if (!await context.Residents.AnyAsync())
+            await SeedEntity<Resident, ResidentMap>(context, csvBasePath, "residents.csv", context.Residents);
+        if (!await context.Donations.AnyAsync())
+            await SeedEntity<Donation, DonationMap>(context, csvBasePath, "donations.csv", context.Donations);
+        if (!await context.DonationAllocations.AnyAsync())
+            await SeedEntity<DonationAllocation, DonationAllocationMap>(context, csvBasePath, "donation_allocations.csv", context.DonationAllocations);
+        if (!await context.InKindDonationItems.AnyAsync())
+            await SeedEntity<InKindDonationItem, InKindDonationItemMap>(context, csvBasePath, "in_kind_donation_items.csv", context.InKindDonationItems);
+        if (!await context.PartnerAssignments.AnyAsync())
+            await SeedEntity<PartnerAssignment, PartnerAssignmentMap>(context, csvBasePath, "partner_assignments.csv", context.PartnerAssignments);
+        if (!await context.ProcessRecordings.AnyAsync())
+            await SeedEntity<ProcessRecording, ProcessRecordingMap>(context, csvBasePath, "process_recordings.csv", context.ProcessRecordings);
+        if (!await context.HomeVisitations.AnyAsync())
+            await SeedEntity<HomeVisitation, HomeVisitationMap>(context, csvBasePath, "home_visitations.csv", context.HomeVisitations);
+        if (!await context.EducationRecords.AnyAsync())
+            await SeedEntity<EducationRecord, EducationRecordMap>(context, csvBasePath, "education_records.csv", context.EducationRecords);
+        if (!await context.HealthWellbeingRecords.AnyAsync())
+            await SeedEntity<HealthWellbeingRecord, HealthWellbeingRecordMap>(context, csvBasePath, "health_wellbeing_records.csv", context.HealthWellbeingRecords);
+        if (!await context.InterventionPlans.AnyAsync())
+            await SeedEntity<InterventionPlan, InterventionPlanMap>(context, csvBasePath, "intervention_plans.csv", context.InterventionPlans);
+        if (!await context.IncidentReports.AnyAsync())
+            await SeedEntity<IncidentReport, IncidentReportMap>(context, csvBasePath, "incident_reports.csv", context.IncidentReports);
+        if (!await context.SafehouseMonthlyMetrics.AnyAsync())
+            await SeedEntity<SafehouseMonthlyMetric, SafehouseMonthlyMetricMap>(context, csvBasePath, "safehouse_monthly_metrics.csv", context.SafehouseMonthlyMetrics);
 
-        // Seed in FK-dependency order
-        await SeedEntity<Safehouse, SafehouseMap>(context, csvBasePath, "safehouses.csv", context.Safehouses);
-        await SeedEntity<Partner, PartnerMap>(context, csvBasePath, "partners.csv", context.Partners);
-        await SeedEntity<Supporter, SupporterMap>(context, csvBasePath, "supporters.csv", context.Supporters);
-        await SeedEntity<SocialMediaPost, SocialMediaPostMap>(context, csvBasePath, "social_media_posts.csv", context.SocialMediaPosts);
-        await SeedEntity<PublicImpactSnapshot, PublicImpactSnapshotMap>(context, csvBasePath, "public_impact_snapshots.csv", context.PublicImpactSnapshots);
-        await SeedEntity<Resident, ResidentMap>(context, csvBasePath, "residents.csv", context.Residents);
-        await SeedEntity<Donation, DonationMap>(context, csvBasePath, "donations.csv", context.Donations);
-        await SeedEntity<DonationAllocation, DonationAllocationMap>(context, csvBasePath, "donation_allocations.csv", context.DonationAllocations);
-        await SeedEntity<InKindDonationItem, InKindDonationItemMap>(context, csvBasePath, "in_kind_donation_items.csv", context.InKindDonationItems);
-        await SeedEntity<PartnerAssignment, PartnerAssignmentMap>(context, csvBasePath, "partner_assignments.csv", context.PartnerAssignments);
-        await SeedEntity<ProcessRecording, ProcessRecordingMap>(context, csvBasePath, "process_recordings.csv", context.ProcessRecordings);
-        await SeedEntity<HomeVisitation, HomeVisitationMap>(context, csvBasePath, "home_visitations.csv", context.HomeVisitations);
-        await SeedEntity<EducationRecord, EducationRecordMap>(context, csvBasePath, "education_records.csv", context.EducationRecords);
-        await SeedEntity<HealthWellbeingRecord, HealthWellbeingRecordMap>(context, csvBasePath, "health_wellbeing_records.csv", context.HealthWellbeingRecords);
-        await SeedEntity<InterventionPlan, InterventionPlanMap>(context, csvBasePath, "intervention_plans.csv", context.InterventionPlans);
-        await SeedEntity<IncidentReport, IncidentReportMap>(context, csvBasePath, "incident_reports.csv", context.IncidentReports);
-        await SeedEntity<SafehouseMonthlyMetric, SafehouseMonthlyMetricMap>(context, csvBasePath, "safehouse_monthly_metrics.csv", context.SafehouseMonthlyMetrics);
+        // Link donor user to supporter 1 now that supporters are seeded
+        var donorUser = await userManager.FindByEmailAsync("donor@newdawn.ph");
+        if (donorUser != null && donorUser.LinkedSupporterId == null)
+        {
+            donorUser.LinkedSupporterId = 1;
+            await userManager.UpdateAsync(donorUser);
+        }
     }
 
     private static async Task SeedUsersAsync(UserManager<ApplicationUser> userManager)
@@ -73,7 +92,7 @@ public static class CsvSeeder
             }
         }
 
-        // Donor user
+        // Donor user (LinkedSupporterId set after supporters are seeded)
         if (await userManager.FindByEmailAsync("donor@newdawn.ph") == null)
         {
             var donor = new ApplicationUser
@@ -81,7 +100,6 @@ public static class CsvSeeder
                 UserName = "donor@newdawn.ph",
                 Email = "donor@newdawn.ph",
                 DisplayName = "Donor User",
-                LinkedSupporterId = 1,
                 EmailConfirmed = true
             };
             var result = await userManager.CreateAsync(donor, "Donor123!@");
@@ -134,10 +152,10 @@ public static class CsvSeeder
 
         using var reader = new StreamReader(filePath);
         using var csv = new CsvReader(reader, config);
-        csv.Context.RegisterClassMap<TMap>();
         csv.Context.TypeConverterCache.AddConverter<bool>(new FlexibleBoolConverter());
         csv.Context.TypeConverterCache.AddConverter<DateTime>(new FlexibleDateTimeConverter());
         csv.Context.TypeConverterCache.AddConverter<DateTime?>(new NullableFlexibleDateTimeConverter());
+        csv.Context.RegisterClassMap<TMap>();
 
         var records = csv.GetRecords<TEntity>().ToList();
         await dbSet.AddRangeAsync(records);
@@ -172,16 +190,16 @@ public static class CsvSeeder
         public override object? ConvertFromString(string? text, IReaderRow row, MemberMapData memberMapData)
         {
             if (string.IsNullOrWhiteSpace(text))
-                return DateTime.MinValue;
+                return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
 
             if (DateTime.TryParseExact(text.Trim(), Formats, CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var dt))
-                return dt;
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
             if (DateTime.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
-                return dt;
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
-            return DateTime.MinValue;
+            return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
         }
     }
 
@@ -203,10 +221,10 @@ public static class CsvSeeder
 
             if (DateTime.TryParseExact(text.Trim(), Formats, CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var dt))
-                return dt;
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
             if (DateTime.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out dt))
-                return dt;
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
             return null;
         }
@@ -335,8 +353,8 @@ public static class CsvSeeder
             Map(m => m.Email).Name("email");
             Map(m => m.Phone).Name("phone");
             Map(m => m.Status).Name("status");
-            Map(m => m.CreatedAt).Name("created_at");
-            Map(m => m.FirstDonationDate).Name("first_donation_date");
+            Map(m => m.CreatedAt).Name("created_at").TypeConverter<FlexibleDateTimeConverter>();
+            Map(m => m.FirstDonationDate).Name("first_donation_date").TypeConverter<FlexibleDateTimeConverter>();
             Map(m => m.AcquisitionChannel).Name("acquisition_channel");
         }
     }

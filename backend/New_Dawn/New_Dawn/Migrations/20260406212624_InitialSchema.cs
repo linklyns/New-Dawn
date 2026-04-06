@@ -15,6 +15,9 @@ namespace New_Dawn.Migrations
             migrationBuilder.EnsureSchema(
                 name: "public");
 
+            // Drop any partially-created tables from a previous failed migration attempt
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"AspNetRoles\" CASCADE;");
+
             migrationBuilder.CreateTable(
                 name: "AspNetRoles",
                 columns: table => new
@@ -28,6 +31,8 @@ namespace New_Dawn.Migrations
                 {
                     table.PrimaryKey("PK_AspNetRoles", x => x.Id);
                 });
+
+            migrationBuilder.Sql("DROP TABLE IF EXISTS public.connection_probe;");
 
             migrationBuilder.CreateTable(
                 name: "connection_probe",
