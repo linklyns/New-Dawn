@@ -7,11 +7,24 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+var configuredCorsOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?
+    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        if (configuredCorsOrigins is { Length: > 0 })
+        {
+            policy.WithOrigins(configuredCorsOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+            return;
+        }
+
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://new-dawn-9yrxil3v5-linklyns-projects.vercel.app")
             .AllowAnyMethod()
             .AllowAnyHeader();
     });
@@ -36,6 +49,12 @@ var app = builder.Build();
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
+app.MapGet("/", () => Results.Ok(new
+{
+    success = true,
+    message = "New_Dawn API is running.",
+    health = "/health/db"
+}));
 app.MapControllers();
 
 app.Run();
