@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/ee20afd6-a87f-45b7-a869-3dac564b3c21/resourceGroups/appsvc_windows_francecentral/providers/Microsoft.Web/sites/NewDawn",
+    "appService.deploySubpath": "backend\\New_Dawn\\New_Dawn\\publish"
+}

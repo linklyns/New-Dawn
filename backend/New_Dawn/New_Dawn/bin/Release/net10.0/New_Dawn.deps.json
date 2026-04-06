@@ -1,0 +1,113 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "New_Dawn/1.0.0": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.10",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.4"
+        },
+        "runtime": {
+          "New_Dawn.dll": {}
+        }
+      },
+      "Microsoft.EntityFrameworkCore/9.0.10": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore.Abstractions": "9.0.10"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.EntityFrameworkCore.dll": {
+            "assemblyVersion": "9.0.10.0",
+            "fileVersion": "9.0.1025.47514"
+          }
+        }
+      },
+      "Microsoft.EntityFrameworkCore.Abstractions/9.0.10": {
+        "runtime": {
+          "lib/net8.0/Microsoft.EntityFrameworkCore.Abstractions.dll": {
+            "assemblyVersion": "9.0.10.0",
+            "fileVersion": "9.0.1025.47514"
+          }
+        }
+      },
+      "Microsoft.EntityFrameworkCore.Relational/9.0.1": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.10"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.EntityFrameworkCore.Relational.dll": {
+            "assemblyVersion": "9.0.1.0",
+            "fileVersion": "9.0.124.61002"
+          }
+        }
+      },
+      "Npgsql/9.0.3": {
+        "runtime": {
+          "lib/net8.0/Npgsql.dll": {
+            "assemblyVersion": "9.0.3.0",
+            "fileVersion": "9.0.3.0"
+          }
+        }
+      },
+      "Npgsql.EntityFrameworkCore.PostgreSQL/9.0.4": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.10",
+          "Microsoft.EntityFrameworkCore.Relational": "9.0.1",
+          "Npgsql": "9.0.3"
+        },
+        "runtime": {
+          "lib/net8.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll": {
+            "assemblyVersion": "9.0.4.0",
+            "fileVersion": "9.0.4.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "New_Dawn/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.EntityFrameworkCore/9.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-WjjxVyOTVs85V7SUe+lZjtGOEeVzF4RO8amrqL4adgbyThNq7vGCFzPw8buZj44gHeQYD5V/uZ/6XuqG9Jq+kA==",
+      "path": "microsoft.entityframeworkcore/9.0.10",
+      "hashPath": "microsoft.entityframeworkcore.9.0.10.nupkg.sha512"
+    },
+    "Microsoft.EntityFrameworkCore.Abstractions/9.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-I3TWAs5Lbzmzu8S0T6qXhzBiO3CznYLrfE59W0npkqNHfWGH8CgA66LrHMWxWOXVTD4145QwYqiWNCdLwpJ1Ew==",
+      "path": "microsoft.entityframeworkcore.abstractions/9.0.10",
+      "hashPath": "microsoft.entityframeworkcore.abstractions.9.0.10.nupkg.sha512"
+    },
+    "Microsoft.EntityFrameworkCore.Relational/9.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7Iu0h4oevRvH4IwPzmxuIJGYRt55TapoREGlluk75KCO7lenN0+QnzCl6cQDY48uDoxAUpJbpK2xW7o8Ix69dw==",
+      "path": "microsoft.entityframeworkcore.relational/9.0.1",
+      "hashPath": "microsoft.entityframeworkcore.relational.9.0.1.nupkg.sha512"
+    },
+    "Npgsql/9.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-tPvY61CxOAWxNsKLEBg+oR646X4Bc8UmyQ/tJszL/7mEmIXQnnBhVJZrZEEUv0Bstu0mEsHZD5At3EO8zQRAYw==",
+      "path": "npgsql/9.0.3",
+      "hashPath": "npgsql.9.0.3.nupkg.sha512"
+    },
+    "Npgsql.EntityFrameworkCore.PostgreSQL/9.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mw5vcY2IEc7L+IeGrxpp/J5OSnCcjkjAgJYCm/eD52wpZze8zsSifdqV7zXslSMmfJG2iIUGZyo3KuDtEFKwMQ==",
+      "path": "npgsql.entityframeworkcore.postgresql/9.0.4",
+      "hashPath": "npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512"
+    }
+  }
+}
