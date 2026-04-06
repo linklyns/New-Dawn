@@ -1,14 +1,32 @@
-:root {
-  font-family: 'Segoe UI', sans-serif;
-  color: #222;
+@import "tailwindcss";
+
+@theme {
+  --color-white: #FFFFFF;
+  --color-sky-blue: #A2C9E1;
+  --color-sage-green: #91B191;
+  --color-slate-navy: #2D3A4A;
+  --color-golden-honey: #FFCC66;
+  --color-coral-pink: #FFE6E1;
+  --color-warm-gray: #606060;
+  --font-heading: 'Inter', 'Poppins', sans-serif;
+  --font-body: 'Montserrat', sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  body {
+    font-family: var(--font-body);
+    color: var(--color-slate-navy);
+    background-color: var(--color-white);
+    min-height: 100vh;
+    margin: 0;
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #f7f8fb;
+  .dark body {
+    background-color: var(--color-slate-navy);
+    color: var(--color-white);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
 }

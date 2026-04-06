@@ -1,17 +1,26 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using New_Dawn.Data;
+using New_Dawn.Data.SeedData;
+using New_Dawn.Middleware;
+using New_Dawn.Models;
 
 LoadDotEnv();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "https://new-dawn.azurewebsites.net")
             .AllowAnyMethod()
             .AllowAnyHeader();
     });
@@ -31,10 +40,66 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
+// ASP.NET Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.Password.RequiredLength = 10;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredUniqueChars = 4;
+})
+.AddEntityFrameworkStores<AppDbContext>()
+.AddDefaultTokenProviders();
+
+// JWT Authentication
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
+    ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+    };
+});
+
 var app = builder.Build();
 
+// Database migration and seeding
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await context.Database.MigrateAsync();
+    await CsvSeeder.SeedAsync(context, userManager, roleManager,
+        Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "lighthouse_csv_v7"));
+}
+
+if (app.Environment.IsProduction())
+{
+    app.UseHsts();
+}
+
+app.UseMiddleware<CspMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

@@ -1,0 +1,43 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace New_Dawn.Models;
+
+[Table("partner_assignments", Schema = "public")]
+public class PartnerAssignment
+{
+    [Key]
+    [Column("assignment_id")]
+    public int AssignmentId { get; set; }
+
+    [Column("partner_id")]
+    public int PartnerId { get; set; }
+
+    [Column("safehouse_id")]
+    public int? SafehouseId { get; set; }
+
+    [Column("program_area")]
+    public string ProgramArea { get; set; } = string.Empty;
+
+    [Column("assignment_start")]
+    public DateTime AssignmentStart { get; set; }
+
+    [Column("assignment_end")]
+    public DateTime? AssignmentEnd { get; set; }
+
+    [Column("responsibility_notes")]
+    public string ResponsibilityNotes { get; set; } = string.Empty;
+
+    [Column("is_primary")]
+    public bool IsPrimary { get; set; }
+
+    [Column("status")]
+    public string Status { get; set; } = string.Empty;
+
+    // Navigation properties
+    [ForeignKey("PartnerId")]
+    public Partner Partner { get; set; } = null!;
+
+    [ForeignKey("SafehouseId")]
+    public Safehouse? Safehouse { get; set; }
+}

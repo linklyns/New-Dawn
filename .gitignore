@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+publish/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo

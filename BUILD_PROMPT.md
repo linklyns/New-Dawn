@@ -319,10 +319,66 @@ The textbook structures the full pipeline as follows (use this as your chapter r
 10. **Donors & contributions** -- supporter management, donation tracking, allocations
 11. **Reports & analytics** -- charts, trend visualizations
 12. **Social media analytics** -- post performance, content strategy insights
-13. **Security hardening** -- CSP header, HSTS, HTTPS redirect, MFA, OAuth, data sanitization, delete confirmations
-14. **Dark/light mode** -- cookie-based preference
-15. **ML pipelines** -- notebooks with full lifecycle
-16. **ML integration** -- API endpoints serving model predictions, dashboard widgets
-17. **Deployment** -- Azure, HTTPS, seed data, user accounts
-18. **Responsiveness + accessibility** -- every page mobile-friendly, Lighthouse >= 90
-19. **Polish** -- pagination everywhere, loading states, error handling, icons, consistent design
+13. **AI-Driven Social Editor** -- agentic post editor with predictive analytics sidebar, scheduling optimizer
+14. **Security hardening** -- CSP header, HSTS, HTTPS redirect, MFA, OAuth, data sanitization, delete confirmations
+15. **Dark/light mode** -- cookie-based preference
+16. **ML pipelines** -- notebooks with full lifecycle
+17. **ML integration** -- API endpoints serving model predictions, dashboard widgets, social editor predictions
+18. **Deployment** -- Azure, HTTPS, seed data, user accounts
+19. **Responsiveness + accessibility** -- every page mobile-friendly, Lighthouse >= 90
+20. **Polish** -- pagination everywhere, loading states, error handling, icons, consistent design
+
+---
+
+## 9. AI-DRIVEN SOCIAL EDITOR & PREDICTIVE ANALYTICS
+
+### Core Objective
+A high-fidelity social media post editor where a React-based UI and a Generative AI agent share a synchronized state. The AI must be capable of directly manipulating the UI elements while providing real-time performance forecasting based on specialized machine learning pipelines.
+
+### 9a. Agentic UI Integration
+
+**Command-Pattern Architecture:**
+- The AI agent outputs structured JSON payloads (hidden or inline) alongside its conversational text
+- Commands follow a defined schema that maps to UI state mutations (e.g., `{ action: "updateHeadline", value: "..." }`, `{ action: "changePlatform", value: "instagram" }`)
+
+**State Synchronization:**
+- Use a centralized state store (e.g., Zustand or React Context) that the AI can "write" to
+- When the user asks to "make the headline more urgent" or "change the image layout," the AI sends a command that triggers an immediate, smooth UI update
+- Use Framer Motion for fluid transitions between state changes
+
+**Bi-Directional Context:**
+- The AI must have "sight" of the current editor state (text, platform, image metadata) to make relevant suggestions
+- Editor state is serialized and passed as context with each AI interaction
+- Changes made manually by the user are reflected back to the AI's context in real time
+
+### 9b. Predictive ML Pipelines (Social Editor)
+
+**Multi-Metric Forecasting:**
+Integrate individual pipelines to predict:
+- Total donor referrals and resulting donation amounts ($)
+- Engagement metrics: forward counts, profile views, and follower growth
+
+**Two-Stage Scheduling Optimization ("The Golden Window"):**
+- **Phase 1 (Day Selection):** Run the post content through a simulation across all seven days to identify the peak donation-probability day
+- **Phase 2 (Hourly Simulation):** Once the day is selected, iterate through a 24-hour cycle to pinpoint the specific hour that maximizes predicted donor yield
+
+**Platform Specificity:**
+- The ML model should default to cross-platform predictions unless the user locks the post to a specific platform (e.g., LinkedIn vs. Instagram)
+- Platform-specific feature weights should adjust predictions accordingly
+
+### 9c. UX Requirements (Social Editor)
+
+**Real-time Feedback:**
+- As the user or AI edits the post, the prediction sidebar must update dynamically
+- Show a "calculating" state (spinner/skeleton) during ML inference
+- Debounce updates to avoid excessive API calls during rapid editing
+
+**Visual Suggestions:**
+- The UI should visually highlight suggested posting times and platforms based on the simulation results
+- Allow the user to "Apply" any suggestion with one click (e.g., clicking a suggested time auto-fills the schedule)
+- Show a ranked list of platform + time combinations with predicted performance metrics
+
+**Editor Layout:**
+- Left panel: post content editor (text, media, platform selector, CTA picker)
+- Right panel: AI chat + prediction sidebar with live-updating metrics
+- Bottom bar: scheduling timeline with highlighted "golden windows"
