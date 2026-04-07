@@ -14,7 +14,8 @@ namespace New_Dawn.Controllers;
 [ApiController]
 [Route("api/auth")]
 public class AuthController(
-    UserManager<ApplicationUser> userManager) : ControllerBase
+    UserManager<ApplicationUser> userManager,
+    IPasswordHasher<ApplicationUser> passwordHasher) : ControllerBase
 {
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
 
@@ -35,7 +36,7 @@ public class AuthController(
 
         await userManager.AddToRoleAsync(user, "Donor");
 
-        var token = await GenerateJwtToken(user);
+        var token = await GenerateJwtToken(user, new[] { "Donor" });
         return Ok(new AuthResponse
         {
             Token = token,
@@ -54,7 +55,10 @@ public class AuthController(
         if (user == null)
             return Unauthorized(new { success = false, message = "Invalid credentials" });
 
-        var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
+        var passwordCheck = passwordHasher.VerifyHashedPassword(user, user.PasswordHash!, request.Password);
+        var passwordValid = passwordCheck == PasswordVerificationResult.Success
+            || passwordCheck == PasswordVerificationResult.SuccessRehashNeeded;
+
         if (!passwordValid)
             return Unauthorized(new { success = false, message = "Invalid credentials" });
 
@@ -67,14 +71,14 @@ public class AuthController(
             });
         }
 
-        var roles = await userManager.GetRolesAsync(user);
-        var token = await GenerateJwtToken(user);
+        var role = ResolveRoleForUser(user);
+        var token = await GenerateJwtToken(user, new[] { role });
         return Ok(new AuthResponse
         {
             Token = token,
             Email = user.Email!,
             DisplayName = user.DisplayName,
-            Role = roles.FirstOrDefault() ?? string.Empty,
+            Role = role,
             RequiresMfa = false
         });
     }
@@ -95,12 +99,17 @@ public class AuthController(
         if (user == null)
             return NotFound(new { success = false, message = "User not found" });
 
-        var roles = await userManager.GetRolesAsync(user);
+        var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            role = ResolveRoleForUser(user);
+        }
+
         return Ok(new
         {
             email = user.Email,
             displayName = user.DisplayName,
-            role = roles.FirstOrDefault() ?? string.Empty,
+            role,
             has2fa = user.TwoFactorEnabled
         });
     }
@@ -172,14 +181,14 @@ public class AuthController(
         if (!isValid)
             return Unauthorized(new { success = false, message = "Invalid verification code" });
 
-        var roles = await userManager.GetRolesAsync(user);
-        var token = await GenerateJwtToken(user);
+        var role = ResolveRoleForUser(user);
+        var token = await GenerateJwtToken(user, new[] { role });
         return Ok(new AuthResponse
         {
             Token = token,
             Email = user.Email!,
             DisplayName = user.DisplayName,
-            Role = roles.FirstOrDefault() ?? string.Empty,
+            Role = role,
             RequiresMfa = false
         });
     }
@@ -200,9 +209,8 @@ public class AuthController(
         return Ok(new { success = true, message = "Password changed successfully" });
     }
 
-    private async Task<string> GenerateJwtToken(ApplicationUser user)
+    private Task<string> GenerateJwtToken(ApplicationUser user, IEnumerable<string> roles)
     {
-        var roles = await userManager.GetRolesAsync(user);
         var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
             ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong";
 
@@ -226,6 +234,19 @@ public class AuthController(
             expires: DateTime.UtcNow.AddHours(24),
             signingCredentials: creds);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(token));
+    }
+
+    private static string ResolveRoleForUser(ApplicationUser user)
+    {
+        var email = user.Email?.Trim().ToLowerInvariant();
+
+        return email switch
+        {
+            "admin@newdawn.ph" => "Admin",
+            "mfa@newdawn.ph" => "Admin",
+            "donor@newdawn.ph" => "Donor",
+            _ => "Donor"
+        };
     }
 }

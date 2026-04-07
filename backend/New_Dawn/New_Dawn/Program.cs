@@ -22,13 +22,25 @@ builder.Services.AddSwaggerGen();
 var allowedOrigins = new List<string>
 {
     "http://localhost:5173",
+    "https://new-dawn-virid.vercel.app",
     "https://new-dawn.azurewebsites.net",
     "https://newdawn-api.azurewebsites.net",
     "https://*.azurestaticapps.net"
 };
+
+var configuredOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
+if (!string.IsNullOrWhiteSpace(configuredOrigins))
+{
+    var parsedOrigins = configuredOrigins
+        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    allowedOrigins.AddRange(parsedOrigins);
+}
+
 var extraOrigin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN");
 if (!string.IsNullOrWhiteSpace(extraOrigin))
-    allowedOrigins.Add(extraOrigin);
+{
+    allowedOrigins.Add(extraOrigin.Trim());
+}
 
 builder.Services.AddCors(options =>
 {
@@ -54,7 +66,13 @@ if (string.IsNullOrWhiteSpace(connectionString))
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+        npgsqlOptions
+            .CommandTimeout(120)
+            .EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null))
         .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // ASP.NET Identity
@@ -93,15 +111,27 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Database migration and seeding
-using (var scope = app.Services.CreateScope())
+var runDbInitOnStartup = builder.Configuration.GetValue("RUN_DB_INIT_ON_STARTUP", false);
+if (runDbInitOnStartup)
 {
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    await context.Database.MigrateAsync();
-    await CsvSeeder.SeedAsync(context, userManager, roleManager,
-        Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "lighthouse_csv_v7"));
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            await context.Database.MigrateAsync();
+            await CsvSeeder.SeedAsync(context, userManager, roleManager,
+                Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "lighthouse_csv_v7"));
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Database initialization failed during background startup task.");
+        }
+    });
 }
 
 if (app.Environment.IsProduction())
