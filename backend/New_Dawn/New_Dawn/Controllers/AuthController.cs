@@ -259,6 +259,7 @@ public class AuthController(
         {
             "admin@newdawn.ph" => "Admin",
             "mfa@newdawn.ph" => "Admin",
+            "staff@newdawn.ph" => "Staff",
             "donor@newdawn.ph" => "Donor",
             _ => "Donor"
         };
