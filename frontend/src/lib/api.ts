@@ -12,10 +12,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
+  const isAuthEndpoint =
+    path.startsWith('/api/auth/login')
+    || path.startsWith('/api/auth/register')
+    || path.startsWith('/api/auth/mfa');
+
   if (response.status === 401) {
     localStorage.removeItem('nd_token');
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
+
+    if (!isAuthEndpoint) {
+      window.location.href = '/login';
+    }
+
+    const error = await response.json().catch(() => ({ message: 'Unauthorized' }));
+    throw new Error(error.message || 'Unauthorized');
   }
 
   if (!response.ok) {
