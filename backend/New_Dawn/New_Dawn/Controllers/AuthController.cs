@@ -165,6 +165,20 @@ public class AuthController(
         return Ok(new { success = true, message = "2FA has been enabled" });
     }
 
+    [HttpPost("mfa/disable")]
+    [Authorize]
+    public async Task<IActionResult> MfaDisable()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = await userManager.FindByIdAsync(userId!);
+        if (user == null)
+            return NotFound(new { success = false, message = "User not found" });
+
+        await userManager.SetTwoFactorEnabledAsync(user, false);
+        await userManager.ResetAuthenticatorKeyAsync(user);
+        return Ok(new { success = true, message = "2FA has been disabled" });
+    }
+
     [HttpPost("mfa/verify")]
     [AllowAnonymous]
     public async Task<IActionResult> MfaVerify([FromBody] MfaVerifyRequest request)

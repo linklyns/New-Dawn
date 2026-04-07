@@ -3,9 +3,14 @@
 @theme {
   --color-white: #FFFFFF;
   --color-sky-blue: #A2C9E1;
+  --color-sky-blue-text: #2E7D9B;
   --color-sage-green: #91B191;
+  --color-sage-green-text: #3D7A3D;
   --color-slate-navy: #2D3A4A;
+  --color-dark-navy: #1A2633;
+  --color-dark-surface: #223040;
   --color-golden-honey: #FFCC66;
+  --color-golden-honey-text: #946B00;
   --color-coral-pink: #FFE6E1;
   --color-warm-gray: #606060;
   --font-heading: 'Inter', 'Poppins', sans-serif;
@@ -22,7 +27,7 @@
   }
 
   .dark body {
-    background-color: var(--color-slate-navy);
+    background-color: var(--color-dark-navy);
     color: var(--color-white);
   }
 

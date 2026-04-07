@@ -107,7 +107,7 @@ export function AdminDashboard() {
       value: totalActiveResidents,
       subValue: undefined as string | undefined,
       icon: Users,
-      accent: 'bg-sky-blue/20 text-sky-blue',
+      accent: 'bg-sky-blue/20 text-sky-blue-text dark:text-sky-blue',
       border: 'border-l-4 border-l-sky-blue',
     },
     {
@@ -115,7 +115,7 @@ export function AdminDashboard() {
       value: data?.recentDonationsCount ?? 0,
       subValue: `$${(data?.recentDonationsTotal ?? 0).toLocaleString()}`,
       icon: DollarSign,
-      accent: 'bg-sage-green/20 text-sage-green',
+      accent: 'bg-sage-green/20 text-sage-green-text dark:text-sage-green',
       border: 'border-l-4 border-l-sage-green',
     },
     {
@@ -123,7 +123,7 @@ export function AdminDashboard() {
       value: data?.openInterventionPlans ?? 0,
       subValue: undefined as string | undefined,
       icon: Target,
-      accent: 'bg-golden-honey/20 text-golden-honey',
+      accent: 'bg-golden-honey/20 text-golden-honey-text dark:text-golden-honey',
       border: 'border-l-4 border-l-golden-honey',
     },
     {
@@ -179,7 +179,7 @@ export function AdminDashboard() {
           return (
             <Card key={item.path} onClick={() => navigate(item.path)}>
               <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-golden-honey/20 p-2.5 text-golden-honey">
+                <div className="rounded-lg bg-golden-honey/20 p-2.5 text-golden-honey-text dark:text-golden-honey">
                   <Icon size={22} />
                 </div>
                 <div>
@@ -204,7 +204,7 @@ export function AdminDashboard() {
             <h3 className="font-heading text-sm font-semibold text-slate-navy dark:text-white">
               Reintegration Completion Rate
             </h3>
-            <span className="font-heading text-2xl font-bold text-golden-honey">
+            <span className="font-heading text-2xl font-bold text-golden-honey-text dark:text-golden-honey">
               {reintegrationRate}%
             </span>
           </div>

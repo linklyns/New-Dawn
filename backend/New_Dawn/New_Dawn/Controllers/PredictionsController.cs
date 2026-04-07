@@ -8,7 +8,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/predictions")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class PredictionsController(AppDbContext db) : ControllerBase
 {
     private static readonly string[] DaysOfWeek =

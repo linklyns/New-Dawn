@@ -25,6 +25,9 @@ import { DonationsList } from './features/donors/DonationsList';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { SocialAnalyticsPage } from './features/social-media/SocialAnalyticsPage';
 import { SocialEditorPage } from './features/social-media/SocialEditorPage';
+import { ProfilePage } from './features/profile/ProfilePage';
+import { DonatePage } from './features/donate/DonatePage';
+import { UserManagementPage } from './features/admin/UserManagementPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +51,7 @@ function AppContent() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/impact" element={<ImpactDashboard />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/donate" element={<DonatePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
@@ -76,6 +80,12 @@ function AppContent() {
         <Route path="/admin/reports" element={<ReportsPage />} />
         <Route path="/admin/social" element={<SocialAnalyticsPage />} />
         <Route path="/admin/social/editor" element={<SocialEditorPage />} />
+        <Route path="/admin/profile" element={<ProfilePage />} />
+        <Route path="/admin/users" element={
+          <ProtectedRoute requiredRole="Admin">
+            <UserManagementPage />
+          </ProtectedRoute>
+        } />
       </Route>
     </Routes>
   );

@@ -9,7 +9,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/education-records")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class EducationRecordsController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
@@ -54,6 +54,7 @@ public class EducationRecordsController(AppDbContext db) : ControllerBase
         return Ok(entity);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id, [FromQuery] bool confirm = false)
     {

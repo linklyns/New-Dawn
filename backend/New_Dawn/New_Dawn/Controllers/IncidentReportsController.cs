@@ -9,7 +9,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/incident-reports")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class IncidentReportsController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
@@ -66,6 +66,7 @@ public class IncidentReportsController(AppDbContext db) : ControllerBase
         return Ok(entity);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id, [FromQuery] bool confirm = false)
     {

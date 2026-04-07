@@ -8,7 +8,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/ai")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class AiController : ControllerBase
 {
     [HttpPost("chat")]

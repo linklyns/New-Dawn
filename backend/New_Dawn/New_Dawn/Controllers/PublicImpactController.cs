@@ -11,6 +11,71 @@ namespace New_Dawn.Controllers;
 [Route("api/public-impact")]
 public class PublicImpactController(AppDbContext db) : ControllerBase
 {
+    [HttpGet("stats")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetStats()
+    {
+        var girlsServed = await db.Residents.CountAsync();
+        var safehouses = await db.Safehouses.CountAsync();
+        var donations = await db.Donations.CountAsync();
+        var partners = await db.Partners.CountAsync();
+
+        return Ok(new
+        {
+            girlsServed,
+            safehouses,
+            donations,
+            partners
+        });
+    }
+
+    [HttpGet("dashboard")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDashboard()
+    {
+        // Residents by admission year
+        var residentsByYear = await db.Residents
+            .GroupBy(r => r.DateOfAdmission.Year)
+            .Select(g => new { year = g.Key.ToString(), count = g.Count() })
+            .OrderBy(x => x.year)
+            .ToListAsync();
+
+        // Cumulative total by year
+        var cumulative = new List<object>();
+        var runningTotal = 0;
+        foreach (var item in residentsByYear)
+        {
+            runningTotal += item.count;
+            cumulative.Add(new { item.year, count = runningTotal });
+        }
+
+        // Donation allocation by program area
+        var donationByProgram = await db.DonationAllocations
+            .GroupBy(a => a.ProgramArea)
+            .Select(g => new { name = g.Key, value = (int)g.Sum(a => a.AmountAllocated) })
+            .OrderByDescending(x => x.value)
+            .Take(5)
+            .ToListAsync();
+
+        // Safehouse regional data
+        var safehouseRegions = await db.Safehouses
+            .GroupBy(s => s.Region)
+            .Select(g => new
+            {
+                region = g.Key,
+                count = g.Count(),
+                occupancy = g.Average(s => s.CurrentOccupancy * 100.0 / (s.CapacityGirls == 0 ? 1 : s.CapacityGirls))
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            residentsOverTime = cumulative,
+            donationByProgram,
+            safehouseRegions
+        });
+    }
+
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)

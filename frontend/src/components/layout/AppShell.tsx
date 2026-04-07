@@ -1,5 +1,5 @@
-import { Outlet } from 'react-router-dom';
-import { Sun, Moon, LogOut } from 'lucide-react';
+import { Link, Outlet } from 'react-router-dom';
+import { Sun, Moon, LogOut, User } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
@@ -30,7 +30,7 @@ export function AppShell({ variant }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-navy">
+    <div className="min-h-screen bg-white dark:bg-dark-navy">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:bg-golden-honey focus:text-slate-navy focus:p-4 focus:text-lg">
         Skip to main content
       </a>
@@ -39,11 +39,16 @@ export function AppShell({ variant }: AppShellProps) {
       {/* Main content area offset by sidebar */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-slate-navy/10 bg-white pl-16 pr-6 py-3 lg:pl-6 dark:border-white/10 dark:bg-slate-navy">
+        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-slate-navy/10 bg-white pl-16 pr-6 py-3 lg:pl-6 dark:border-white/10 dark:bg-dark-surface">
           {user && (
-            <span className="text-sm text-warm-gray">
-              {user.displayName}
-            </span>
+            <Link to="/admin/profile" className="flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-slate-navy/5 dark:hover:bg-white/10">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-blue/20 text-sky-blue">
+                <User size={16} />
+              </span>
+              <span className="text-sm font-medium text-slate-navy dark:text-white">
+                {user.displayName}
+              </span>
+            </Link>
           )}
           <button
             onClick={toggle}

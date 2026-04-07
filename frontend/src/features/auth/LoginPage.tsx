@@ -166,7 +166,7 @@ export function LoginPage() {
               Don&apos;t have an account?{' '}
               <Link
                 to="/register"
-                className="font-medium text-sky-blue hover:underline"
+                className="font-medium text-sky-blue-text dark:text-sky-blue hover:underline"
               >
                 Register
               </Link>

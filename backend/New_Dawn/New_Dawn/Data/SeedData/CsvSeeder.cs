@@ -17,7 +17,7 @@ public static class CsvSeeder
         string csvBasePath)
     {
         // Create roles if they don't exist
-        foreach (var roleName in new[] { "Admin", "Donor" })
+        foreach (var roleName in new[] { "Admin", "Staff", "Donor" })
         {
             if (!await roleManager.RoleExistsAsync(roleName))
             {
@@ -85,7 +85,7 @@ public static class CsvSeeder
                 DisplayName = "Admin User",
                 EmailConfirmed = true
             };
-            var result = await userManager.CreateAsync(admin, "Admin123!@");
+            var result = await userManager.CreateAsync(admin, "adminadminadmin00");
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(admin, "Admin");
@@ -102,7 +102,7 @@ public static class CsvSeeder
                 DisplayName = "Donor User",
                 EmailConfirmed = true
             };
-            var result = await userManager.CreateAsync(donor, "Donor123!@");
+            var result = await userManager.CreateAsync(donor, "donordonordonor00");
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(donor, "Donor");
@@ -120,10 +120,27 @@ public static class CsvSeeder
                 TwoFactorEnabled = true,
                 EmailConfirmed = true
             };
-            var result = await userManager.CreateAsync(mfaUser, "MfaUser123!@");
+            var result = await userManager.CreateAsync(mfaUser, "mfausermfauser00");
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(mfaUser, "Admin");
+            }
+        }
+
+        // Staff user
+        if (await userManager.FindByEmailAsync("staff@newdawn.ph") == null)
+        {
+            var staff = new ApplicationUser
+            {
+                UserName = "staff@newdawn.ph",
+                Email = "staff@newdawn.ph",
+                DisplayName = "Staff User",
+                EmailConfirmed = true
+            };
+            var result = await userManager.CreateAsync(staff, "staffstaffstaff00");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(staff, "Staff");
             }
         }
     }

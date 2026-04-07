@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Check, X } from 'lucide-react';
 import type { AuthResponse } from '../../types/auth';
-import logo from '../../assets/logo.png';
+import logoSymbol from '../../assets/favicon.png';
 
 const registerSchema = z
   .object({
@@ -18,11 +18,7 @@ const registerSchema = z
     displayName: z.string().min(2, 'Display name must be at least 2 characters'),
     password: z
       .string()
-      .min(10, 'Password must be at least 10 characters')
-      .regex(/[A-Z]/, 'Must contain an uppercase letter')
-      .regex(/[a-z]/, 'Must contain a lowercase letter')
-      .regex(/[0-9]/, 'Must contain a digit')
-      .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
+      .min(16, 'Password must be at least 16 characters'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -33,19 +29,13 @@ const registerSchema = z
 type RegisterForm = z.infer<typeof registerSchema>;
 
 const requirements = [
-  { label: 'At least 10 characters', test: (v: string) => v.length >= 10 },
-  { label: 'Uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
-  { label: 'Lowercase letter', test: (v: string) => /[a-z]/.test(v) },
-  { label: 'Digit', test: (v: string) => /[0-9]/.test(v) },
-  { label: 'Special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
-  {
-    label: '4 unique characters',
-    test: (v: string) => new Set(v).size >= 4,
-  },
+  { label: 'At least 16 characters', test: (v: string) => v.length >= 16 },
 ];
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
   const login = useAuthStore((s) => s.login);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -74,7 +64,7 @@ export function RegisterPage() {
         role: res.role,
         has2fa: false,
       });
-      navigate('/admin');
+      navigate(redirectTo || '/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -86,7 +76,7 @@ export function RegisterPage() {
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
-          <img src={logo} alt="New Dawn - A Path to Healing and Hope" className="h-16" />
+          <img src={logoSymbol} alt="New Dawn" className="h-14 w-14" />
         </div>
 
         <form onSubmit={handleSubmit(onRegister)} className="flex flex-col gap-4">
@@ -135,7 +125,7 @@ export function RegisterPage() {
                 return (
                   <li
                     key={req.label}
-                    className={`flex items-center gap-2 text-xs ${met ? 'text-sage-green' : 'text-warm-gray'}`}
+                    className={`flex items-center gap-2 text-xs ${met ? 'text-sage-green-text dark:text-sage-green' : 'text-warm-gray'}`}
                   >
                     {met ? <Check size={12} /> : <X size={12} />}
                     {req.label}
@@ -161,7 +151,7 @@ export function RegisterPage() {
             Already have an account?{' '}
             <Link
               to="/login"
-              className="font-medium text-sky-blue hover:underline"
+              className="font-medium text-sky-blue-text dark:text-sky-blue hover:underline"
             >
               Sign In
             </Link>

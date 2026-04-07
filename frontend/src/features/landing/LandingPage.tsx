@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Heart, Sparkles, GraduationCap } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { api } from '../../lib/api';
 import logo from '../../assets/logo.png';
 
-const stats = [
-  { value: '60+', label: 'Girls Served' },
-  { value: '9', label: 'Safehouses' },
-  { value: '420+', label: 'Donations Received' },
-  { value: '30', label: 'Partner Organizations' },
-];
+interface PublicStats {
+  girlsServed: number;
+  safehouses: number;
+  donations: number;
+  partners: number;
+}
 
 const pillars = [
   {
@@ -33,6 +35,18 @@ const pillars = [
 ];
 
 export function LandingPage() {
+  const { data: liveStats } = useQuery<PublicStats>({
+    queryKey: ['public-stats'],
+    queryFn: () => api.get('/api/public-impact/stats'),
+  });
+
+  const stats = [
+    { value: liveStats ? `${liveStats.girlsServed}+` : '--', label: 'Girls Served' },
+    { value: liveStats ? `${liveStats.safehouses}` : '--', label: 'Safehouses' },
+    { value: liveStats ? `${liveStats.donations}+` : '--', label: 'Donations Received' },
+    { value: liveStats ? `${liveStats.partners}` : '--', label: 'Partner Organizations' },
+  ];
+
   return (
     <div>
       {/* Hero Section */}
@@ -46,7 +60,7 @@ export function LandingPage() {
           <h1 className="font-heading text-4xl font-bold text-slate-navy dark:text-white sm:text-5xl lg:text-6xl">
             New Dawn
           </h1>
-          <p className="mt-3 font-heading text-lg font-medium text-golden-honey sm:text-xl">
+          <p className="mt-3 font-heading text-lg font-medium text-golden-honey-text dark:text-golden-honey sm:text-xl">
             A Path to Healing and Hope
           </p>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-warm-gray dark:text-white/70 sm:text-lg">
@@ -79,7 +93,7 @@ export function LandingPage() {
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:gap-8 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
-              <p className="font-heading text-4xl font-bold text-golden-honey sm:text-5xl">
+              <p className="font-heading text-4xl font-bold text-golden-honey-text dark:text-golden-honey sm:text-5xl">
                 {stat.value}
               </p>
               <p className="mt-2 text-sm font-medium text-slate-navy dark:text-white/80 sm:text-base">
@@ -123,11 +137,11 @@ export function LandingPage() {
           <p className="mt-4 text-lg leading-relaxed text-warm-gray dark:text-white/70">
             Every donation helps a girl take one step closer to her new dawn.
           </p>
-          <a href="#" className="mt-8">
+          <Link to="/donate" className="mt-8">
             <Button variant="primary" size="lg">
               Donate Now
             </Button>
-          </a>
+          </Link>
         </div>
       </section>
     </div>

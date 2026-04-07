@@ -9,7 +9,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/donation-allocations")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class DonationAllocationsController(AppDbContext db) : ControllerBase
 {
     [HttpGet]
@@ -41,6 +41,7 @@ public class DonationAllocationsController(AppDbContext db) : ControllerBase
         return Ok(entity);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] DonationAllocation entity)
     {
@@ -49,6 +50,7 @@ public class DonationAllocationsController(AppDbContext db) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = entity.AllocationId }, entity);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] DonationAllocation entity)
     {
@@ -60,6 +62,7 @@ public class DonationAllocationsController(AppDbContext db) : ControllerBase
         return Ok(entity);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id, [FromQuery] bool confirm = false)
     {

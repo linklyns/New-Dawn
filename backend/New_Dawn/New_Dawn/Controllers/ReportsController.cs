@@ -7,7 +7,7 @@ namespace New_Dawn.Controllers;
 
 [ApiController]
 [Route("api/reports")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Staff")]
 public class ReportsController(AppDbContext db) : ControllerBase
 {
     [HttpGet("dashboard-stats")]

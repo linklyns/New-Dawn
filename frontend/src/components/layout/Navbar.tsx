@@ -4,12 +4,12 @@ import { Sun, Moon, Menu, X } from 'lucide-react';
 import { useThemeStore } from '../../stores/themeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../ui/Button';
-import logo from '../../assets/logo.png';
+import logoSymbol from '../../assets/favicon.png';
 
 const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/impact', label: 'Impact' },
-  { to: '/privacy', label: 'Privacy Policy' },
+  { to: '/donate', label: 'Donate' },
 ];
 
 export function Navbar() {
@@ -19,11 +19,14 @@ export function Navbar() {
   const location = useLocation();
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-navy/10 bg-white dark:border-white/10 dark:bg-slate-navy">
+    <nav className="sticky top-0 z-40 border-b border-slate-navy/10 bg-white dark:border-white/10 dark:bg-dark-surface">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Left: Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="New Dawn - A Path to Healing and Hope" className="h-10" />
+          <img src={logoSymbol} alt="New Dawn" className="h-9 w-9" />
+          <span className="font-heading text-lg font-bold text-slate-navy dark:text-white">
+            New Dawn
+          </span>
         </Link>
 
         {/* Center: Desktop nav links */}
