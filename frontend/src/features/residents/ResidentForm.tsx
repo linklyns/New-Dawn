@@ -132,9 +132,9 @@ export function ResidentForm({
   onCancel,
   isSubmitting,
 }: ResidentFormProps) {
-  const { data: safehouses } = useQuery({
+  const { data: safehousesData } = useQuery({
     queryKey: ['safehouses'],
-    queryFn: () => api.get<Safehouse[]>('/api/safehouses'),
+    queryFn: () => api.get<{ items: Safehouse[] }>('/api/safehouses?pageSize=100'),
   });
 
   const {
@@ -223,7 +223,7 @@ export function ResidentForm({
             onChange={(e) => setValue('safehouseId', Number(e.target.value))}
           >
             <option value={0}>Select safehouse...</option>
-            {(safehouses ?? []).map((s) => (
+            {(safehousesData?.items ?? []).map((s) => (
               <option key={s.safehouseId} value={s.safehouseId}>
                 {s.name}
               </option>

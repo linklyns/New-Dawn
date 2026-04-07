@@ -110,13 +110,13 @@ export function ResidentDetail() {
     enabled: !isCreateMode,
   });
 
-  const { data: safehouses } = useQuery({
+  const { data: safehousesData } = useQuery({
     queryKey: ['safehouses'],
-    queryFn: () => api.get<Safehouse[]>('/api/safehouses'),
+    queryFn: () => api.get<{ items: Safehouse[] }>('/api/safehouses?pageSize=100'),
   });
 
   const safehouseMap = new Map(
-    (safehouses ?? []).map((s) => [s.safehouseId, s.name]),
+    (safehousesData?.items ?? []).map((s) => [s.safehouseId, s.name]),
   );
 
   const updateMutation = useMutation({

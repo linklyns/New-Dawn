@@ -68,11 +68,11 @@ export function ResidentsList() {
 
   const { data: safehousesData } = useQuery({
     queryKey: ['safehouses'],
-    queryFn: () => api.get<Safehouse[]>('/api/safehouses'),
+    queryFn: () => api.get<PagedResult<Safehouse>>('/api/safehouses?pageSize=100'),
   });
 
   const safehouseMap = new Map(
-    (safehousesData ?? []).map((s) => [s.safehouseId, s.name]),
+    (safehousesData?.items ?? []).map((s) => [s.safehouseId, s.name]),
   );
 
   const queryParams = new URLSearchParams({
@@ -187,7 +187,7 @@ export function ResidentsList() {
               }}
             >
               <option value="">All</option>
-              {(safehousesData ?? []).map((s) => (
+              {(safehousesData?.items ?? []).map((s) => (
                 <option key={s.safehouseId} value={String(s.safehouseId)}>
                   {s.name}
                 </option>
