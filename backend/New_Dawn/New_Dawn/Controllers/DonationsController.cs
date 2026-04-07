@@ -19,12 +19,17 @@ public class DonationsController(AppDbContext db, UserManager<ApplicationUser> u
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? donationType = null,
-        [FromQuery] string? campaignName = null,
         [FromQuery] DateTime? dateFrom = null,
         [FromQuery] DateTime? dateTo = null,
-        [FromQuery] int? supporterId = null)
+        [FromQuery] int? supporterId = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string sortBy = "date",
+        [FromQuery] string sortDir = "desc")
     {
-        var query = db.Donations.AsNoTracking().AsQueryable();
+        var joined = db.Donations
+            .AsNoTracking()
+            .Join(db.Supporters, d => d.SupporterId, s => s.SupporterId,
+                  (d, s) => new { Donation = d, SupporterName = s.DisplayName });
 
         if (!User.IsInRole("Admin"))
         {
@@ -32,20 +37,46 @@ public class DonationsController(AppDbContext db, UserManager<ApplicationUser> u
             var appUser = await userManager.FindByIdAsync(userId!);
             if (appUser?.LinkedSupporterId == null)
                 return Ok(new { items = new List<Donation>(), totalCount = 0, page, pageSize, totalPages = 0 });
-            query = query.Where(d => d.SupporterId == appUser.LinkedSupporterId.Value);
+            joined = joined.Where(x => x.Donation.SupporterId == appUser.LinkedSupporterId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(donationType))
-            query = query.Where(d => d.DonationType == donationType);
-        if (!string.IsNullOrWhiteSpace(campaignName))
-            query = query.Where(d => d.CampaignName == campaignName);
+            joined = joined.Where(x => x.Donation.DonationType == donationType);
         if (dateFrom.HasValue)
-            query = query.Where(d => d.DonationDate >= dateFrom.Value);
+            joined = joined.Where(x => x.Donation.DonationDate >= dateFrom.Value);
         if (dateTo.HasValue)
-            query = query.Where(d => d.DonationDate <= dateTo.Value);
+            joined = joined.Where(x => x.Donation.DonationDate <= dateTo.Value);
         if (supporterId.HasValue)
-            query = query.Where(d => d.SupporterId == supporterId.Value);
+            joined = joined.Where(x => x.Donation.SupporterId == supporterId.Value);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var tokens = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var token in tokens)
+            {
+                var t = $"%{token}%";
+                joined = joined.Where(x =>
+                    EF.Functions.ILike(x.SupporterName, t) ||
+                    EF.Functions.ILike(x.Donation.DonationType, t) ||
+                    EF.Functions.ILike(x.Donation.CampaignName ?? string.Empty, t) ||
+                    EF.Functions.ILike(x.Donation.ChannelSource, t) ||
+                    EF.Functions.ILike(x.Donation.Notes ?? string.Empty, t));
+            }
+        }
+
+        var sorted = (sortBy, sortDir) switch
+        {
+            ("amount", "asc")    => joined.OrderBy(x => x.Donation.Amount),
+            ("amount", _)        => joined.OrderByDescending(x => x.Donation.Amount),
+            ("type", "asc")      => joined.OrderBy(x => x.Donation.DonationType),
+            ("type", _)          => joined.OrderByDescending(x => x.Donation.DonationType),
+            ("supporter", "asc") => joined.OrderBy(x => x.SupporterName),
+            ("supporter", _)     => joined.OrderByDescending(x => x.SupporterName),
+            (_, "asc")           => joined.OrderBy(x => x.Donation.DonationDate),
+            _                    => joined.OrderByDescending(x => x.Donation.DonationDate),
+        };
+
+        var query = sorted.Select(x => x.Donation);
         var result = await query.ToPagedResultAsync(page, pageSize);
         return Ok(result);
     }

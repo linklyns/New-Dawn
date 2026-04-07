@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { QRCode } from 'react-qr-code';
 import { useAuthStore } from '../../stores/authStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { User, Shield, Mail, KeyRound } from 'lucide-react';
+import { User, Shield, Mail, KeyRound, Smartphone, ScanLine, CheckCircle2, KeySquare } from 'lucide-react';
 import { api } from '../../lib/api';
 
 export function ProfilePage() {
+  const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const [mfaSetup, setMfaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
@@ -117,31 +120,88 @@ export function ProfilePage() {
             </Button>
           </div>
         ) : mfaSetup ? (
-          <div className="space-y-4">
-            <p className="text-sm text-warm-gray dark:text-white/60">
-              Scan this code with your authenticator app (Google Authenticator, Authy, etc.):
-            </p>
-            <div className="rounded-lg bg-slate-navy/5 p-4 dark:bg-white/5">
-              <p className="text-xs font-mono text-warm-gray dark:text-white/60 break-all">
-                {mfaSetup.sharedKey}
+          <div className="space-y-5">
+            {/* Step-by-step instructions */}
+            <ol className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-golden-honey/20 text-xs font-bold text-golden-honey">1</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-navy dark:text-white flex items-center gap-1">
+                    <Smartphone size={14} /> Download an authenticator app
+                  </p>
+                  <p className="text-xs text-warm-gray dark:text-white/60 mt-0.5">
+                    Google Authenticator, Authy, or Microsoft Authenticator all work. Install one from your app store if you don't have one.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-golden-honey/20 text-xs font-bold text-golden-honey">2</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-navy dark:text-white flex items-center gap-1">
+                    <ScanLine size={14} /> Scan the QR code
+                  </p>
+                  <p className="text-xs text-warm-gray dark:text-white/60 mt-0.5">
+                    Open your app, tap <strong>+</strong> or <strong>Add account</strong>, then choose <strong>Scan QR code</strong> and point your camera at the code below.
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-golden-honey/20 text-xs font-bold text-golden-honey">3</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-navy dark:text-white flex items-center gap-1">
+                    <CheckCircle2 size={14} /> Enter the 6-digit code
+                  </p>
+                  <p className="text-xs text-warm-gray dark:text-white/60 mt-0.5">
+                    Your app will display a rotating 6-digit code. Type it in the field below and click <strong>Verify &amp; Enable</strong>.
+                  </p>
+                </div>
+              </li>
+            </ol>
+
+            {/* QR Code */}
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-navy/10 bg-white p-5 dark:border-white/10 dark:bg-slate-navy/40">
+              <p className="text-xs font-medium text-slate-navy dark:text-white flex items-center gap-1">
+                <ScanLine size={13} /> Scan with your authenticator app
               </p>
+              <div className="rounded-lg bg-white p-3 shadow-sm">
+                <QRCode value={mfaSetup.authenticatorUri} size={180} />
+              </div>
             </div>
+
+            {/* Manual fallback */}
+            <details className="group">
+              <summary className="flex cursor-pointer items-center gap-1 text-xs text-warm-gray hover:text-slate-navy dark:text-white/60 dark:hover:text-white">
+                <KeySquare size={13} />
+                Can't scan the QR code? Enter the key manually
+              </summary>
+              <div className="mt-2 rounded-lg bg-slate-navy/5 p-3 dark:bg-white/5">
+                <p className="mb-1 text-xs text-warm-gray dark:text-white/50">In your app, choose "Enter setup key" and type:</p>
+                <p className="font-mono text-sm tracking-widest text-slate-navy dark:text-white break-all">
+                  {mfaSetup.sharedKey}
+                </p>
+              </div>
+            </details>
+
+            {/* Code entry */}
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-navy dark:text-white">
                 Verification Code
               </label>
               <input
                 type="text"
+                inputMode="numeric"
                 maxLength={6}
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="000000"
-                className="w-40 rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-center text-lg tracking-widest dark:border-white/20 dark:bg-slate-navy dark:text-white"
+                autoFocus
+                autoComplete="one-time-code"
+                className="w-40 rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-center text-lg tracking-widest focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
               />
             </div>
-            {mfaError && (
-              <p className="text-sm text-red-600">{mfaError}</p>
-            )}
+
+            {mfaError && <p className="text-sm text-red-600">{mfaError}</p>}
+
             <div className="flex gap-3">
               <Button variant="primary" size="sm" onClick={handleEnableMfa} disabled={mfaLoading}>
                 {mfaLoading ? 'Verifying...' : 'Verify & Enable'}

@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from './stores/authStore';
+import MfaPromptModal from './components/ui/MfaPromptModal';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './features/auth/ProtectedRoute';
 import { LoginPage } from './features/auth/LoginPage';
@@ -46,14 +47,67 @@ const queryClient = new QueryClient({
   },
 });
 
+function NotFoundRedirect() {
+  const { isAuthenticated } = useAuthStore();
+  return <Navigate to={isAuthenticated ? '/admin' : '/'} replace />;
+}
+
 function AppContent() {
   const initialize = useAuthStore((s) => s.initialize);
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const [ready, setReady] = useState(false);
+  const [showMfaPrompt, setShowMfaPrompt] = useState(false);
+  const [mfaPromptShown, setMfaPromptShown] = useState(false);
+
   useEffect(() => {
-    initialize();
+    initialize().finally(() => setReady(true));
   }, [initialize]);
 
+  useEffect(() => {
+    if (!ready || !user || user.has2fa || mfaPromptShown) return;
+    const key = `nd_mfa_prompt_${user.email}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) {
+      setShowMfaPrompt(true);
+      setMfaPromptShown(true);
+      return;
+    }
+    const sixMonths = 6 * 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - new Date(stored).getTime() > sixMonths) {
+      setShowMfaPrompt(true);
+      setMfaPromptShown(true);
+    }
+  }, [ready, user?.email, user?.has2fa, mfaPromptShown]);
+
+  function handleMfaSetupNow() {
+    setShowMfaPrompt(false);
+    navigate('/admin/profile');
+  }
+
+  function handleMfaRemindLater() {
+    if (user?.email) {
+      localStorage.setItem(`nd_mfa_prompt_${user.email}`, new Date().toISOString());
+    }
+    setShowMfaPrompt(false);
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-dark-navy">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-blue border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
-    <Routes>
+    <>
+      <MfaPromptModal
+        isOpen={showMfaPrompt}
+        onSetupNow={handleMfaSetupNow}
+        onRemindLater={handleMfaRemindLater}
+      />
+      <Routes>
       {/* Public routes */}
       <Route element={<AppShell variant="public" />}>
         <Route path="/" element={<LandingPage />} />
@@ -107,7 +161,11 @@ function AppContent() {
           </ProtectedRoute>
         } />
       </Route>
+
+      {/* Catch-all: redirect instead of blank page */}
+      <Route path="*" element={<NotFoundRedirect />} />
     </Routes>
+    </>
   );
 }
 
