@@ -30,7 +30,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
-  const [pendingToken, setPendingToken] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
 
   const {
     register,
@@ -50,7 +50,7 @@ export function LoginPage() {
     try {
       const res = await api.post<AuthResponse>('/api/auth/login', data);
       if (res.requiresMfa) {
-        setPendingToken(res.token);
+        setPendingEmail(res.email);
         setMfaRequired(true);
       } else {
         login(res.token, {
@@ -72,8 +72,8 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/api/auth/verify-mfa', {
-        token: pendingToken,
+      const res = await api.post<AuthResponse>('/api/auth/mfa/verify', {
+        email: pendingEmail,
         code: data.code,
       });
       login(res.token, {
@@ -192,8 +192,10 @@ export function LoginPage() {
               type="text"
               placeholder="000000"
               maxLength={6}
+              autoComplete="one-time-code"
+              autoFocus
               error={mfaErrors.code?.message}
-              {...registerMfa('code')}
+              {...registerMfa('code', { value: '' })}
             />
 
             <Button type="submit" loading={loading} className="w-full">
