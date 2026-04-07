@@ -19,15 +19,23 @@ import { EducationRecordsPage } from './features/case-management/EducationRecord
 import { HealthRecordsPage } from './features/case-management/HealthRecordsPage';
 import { InterventionPlansPage } from './features/case-management/InterventionPlansPage';
 import { IncidentReportsPage } from './features/case-management/IncidentReportsPage';
+import { AllRecordingsPage } from './features/case-management/AllRecordingsPage';
+import { AllVisitationsPage } from './features/case-management/AllVisitationsPage';
+import { AllEducationPage } from './features/case-management/AllEducationPage';
+import { AllHealthPage } from './features/case-management/AllHealthPage';
+import { AllInterventionsPage } from './features/case-management/AllInterventionsPage';
+import { AllIncidentsPage } from './features/case-management/AllIncidentsPage';
 import { SupportersList } from './features/donors/SupportersList';
 import { SupporterDetail } from './features/donors/SupporterDetail';
 import { DonationsList } from './features/donors/DonationsList';
+import { AllocationsList } from './features/donors/AllocationsList';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { SocialAnalyticsPage } from './features/social-media/SocialAnalyticsPage';
 import { SocialEditorPage } from './features/social-media/SocialEditorPage';
 import { ProfilePage } from './features/profile/ProfilePage';
 import { DonatePage } from './features/donate/DonatePage';
 import { UserManagementPage } from './features/admin/UserManagementPage';
+import { PartnersList } from './features/partners/PartnersList';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +76,12 @@ function AppContent() {
         <Route path="/admin/residents" element={<ResidentsList />} />
         <Route path="/admin/residents/new" element={<ResidentDetail />} />
         <Route path="/admin/residents/:id" element={<ResidentDetail />} />
+        <Route path="/admin/case/recordings" element={<AllRecordingsPage />} />
+        <Route path="/admin/case/visits" element={<AllVisitationsPage />} />
+        <Route path="/admin/case/education" element={<AllEducationPage />} />
+        <Route path="/admin/case/health" element={<AllHealthPage />} />
+        <Route path="/admin/case/interventions" element={<AllInterventionsPage />} />
+        <Route path="/admin/case/incidents" element={<AllIncidentsPage />} />
         <Route path="/admin/case/:residentId/recordings" element={<ProcessRecordingsPage />} />
         <Route path="/admin/case/:residentId/visits" element={<HomeVisitationsPage />} />
         <Route path="/admin/case/:residentId/education" element={<EducationRecordsPage />} />
@@ -77,9 +91,15 @@ function AppContent() {
         <Route path="/admin/supporters" element={<SupportersList />} />
         <Route path="/admin/supporters/:id" element={<SupporterDetail />} />
         <Route path="/admin/donations" element={<DonationsList />} />
+        <Route path="/admin/allocations" element={<AllocationsList />} />
         <Route path="/admin/reports" element={<ReportsPage />} />
         <Route path="/admin/social" element={<SocialAnalyticsPage />} />
         <Route path="/admin/social/editor" element={<SocialEditorPage />} />
+        <Route path="/admin/partners" element={
+          <ProtectedRoute requiredRole="Admin">
+            <PartnersList />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/profile" element={<ProfilePage />} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="Admin">

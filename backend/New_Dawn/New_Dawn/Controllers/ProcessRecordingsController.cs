@@ -18,11 +18,10 @@ public class ProcessRecordingsController(AppDbContext db) : ControllerBase
         [FromQuery] int pageSize = 20,
         [FromQuery] int? residentId = null)
     {
-        if (!residentId.HasValue)
-            return BadRequest(new { success = false, message = "residentId query parameter is required" });
+        var query = db.ProcessRecordings.AsNoTracking().AsQueryable();
 
-        var query = db.ProcessRecordings.AsNoTracking()
-            .Where(pr => pr.ResidentId == residentId.Value);
+        if (residentId.HasValue)
+            query = query.Where(pr => pr.ResidentId == residentId.Value);
 
         var result = await query.ToPagedResultAsync(page, pageSize);
         return Ok(result);
