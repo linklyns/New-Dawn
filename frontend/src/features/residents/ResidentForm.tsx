@@ -298,6 +298,8 @@ export function ResidentForm({
           <SelectField
             label="Current Risk Level"
             error={errors.currentRiskLevel?.message}
+            disabled
+            title="Set automatically by ML model"
             {...register('currentRiskLevel')}
           >
             <option value="">Select...</option>
@@ -306,6 +308,7 @@ export function ResidentForm({
             <option value="Medium">Medium</option>
             <option value="Low">Low</option>
           </SelectField>
+          <p className="text-xs text-warm-gray -mt-3 col-span-full">Current Risk Level is set by the ML model and updated nightly.</p>
         </div>
 
         <SectionHeader title="Sub-Categories" />

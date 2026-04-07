@@ -61,9 +61,14 @@ public class ResidentsController(AppDbContext db) : ControllerBase
         if (id != entity.ResidentId) return BadRequest(new { success = false, message = "ID mismatch" });
         var existing = await db.Residents.FindAsync(id);
         if (existing == null) return NotFound(new { success = false, message = "Not found" });
+
+        // Preserve ML-predicted risk level — read-only for manual edits
+        var preservedRisk = existing.CurrentRiskLevel;
         db.Entry(existing).CurrentValues.SetValues(entity);
+        existing.CurrentRiskLevel = preservedRisk;
+
         await db.SaveChangesAsync();
-        return Ok(entity);
+        return Ok(existing);
     }
 
     [Authorize(Roles = "Admin")]

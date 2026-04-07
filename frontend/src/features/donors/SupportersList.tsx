@@ -16,6 +16,7 @@ import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import type { Supporter } from '../../types/models';
 import type { PagedResult } from '../../types/api';
+import type { SupporterLikelihood } from '../../types/predictions';
 
 const selectClass =
   'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
@@ -94,6 +95,17 @@ export function SupportersList() {
 
   const supporters = data?.items ?? [];
 
+  const { data: likelihoodResp } = useQuery({
+    queryKey: ['supporter-likelihood'],
+    queryFn: () => api.get<{ items: SupporterLikelihood[] }>('/api/predictions/ml/supporter-likelihood'),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
+  const likelihoodMap = new Map(
+    (likelihoodResp?.items ?? []).map((l) => [l.supporterId, l]),
+  );
+
   const createMutation = useMutation({
     mutationFn: (body: SupporterFormData) => api.post<Supporter>('/api/supporters', body),
     onSuccess: () => {
@@ -130,6 +142,23 @@ export function SupportersList() {
       render: (row: Record<string, unknown>) => formatDate(row.firstDonationDate as string),
     },
     { key: 'acquisitionChannel', header: 'Channel' },
+    {
+      key: 'likelihood',
+      header: 'Likelihood',
+      render: (row: Record<string, unknown>) => {
+        const pred = likelihoodMap.get((row as unknown as Supporter).supporterId);
+        if (!pred) return <span className="text-xs text-warm-gray">--</span>;
+        const variant =
+          pred.likelihoodCategory === 'High' ? 'success'
+          : pred.likelihoodCategory === 'Medium' ? 'info'
+          : 'neutral';
+        return (
+          <Badge variant={variant}>
+            {pred.likelihoodCategory} ({(pred.likelihoodScore * 100).toFixed(0)}%)
+          </Badge>
+        );
+      },
+    },
   ];
 
   return (

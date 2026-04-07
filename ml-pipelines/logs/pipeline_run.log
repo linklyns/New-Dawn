@@ -1,0 +1,56 @@
+2026-04-07 16:22:30,615 [INFO] ======================================================================
+2026-04-07 16:22:30,615 [INFO] ML Pipeline Run Started — 2026-04-07 16:22:30
+2026-04-07 16:22:30,617 [INFO] ======================================================================
+2026-04-07 16:23:03,092 [INFO] Pipeline 1: Donor Likelihood: SUCCESS (32.5s)
+2026-04-07 16:24:31,580 [INFO] Pipeline 2: Social Media Referrals: SUCCESS (88.5s)
+2026-04-07 16:24:45,560 [ERROR] Pipeline 3: Best Posting Times: FAILED (14.0s)
+2026-04-07 16:24:45,620 [ERROR] Traceback (most recent call last):
+  File "C:\Users\lyons\Documents\github\New_Dawn\ml-pipelines\run_all_pipelines.py", line 119, in main
+    runner(**kwargs)
+  File "C:\Users\lyons\Documents\github\New_Dawn\ml-pipelines\pipelines\best_posting_times.py", line 219, in run
+    output = generate_time_predictions(model, df, feature_names)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lyons\Documents\github\New_Dawn\ml-pipelines\pipelines\best_posting_times.py", line 171, in generate_time_predictions
+    result['confidence_indicator'] = pd.cut(
+                                     ^^^^^^^
+  File "C:\Users\lyons\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\reshape\tile.py", line 257, in cut
+    fac, bins = _bins_to_cuts(
+                ^^^^^^^^^^^^^^
+  File "C:\Users\lyons\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\pandas\core\reshape\tile.py", line 487, in _bins_to_cuts
+    raise ValueError(
+ValueError: labels must be unique if ordered=True; pass ordered=False for duplicate labels
+
+2026-04-07 16:24:59,602 [INFO] Pipeline 4: Reintegration Causal: SUCCESS (14.0s)
+2026-04-07 16:32:14,445 [INFO] Pipeline 5: Risk Prediction: SUCCESS (434.8s)
+2026-04-07 16:32:14,445 [INFO] 
+======================================================================
+2026-04-07 16:32:14,445 [INFO] PIPELINE RUN SUMMARY
+2026-04-07 16:32:14,445 [INFO] ======================================================================
+2026-04-07 16:32:14,445 [INFO]   Pipeline 1: Donor Likelihood: SUCCESS (32.5s)
+2026-04-07 16:32:14,445 [INFO]   Pipeline 2: Social Media Referrals: SUCCESS (88.5s)
+2026-04-07 16:32:14,445 [INFO]   Pipeline 3: Best Posting Times: FAILED (14.0s): labels must be unique if ordered=True; pass ordered=False for duplicate labels
+2026-04-07 16:32:14,445 [INFO]   Pipeline 4: Reintegration Causal: SUCCESS (14.0s)
+2026-04-07 16:32:14,445 [INFO]   Pipeline 5: Risk Prediction: SUCCESS (434.8s)
+2026-04-07 16:32:14,446 [INFO] 
+Completed: 2026-04-07 16:32:14
+2026-04-07 16:32:14,446 [INFO] ======================================================================
+2026-04-07 16:33:18,977 [INFO] ======================================================================
+2026-04-07 16:33:18,977 [INFO] ML Pipeline Run Started — 2026-04-07 16:33:18
+2026-04-07 16:33:18,977 [INFO] ======================================================================
+2026-04-07 16:33:42,958 [INFO] Pipeline 1: Donor Likelihood: SUCCESS (24.0s)
+2026-04-07 16:35:06,776 [INFO] Pipeline 2: Social Media Referrals: SUCCESS (83.8s)
+2026-04-07 16:35:18,882 [INFO] Pipeline 3: Best Posting Times: SUCCESS (12.1s)
+2026-04-07 16:35:32,543 [INFO] Pipeline 4: Reintegration Causal: SUCCESS (13.7s)
+2026-04-07 16:36:23,053 [INFO] Pipeline 5: Risk Prediction: SUCCESS (50.5s)
+2026-04-07 16:36:23,053 [INFO] 
+======================================================================
+2026-04-07 16:36:23,053 [INFO] PIPELINE RUN SUMMARY
+2026-04-07 16:36:23,053 [INFO] ======================================================================
+2026-04-07 16:36:23,053 [INFO]   Pipeline 1: Donor Likelihood: SUCCESS (24.0s)
+2026-04-07 16:36:23,053 [INFO]   Pipeline 2: Social Media Referrals: SUCCESS (83.8s)
+2026-04-07 16:36:23,054 [INFO]   Pipeline 3: Best Posting Times: SUCCESS (12.1s)
+2026-04-07 16:36:23,054 [INFO]   Pipeline 4: Reintegration Causal: SUCCESS (13.7s)
+2026-04-07 16:36:23,054 [INFO]   Pipeline 5: Risk Prediction: SUCCESS (50.5s)
+2026-04-07 16:36:23,054 [INFO] 
+Completed: 2026-04-07 16:36:23
+2026-04-07 16:36:23,054 [INFO] ======================================================================
