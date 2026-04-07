@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { QRCode } from 'react-qr-code';
+import QRCode from 'react-qr-code';
 import { useAuthStore } from '../../stores/authStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -8,7 +7,6 @@ import { User, Shield, Mail, KeyRound, Smartphone, ScanLine, CheckCircle2, KeySq
 import { api } from '../../lib/api';
 
 export function ProfilePage() {
-  const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
   const [mfaSetup, setMfaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
