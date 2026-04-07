@@ -25,10 +25,8 @@ public class ReportsController(AppDbContext db) : ControllerBase
             })
             .ToListAsync();
 
-        var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
         var recentDonations = await db.Donations
             .AsNoTracking()
-            .Where(d => d.DonationDate >= thirtyDaysAgo)
             .GroupBy(d => 1)
             .Select(g => new
             {

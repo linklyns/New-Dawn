@@ -137,7 +137,7 @@ export function AdminDashboard() {
       border: 'border-l-4 border-l-sky-blue',
     },
     {
-      label: 'Recent Donations',
+      label: 'Donations',
       value: data?.recentDonations?.count ?? 0,
       subValue: `$${(data?.recentDonations?.total ?? 0).toLocaleString()}`,
       icon: DollarSign,
