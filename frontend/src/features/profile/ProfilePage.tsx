@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import QRCode from 'react-qr-code';
+import QRCodeLib from 'react-qr-code';
+// react-qr-code CJS build exports the component as .QRCode, not as the default
+const QRCode = (QRCodeLib as any).QRCode ?? QRCodeLib;
 import { useAuthStore } from '../../stores/authStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';

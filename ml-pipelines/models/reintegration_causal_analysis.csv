@@ -1,0 +1,42 @@
+feature,coefficient,odds_ratio,p_value,significance_flag,effect_direction,plain_language_interpretation
+initial_case_assessment_For Continued Care,-1.1419,0.3192,,,Negative,Initial Case Assessment For Continued Care — coefficient magnitude 1.142
+referral_source_Police,-0.8023,0.4483,,,Negative,Referral Source Police — coefficient magnitude 0.802
+religion_Other,-0.7809,0.458,,,Negative,Religion Other — coefficient magnitude 0.781
+sub_cat_child_labor,0.7715,2.1629,,,Positive,Sub Cat Child Labor — coefficient magnitude 0.771
+religion_Unspecified,-0.7606,0.4674,,,Negative,Religion Unspecified — coefficient magnitude 0.761
+sub_cat_physical_abuse,0.7412,2.0984,,,Positive,Sub Cat Physical Abuse — coefficient magnitude 0.741
+referral_source_NGO,0.6789,1.9716,,,Positive,Referral Source Ngo — coefficient magnitude 0.679
+family_indigenous,0.6768,1.9675,,,Positive,Family Indigenous — coefficient magnitude 0.677
+initial_risk_level_Medium,0.6629,1.9404,,,Positive,Initial Risk Level Medium — coefficient magnitude 0.663
+family_solo_parent,-0.6243,0.5356,,,Negative,Family Solo Parent — coefficient magnitude 0.624
+case_category_Surrendered,0.5596,1.7499,,,Positive,Case Category Surrendered — coefficient magnitude 0.560
+initial_risk_level_Low,-0.5562,0.5734,,,Negative,Initial Risk Level Low — coefficient magnitude 0.556
+risk_improvement,-0.5405,0.5824,,,Negative,Risk Improvement — coefficient magnitude 0.541
+religion_Jehovah's Witness,0.5337,1.7052,,,Positive,Religion Jehovah'S Witness — coefficient magnitude 0.534
+birth_status_Non-Marital,-0.53,0.5886,,,Negative,Birth Status Non-Marital — coefficient magnitude 0.530
+case_category_Foundling,-0.5166,0.5965,,,Negative,Case Category Foundling — coefficient magnitude 0.517
+referral_source_Court Order,-0.4636,0.629,,,Negative,Referral Source Court Order — coefficient magnitude 0.464
+family_is_4ps,0.4616,1.5866,,,Positive,Family Is 4Ps — coefficient magnitude 0.462
+family_parent_pwd,0.4542,1.5749,,,Positive,Family Parent Pwd — coefficient magnitude 0.454
+sub_cat_sexual_abuse,0.4335,1.5427,,,Positive,Sub Cat Sexual Abuse — coefficient magnitude 0.434
+initial_risk_level_High,0.4226,1.5259,,,Positive,Initial Risk Level High — coefficient magnitude 0.423
+religion_Seventh-day Adventist,-0.3964,0.6727,,,Negative,Religion Seventh-Day Adventist — coefficient magnitude 0.396
+referral_source_Government Agency,0.3863,1.4716,,,Positive,Referral Source Government Agency — coefficient magnitude 0.386
+referral_source_Self-Referral,-0.3815,0.6828,,,Negative,Referral Source Self-Referral — coefficient magnitude 0.381
+sub_cat_at_risk,0.3626,1.437,,,Positive,Sub Cat At Risk — coefficient magnitude 0.363
+sub_cat_orphaned,-0.3622,0.6961,,,Negative,Sub Cat Orphaned — coefficient magnitude 0.362
+sub_cat_trafficked,0.3604,1.4339,,,Positive,Sub Cat Trafficked — coefficient magnitude 0.360
+initial_case_assessment_For Foster Care,0.3555,1.4269,,,Positive,Initial Case Assessment For Foster Care — coefficient magnitude 0.356
+sub_cat_street_child,-0.3509,0.7041,,,Negative,Sub Cat Street Child — coefficient magnitude 0.351
+case_category_Neglected,-0.1615,0.8509,,,Negative,Case Category Neglected — coefficient magnitude 0.162
+initial_case_assessment_For Independent Living,-0.1564,0.8553,,,Negative,Initial Case Assessment For Independent Living — coefficient magnitude 0.156
+initial_case_assessment_For Reunification,-0.1528,0.8583,,,Negative,Initial Case Assessment For Reunification — coefficient magnitude 0.153
+religion_Evangelical,-0.1237,0.8836,,,Negative,Religion Evangelical — coefficient magnitude 0.124
+family_informal_settler,0.1042,1.1098,,,Positive,Family Informal Settler — coefficient magnitude 0.104
+sub_cat_cicl,-0.0986,0.9061,,,Negative,Sub Cat Cicl — coefficient magnitude 0.099
+is_pwd,0.0787,1.0819,,,Positive,Is Pwd — coefficient magnitude 0.079
+sub_cat_child_with_hiv,0.0733,1.076,,,Positive,Sub Cat Child With Hiv — coefficient magnitude 0.073
+religion_Islam,-0.0537,0.9477,,,Negative,Religion Islam — coefficient magnitude 0.054
+religion_Roman Catholic,0.0489,1.0501,,,Positive,Religion Roman Catholic — coefficient magnitude 0.049
+has_special_needs,0.047,1.0481,,,Positive,Has Special Needs — coefficient magnitude 0.047
+sub_cat_osaec,-0.0004,0.9996,,,Negative,Sub Cat Osaec — coefficient magnitude 0.000

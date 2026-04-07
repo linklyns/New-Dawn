@@ -13,6 +13,7 @@ import { Table } from '../../components/ui/Table';
 import { useDebounce } from '../../hooks/useDebounce';
 import type { Resident, Safehouse } from '../../types/models';
 import type { PagedResult } from '../../types/api';
+import type { RiskPrediction } from '../../types/predictions';
 
 const selectClass =
   'rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
@@ -96,6 +97,17 @@ export function ResidentsList() {
 
   const resetPage = () => setPage(1);
 
+  const { data: riskResp } = useQuery({
+    queryKey: ['risk-predictions'],
+    queryFn: () => api.get<{ items: RiskPrediction[] }>('/api/predictions/ml/risk-predictions'),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
+  const riskMap = new Map(
+    (riskResp?.items ?? []).map((r) => [r.residentId, r]),
+  );
+
   const columns = [
     {
       key: 'internalCode',
@@ -122,11 +134,21 @@ export function ResidentsList() {
     {
       key: 'currentRiskLevel',
       header: 'Risk Level',
-      render: (row: Resident) => (
-        <Badge variant={riskBadgeVariant(row.currentRiskLevel)}>
-          {row.currentRiskLevel}
-        </Badge>
-      ),
+      render: (row: Resident) => {
+        const pred = riskMap.get(row.residentId);
+        return (
+          <div className="flex items-center gap-1.5">
+            <Badge variant={riskBadgeVariant(row.currentRiskLevel)}>
+              {row.currentRiskLevel}
+            </Badge>
+            {pred && pred.predictedRiskLevel !== row.currentRiskLevel && (
+              <span className="text-xs text-warm-gray" title={`ML predicts ${pred.predictedRiskLevel} (${pred.confidence})`}>
+                → {pred.predictedRiskLevel}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'caseCategory',

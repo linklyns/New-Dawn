@@ -46,3 +46,80 @@ public class TimeSlotPrediction
     public double PredictedDonationReferrals { get; set; }
     public double PredictedEngagement { get; set; }
 }
+
+// ── ML Pipeline DTOs ──
+
+public class SupporterLikelihoodDto
+{
+    public int SupporterId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public double LikelihoodScore { get; set; }
+    public string LikelihoodCategory { get; set; } = string.Empty;
+    public double TotalDonationAmount { get; set; }
+    public int DonationCount { get; set; }
+    public int DaysSinceLastDonation { get; set; }
+    public string TopReason1 { get; set; } = string.Empty;
+    public string TopReason2 { get; set; } = string.Empty;
+}
+
+public class MlSocialPostLookupRequest
+{
+    public string? Platform { get; set; }
+    public string? PostType { get; set; }
+    public string? MediaType { get; set; }
+    public string? ContentTopic { get; set; }
+    public string? SentimentTone { get; set; }
+    public string? CallToActionType { get; set; }
+}
+
+public class MlSocialPostPredictionDto
+{
+    public string Platform { get; set; } = string.Empty;
+    public string PostType { get; set; } = string.Empty;
+    public string MediaType { get; set; } = string.Empty;
+    public string ContentTopic { get; set; } = string.Empty;
+    public string SentimentTone { get; set; } = string.Empty;
+    public string CallToActionType { get; set; } = string.Empty;
+    public double PredictedDonationReferrals { get; set; }
+    public double PredictedEstimatedDonationValuePhp { get; set; }
+    public double PredictedForwards { get; set; }
+    public double PredictedProfileVisits { get; set; }
+    public double PredictedEngagementRate { get; set; }
+    public double PredictedImpressions { get; set; }
+}
+
+public class BestPostingTimeDto
+{
+    public string DayOfWeek { get; set; } = string.Empty;
+    public int PostHour { get; set; }
+    public double PredictedEstimatedDonationValuePhp { get; set; }
+    public int Rank { get; set; }
+    public int HistoricalPostCount { get; set; }
+    public string ConfidenceIndicator { get; set; } = string.Empty;
+}
+
+public class ReintegrationFactorDto
+{
+    public string Feature { get; set; } = string.Empty;
+    public double Coefficient { get; set; }
+    public double OddsRatio { get; set; }
+    public double PValue { get; set; }
+    public string SignificanceFlag { get; set; } = string.Empty;
+    public string EffectDirection { get; set; } = string.Empty;
+    public string PlainLanguageInterpretation { get; set; } = string.Empty;
+}
+
+public class RiskPredictionDto
+{
+    public int ResidentId { get; set; }
+    public string InternalCode { get; set; } = string.Empty;
+    public string CaseControlNo { get; set; } = string.Empty;
+    public double PredictedRiskScore { get; set; }
+    public string PredictedRiskLevel { get; set; } = string.Empty;
+    public string Confidence { get; set; } = string.Empty;
+    public string TopRiskFactor1 { get; set; } = string.Empty;
+    public string TopRiskFactor2 { get; set; } = string.Empty;
+}

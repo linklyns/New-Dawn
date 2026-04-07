@@ -7,6 +7,7 @@ using New_Dawn.Data;
 using New_Dawn.Data.SeedData;
 using New_Dawn.Middleware;
 using New_Dawn.Models;
+using New_Dawn.Services;
 
 LoadDotEnv();
 
@@ -18,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<CsvPredictionService>();
 
 var allowedOrigins = new List<string>
 {

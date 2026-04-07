@@ -29,23 +29,19 @@ interface ChatMsg {
 }
 
 interface PredictionResult {
-  donationReferrals: number;
-  estimatedDonationValue: number;
-  engagementRate: number;
-  forwardCount: number;
-  profileVisits: number;
-  followerGrowth: number;
+  predictedDonationReferrals: number;
+  predictedEstimatedDonationValuePhp: number;
+  predictedEngagementRate: number;
+  predictedForwards: number;
+  predictedProfileVisits: number;
+  predictedImpressions: number;
 }
 
 interface TimeSlot {
   dayOfWeek: string;
-  hour: number;
-  predictedDonationReferrals: number;
-  predictedEngagement: number;
-}
-
-interface GoldenWindowResponse {
-  ranked: TimeSlot[];
+  postHour: number;
+  predictedEstimatedDonationValuePhp: number;
+  rank: number;
 }
 
 /* ── Constants ──────────────────────────────────────────────── */
@@ -53,9 +49,10 @@ interface GoldenWindowResponse {
 const PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Twitter', 'WhatsApp'] as const;
 const POST_TYPES = ['FundraisingAppeal', 'EducationalContent', 'EventPromotion', 'ThankYou', 'StoryHighlight'] as const;
 const MEDIA_TYPES = ['Photo', 'Video', 'Carousel', 'Text', 'Reel'] as const;
-const CTA_TYPES = ['DonateNow', 'LearnMore', 'ShareStory', 'VolunteerSignup', 'None'] as const;
-const CONTENT_TOPICS = ['Education', 'Health', 'Reintegration', 'Operations', 'Fundraising', 'Community'] as const;
-const SENTIMENT_TONES = ['Grateful', 'Celebratory', 'Emotional', 'Urgent', 'Informational'] as const;
+const CTA_TYPES = ['DonateNow', 'LearnMore', 'ShareStory', 'SignUp', ''] as const;
+const CTA_LABELS: Record<string, string> = { DonateNow: 'Donate Now', LearnMore: 'Learn More', ShareStory: 'Share Story', SignUp: 'Sign Up', '': 'None' };
+const CONTENT_TOPICS = ['Education', 'Health', 'Reintegration', 'CampaignLaunch', 'Gratitude', 'SafehouseLife', 'AwarenessRaising', 'DonorImpact', 'EventRecap'] as const;
+const SENTIMENT_TONES = ['Grateful', 'Celebratory', 'Emotional', 'Urgent', 'Hopeful', 'Informative'] as const;
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
@@ -68,11 +65,12 @@ function formatHour(h: number): string {
 
 /* ── Sub-Components ─────────────────────────────────────────── */
 
-function SelectField({ label, value, onChange, options }: {
+function SelectField({ label, value, onChange, options, labelMap }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: readonly string[];
+  labelMap?: Record<string, string>;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -83,7 +81,7 @@ function SelectField({ label, value, onChange, options }: {
         className={SELECT_CLASS}
       >
         {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
+          <option key={opt} value={opt}>{labelMap?.[opt] ?? opt}</option>
         ))}
       </select>
     </div>
@@ -165,7 +163,7 @@ export function SocialEditorPage() {
   const fetchPredictions = useCallback(async () => {
     setPredictionsLoading(true);
     try {
-      const result = await api.post<PredictionResult>('/api/predictions/social-post', {
+      const resp = await api.post<{ items: PredictionResult[] }>('/api/predictions/ml/social-lookup', {
         platform: debouncedPlatform,
         postType: debouncedPostType,
         mediaType: debouncedMediaType,
@@ -176,7 +174,10 @@ export function SocialEditorPage() {
         postHour: debouncedScheduledHour ?? 12,
         dayOfWeek: debouncedScheduledDay ?? 'Monday',
       });
-      setPredictions(result);
+      const result = resp.items ?? [];
+      if (result.length > 0) {
+        setPredictions(result[0]);
+      }
     } catch {
       /* keep previous predictions on error */
     } finally {
@@ -193,22 +194,14 @@ export function SocialEditorPage() {
   const fetchGoldenWindow = useCallback(async () => {
     setGoldenLoading(true);
     try {
-      const result = await api.post<GoldenWindowResponse>('/api/predictions/golden-window', {
-        platform: debouncedPlatform,
-        postType: debouncedPostType,
-        mediaType: debouncedMediaType,
-        contentTopic: debouncedContentTopic,
-        sentimentTone: debouncedSentimentTone,
-        callToActionType: debouncedCtaType,
-        captionLength: debouncedCaptionLength,
-      });
-      setGoldenSlots(result.ranked);
+      const resp = await api.get<{ items: TimeSlot[] }>('/api/predictions/ml/best-posting-times');
+      setGoldenSlots((resp.items ?? []).slice(0, 15));
     } catch {
       /* keep previous on error */
     } finally {
       setGoldenLoading(false);
     }
-  }, [debouncedPlatform, debouncedPostType, debouncedMediaType, debouncedCtaType, debouncedContentTopic, debouncedSentimentTone, debouncedCaptionLength]);
+  }, []);
 
   useEffect(() => {
     fetchGoldenWindow();
@@ -404,6 +397,7 @@ export function SocialEditorPage() {
               value={store.ctaType}
               onChange={(v) => store.updateField('ctaType', v)}
               options={CTA_TYPES}
+              labelMap={CTA_LABELS}
             />
           </div>
 
@@ -525,39 +519,39 @@ export function SocialEditorPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <PredictionCard
                 label="Donation Referrals"
-                value={predictions?.donationReferrals ?? null}
+                value={predictions?.predictedDonationReferrals ?? null}
                 icon={Heart}
                 loading={predictionsLoading}
               />
               <PredictionCard
                 label="Est. Donation Value"
-                value={predictions?.estimatedDonationValue ?? null}
+                value={predictions?.predictedEstimatedDonationValuePhp ?? null}
                 icon={DollarSign}
                 suffix="PHP"
                 loading={predictionsLoading}
               />
               <PredictionCard
                 label="Engagement Rate"
-                value={predictions?.engagementRate ?? null}
+                value={predictions?.predictedEngagementRate ?? null}
                 icon={TrendingUp}
                 suffix="%"
                 loading={predictionsLoading}
               />
               <PredictionCard
                 label="Forward Count"
-                value={predictions?.forwardCount ?? null}
+                value={predictions?.predictedForwards ?? null}
                 icon={Share2}
                 loading={predictionsLoading}
               />
               <PredictionCard
                 label="Profile Visits"
-                value={predictions?.profileVisits ?? null}
+                value={predictions?.predictedProfileVisits ?? null}
                 icon={Eye}
                 loading={predictionsLoading}
               />
               <PredictionCard
-                label="Follower Growth"
-                value={predictions?.followerGrowth ?? null}
+                label="Impressions"
+                value={predictions?.predictedImpressions ?? null}
                 icon={Users}
                 loading={predictionsLoading}
               />
@@ -595,17 +589,17 @@ export function SocialEditorPage() {
           <div className="flex flex-wrap gap-2">
             {goldenSlots.map((slot, i) => {
               const isSelected =
-                store.scheduledDay === slot.dayOfWeek && store.scheduledHour === slot.hour;
+                store.scheduledDay === slot.dayOfWeek && store.scheduledHour === slot.postHour;
               const isTop3 = i < 3;
 
               return (
                 <motion.button
-                  key={`${slot.dayOfWeek}-${slot.hour}`}
+                  key={`${slot.dayOfWeek}-${slot.postHour}`}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => {
                     store.updateField('scheduledDay', slot.dayOfWeek);
-                    store.updateField('scheduledHour', slot.hour);
+                    store.updateField('scheduledHour', slot.postHour);
                   }}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isSelected
@@ -616,9 +610,9 @@ export function SocialEditorPage() {
                   }`}
                 >
                   <span className="font-semibold">{slot.dayOfWeek.slice(0, 3)}</span>{' '}
-                  {formatHour(slot.hour)}
+                  {formatHour(slot.postHour)}
                   <span className="ml-1.5 text-xs opacity-70">
-                    {slot.predictedDonationReferrals} ref
+                    {Math.round(slot.predictedEstimatedDonationValuePhp).toLocaleString()} PHP
                   </span>
                 </motion.button>
               );

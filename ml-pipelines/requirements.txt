@@ -7,3 +7,10 @@ seaborn
 scipy
 joblib
 jupyter
+xgboost
+lightgbm
+shap
+imbalanced-learn
+psycopg2-binary
+sqlalchemy
+python-dotenv

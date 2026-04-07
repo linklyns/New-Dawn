@@ -1,10 +1,138 @@
-"""Shared ML pipeline utilities - Ch. 6, 7, 8 references."""
+"""Shared ML pipeline utilities - Ch. 6, 7, 8, 10-14 references."""
+import os
 import pandas as pd
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold
+from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                             f1_score, roc_auc_score, mean_squared_error,
+                             mean_absolute_error, r2_score)
+from sklearn.feature_selection import RFECV
+from datetime import datetime
+
+
+# ---------------------------------------------------------------------------
+# Path helpers
+# ---------------------------------------------------------------------------
+
+def get_csv_path():
+    """Return absolute path to lighthouse_csv_v7/ regardless of cwd."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        '..', 'lighthouse_csv_v7')
+
+
+def get_models_path():
+    """Return absolute path to ml-pipelines/models/."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+
+
+def load_csv(name):
+    """Load a CSV from lighthouse_csv_v7/ by filename (e.g. 'supporters')."""
+    path = os.path.join(get_csv_path(), f'{name}.csv')
+    return pd.read_csv(path)
+
+
+def save_pipeline_output(df, filename):
+    """Save DataFrame to ml-pipelines/models/{filename} with timestamp log."""
+    out = os.path.join(get_models_path(), filename)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    df.to_csv(out, index=False)
+    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Saved {len(df)} rows → {out}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Model evaluation (Ch. 10-12)
+# ---------------------------------------------------------------------------
+
+def evaluate_classifiers(X, y, models_dict, cv=5, scoring_focus='f1'):
+    """Run StratifiedKFold CV on multiple classifiers. Returns comparison DataFrame."""
+    results = []
+    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+    for name, model in models_dict.items():
+        acc = cross_val_score(model, X, y, cv=skf, scoring='accuracy')
+        prec = cross_val_score(model, X, y, cv=skf, scoring='precision_weighted')
+        rec = cross_val_score(model, X, y, cv=skf, scoring='recall_weighted')
+        f1 = cross_val_score(model, X, y, cv=skf, scoring='f1_weighted')
+        try:
+            auc = cross_val_score(model, X, y, cv=skf, scoring='roc_auc_ovr_weighted')
+            auc_mean = auc.mean()
+        except Exception:
+            auc_mean = np.nan
+        results.append({
+            'Model': name,
+            'Accuracy': round(acc.mean(), 4),
+            'Precision': round(prec.mean(), 4),
+            'Recall': round(rec.mean(), 4),
+            'F1': round(f1.mean(), 4),
+            'AUC': round(auc_mean, 4) if not np.isnan(auc_mean) else 'N/A'
+        })
+        print(f"  {name}: Acc={acc.mean():.4f} Prec={prec.mean():.4f} "
+              f"Rec={rec.mean():.4f} F1={f1.mean():.4f}")
+    return pd.DataFrame(results).sort_values('F1', ascending=False)
+
+
+def evaluate_regressors(X, y, models_dict, cv=5):
+    """Run KFold CV on multiple regressors. Returns comparison DataFrame with RMSE, MAE, R²."""
+    results = []
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    for name, model in models_dict.items():
+        neg_mse = cross_val_score(model, X, y, cv=kf, scoring='neg_mean_squared_error')
+        neg_mae = cross_val_score(model, X, y, cv=kf, scoring='neg_mean_absolute_error')
+        r2 = cross_val_score(model, X, y, cv=kf, scoring='r2')
+        rmse = np.sqrt(-neg_mse.mean())
+        mae = -neg_mae.mean()
+        results.append({
+            'Model': name,
+            'RMSE': round(rmse, 4),
+            'MAE': round(mae, 4),
+            'R2': round(r2.mean(), 4),
+        })
+        print(f"  {name}: RMSE={rmse:.4f} MAE={mae:.4f} R²={r2.mean():.4f}")
+    return pd.DataFrame(results).sort_values('RMSE')
+
+
+# ---------------------------------------------------------------------------
+# Feature importance & selection (Ch. 13-14)
+# ---------------------------------------------------------------------------
+
+def feature_importance_report(model, feature_names):
+    """Extract feature importances from tree/ensemble models. Returns sorted DataFrame."""
+    if hasattr(model, 'feature_importances_'):
+        imp = model.feature_importances_
+    elif hasattr(model, 'coef_'):
+        imp = np.abs(model.coef_).flatten()
+    else:
+        raise ValueError("Model has no feature_importances_ or coef_")
+    df = pd.DataFrame({'feature': feature_names, 'importance': imp})
+    return df.sort_values('importance', ascending=False).reset_index(drop=True)
+
+
+def rfecv_selection(X, y, estimator, cv=5, scoring='f1_weighted', min_features=3):
+    """RFECV wrapper. Returns selected feature mask and selector object."""
+    selector = RFECV(estimator, step=1, cv=cv, scoring=scoring,
+                     min_features_to_select=min_features, n_jobs=-1)
+    selector.fit(X, y)
+    selected = X.columns[selector.support_].tolist()
+    print(f"RFECV selected {len(selected)}/{X.shape[1]} features: {selected}")
+    return selector, selected
+
+
+def plot_model_comparison(results_df, metric='F1', title='Model Comparison'):
+    """Bar chart comparing models on a given metric."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    bars = ax.barh(results_df['Model'], results_df[metric], color='#A2C9E1')
+    ax.set_xlabel(metric)
+    ax.set_title(title)
+    ax.invert_yaxis()
+    for bar, val in zip(bars, results_df[metric]):
+        ax.text(bar.get_width() + 0.005, bar.get_y() + bar.get_height()/2,
+                f'{val:.4f}', va='center', fontsize=9)
+    plt.tight_layout()
+    plt.show()
 
 
 def unistats(df):

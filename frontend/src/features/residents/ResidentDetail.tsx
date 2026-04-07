@@ -23,6 +23,7 @@ import { Modal } from '../../components/ui/Modal';
 import { ResidentForm } from './ResidentForm';
 import type { ResidentFormData } from './ResidentForm';
 import type { Resident, Safehouse } from '../../types/models';
+import type { RiskPrediction, ReintegrationFactor } from '../../types/predictions';
 
 type Tab = 'overview' | 'family' | 'admission' | 'case';
 
@@ -99,7 +100,7 @@ export function ResidentDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const isCreateMode = id === 'new';
+  const isCreateMode = !id || id === 'new';
   const [isEditing, setIsEditing] = useState(isCreateMode);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -114,6 +115,20 @@ export function ResidentDetail() {
     queryKey: ['safehouses'],
     queryFn: () => api.get<{ items: Safehouse[] }>('/api/safehouses?pageSize=100'),
   });
+
+  const { data: riskPrediction } = useQuery({
+    queryKey: ['risk-prediction', id],
+    queryFn: () => api.get<RiskPrediction>(`/api/predictions/ml/risk-predictions/${id}`),
+    enabled: !isCreateMode && !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: reintegrationResp } = useQuery({
+    queryKey: ['reintegration-factors'],
+    queryFn: () => api.get<{ items: ReintegrationFactor[] }>('/api/predictions/ml/reintegration-factors'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const reintegrationFactors = reintegrationResp?.items;
 
   const safehouseMap = new Map(
     (safehousesData?.items ?? []).map((s) => [s.safehouseId, s.name]),
@@ -361,6 +376,62 @@ export function ResidentDetail() {
               />
             </div>
           </Card>
+
+          {/* ML Risk Assessment */}
+          {riskPrediction && (
+            <Card>
+              <h3 className="mb-3 font-heading text-base font-semibold text-slate-navy dark:text-white">
+                ML Risk Assessment
+              </h3>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <InfoRow
+                  label="Predicted Risk"
+                  value={
+                    <Badge variant={riskVariant(riskPrediction.predictedRiskLevel)}>
+                      {riskPrediction.predictedRiskLevel}
+                    </Badge>
+                  }
+                />
+                <InfoRow label="Risk Score" value={riskPrediction.predictedRiskScore.toFixed(2)} />
+                <InfoRow label="Confidence" value={riskPrediction.confidence} />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Top Factors</span>
+                  <span className="text-sm text-slate-navy dark:text-white">
+                    {riskPrediction.topRiskFactor1}
+                  </span>
+                  {riskPrediction.topRiskFactor2 && (
+                    <span className="text-xs text-warm-gray">{riskPrediction.topRiskFactor2}</span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-warm-gray">Predicted by ML model — updated nightly</p>
+            </Card>
+          )}
+
+          {/* Reintegration Insights */}
+          {reintegrationFactors && reintegrationFactors.length > 0 && (
+            <Card>
+              <h3 className="mb-3 font-heading text-base font-semibold text-slate-navy dark:text-white">
+                Reintegration Insights
+              </h3>
+              <p className="mb-3 text-xs text-warm-gray">
+                Key factors influencing reintegration outcomes across all residents
+              </p>
+              <div className="space-y-2">
+                {reintegrationFactors.slice(0, 5).map((f) => (
+                  <div key={f.feature} className="flex items-center justify-between rounded-lg border border-slate-navy/5 px-3 py-2 dark:border-white/5">
+                    <div>
+                      <span className="text-sm font-medium text-slate-navy dark:text-white">{f.feature}</span>
+                      <p className="text-xs text-warm-gray">{f.plainLanguageInterpretation}</p>
+                    </div>
+                    <Badge variant={f.effectDirection === 'Positive' ? 'success' : f.effectDirection === 'Negative' ? 'danger' : 'neutral'}>
+                      {f.effectDirection}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       )}
 

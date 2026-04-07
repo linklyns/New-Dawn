@@ -19,3 +19,10 @@ export type {
   SafehouseMonthlyMetric,
   PublicImpactSnapshot,
 } from './models';
+export type {
+  SupporterLikelihood,
+  MlSocialPostPrediction,
+  BestPostingTime,
+  ReintegrationFactor,
+  RiskPrediction,
+} from './predictions';
