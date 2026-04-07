@@ -156,6 +156,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // ApplicationUser -> Partner (optional FK)
+        builder.Entity<ApplicationUser>()
+            .HasOne(u => u.Partner)
+            .WithMany()
+            .HasForeignKey(u => u.LinkedPartnerId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // === Indexes ===
 
         // Residents indexes

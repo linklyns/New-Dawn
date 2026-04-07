@@ -1,5 +1,44 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5135';
 
+function extractErrorMessage(errorPayload: unknown, fallback: string): string {
+  if (!errorPayload || typeof errorPayload !== 'object') {
+    return fallback;
+  }
+
+  const payload = errorPayload as {
+    message?: unknown;
+    errors?: unknown;
+    title?: unknown;
+  };
+
+  if (typeof payload.message === 'string' && payload.message.trim()) {
+    return payload.message;
+  }
+
+  if (Array.isArray(payload.errors)) {
+    const messages = payload.errors.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  if (payload.errors && typeof payload.errors === 'object') {
+    const values = Object.values(payload.errors)
+      .flatMap((v) => (Array.isArray(v) ? v : []))
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+
+    if (values.length > 0) {
+      return values.join(' ');
+    }
+  }
+
+  if (typeof payload.title === 'string' && payload.title.trim()) {
+    return payload.title;
+  }
+
+  return fallback;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('nd_token');
   const headers: Record<string, string> = {
@@ -24,13 +63,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       window.location.href = '/login';
     }
 
-    const error = await response.json().catch(() => ({ message: 'Unauthorized' }));
-    throw new Error(error.message || 'Unauthorized');
+    const error = await response.json().catch(() => ({}));
+    throw new Error(extractErrorMessage(error, 'Unauthorized'));
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const error = await response.json().catch(() => ({}));
+    throw new Error(extractErrorMessage(error, `HTTP ${response.status}`));
   }
 
   if (response.status === 204) {
