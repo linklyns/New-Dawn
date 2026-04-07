@@ -16,10 +16,15 @@ import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
 
+interface SafehouseResidentCount {
+  safehouseId: number;
+  safehouseName: string;
+  activeResidents: number;
+}
+
 interface DashboardStats {
-  activeResidentsBySafehouse: Record<string, number>;
-  recentDonationsCount: number;
-  recentDonationsTotal: number;
+  activeResidentsBySafehouse: SafehouseResidentCount[];
+  recentDonations: { count: number; total: number };
   openInterventionPlans: number;
 }
 
@@ -78,6 +83,27 @@ export function AdminDashboard() {
     );
   }
 
+  const isForbidden = isError && (error as Error).message?.includes('403');
+
+  if (isError && isForbidden) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" subtitle="Overview of operations" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-navy/10 bg-white p-12 dark:border-white/10 dark:bg-dark-surface">
+          <div className="rounded-full bg-golden-honey/20 p-4">
+            <BarChart3 size={32} className="text-golden-honey" />
+          </div>
+          <h2 className="font-heading text-lg font-semibold text-slate-navy dark:text-white">
+            Staff or Admin Access Required
+          </h2>
+          <p className="text-sm text-warm-gray">
+            The operations dashboard is available to staff and admin users.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isError) {
     return (
       <div>
@@ -95,10 +121,10 @@ export function AdminDashboard() {
   }
 
   const totalActiveResidents = data
-    ? Object.values(data.activeResidentsBySafehouse).reduce((sum, n) => sum + n, 0)
+    ? data.activeResidentsBySafehouse.reduce((sum, s) => sum + s.activeResidents, 0)
     : 0;
   const safehouseCount = data
-    ? Object.keys(data.activeResidentsBySafehouse).length
+    ? data.activeResidentsBySafehouse.length
     : 0;
 
   const summaryCards = [
@@ -112,8 +138,8 @@ export function AdminDashboard() {
     },
     {
       label: 'Recent Donations',
-      value: data?.recentDonationsCount ?? 0,
-      subValue: `$${(data?.recentDonationsTotal ?? 0).toLocaleString()}`,
+      value: data?.recentDonations?.count ?? 0,
+      subValue: `$${(data?.recentDonations?.total ?? 0).toLocaleString()}`,
       icon: DollarSign,
       accent: 'bg-sage-green/20 text-sage-green-text dark:text-sage-green',
       border: 'border-l-4 border-l-sage-green',
