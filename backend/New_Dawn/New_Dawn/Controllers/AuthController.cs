@@ -32,7 +32,15 @@ public class AuthController(
 
         var result = await userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
-            return BadRequest(new { success = false, errors = result.Errors.Select(e => e.Description) });
+        {
+            var errors = result.Errors.Select(e => e.Description).ToArray();
+            return BadRequest(new
+            {
+                success = false,
+                message = errors.FirstOrDefault() ?? "Registration failed",
+                errors
+            });
+        }
 
         await userManager.AddToRoleAsync(user, "Donor");
 
@@ -218,7 +226,15 @@ public class AuthController(
 
         var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
         if (!result.Succeeded)
-            return BadRequest(new { success = false, errors = result.Errors.Select(e => e.Description) });
+        {
+            var errors = result.Errors.Select(e => e.Description).ToArray();
+            return BadRequest(new
+            {
+                success = false,
+                message = errors.FirstOrDefault() ?? "Unable to change password",
+                errors
+            });
+        }
 
         return Ok(new { success = true, message = "Password changed successfully" });
     }
