@@ -13,7 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
-import type { Donation } from '../../types/models';
+import type { Donation, Supporter } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
 const selectClass =
@@ -86,6 +86,14 @@ export function DonationsList() {
       api.get<PagedResult<Donation>>(`/api/donations?${queryParams.toString()}`),
   });
 
+  const { data: supportersData } = useQuery({
+    queryKey: ['supporters-all'],
+    queryFn: () => api.get<PagedResult<Supporter>>('/api/supporters?pageSize=500'),
+  });
+
+  const supporters = supportersData?.items ?? [];
+  const supporterMap = new Map(supporters.map((s) => [s.supporterId, s.displayName]));
+
   const donations = data?.items ?? [];
 
   const createMutation = useMutation({
@@ -132,8 +140,12 @@ export function DonationsList() {
     },
     {
       key: 'supporterId',
-      header: 'Supporter ID',
-      render: (row: Record<string, unknown>) => `#${row.supporterId}`,
+      header: 'Supporter',
+      render: (row: Record<string, unknown>) => {
+        const id = row.supporterId as number;
+        const name = supporterMap.get(id);
+        return name ?? `#${id}`;
+      },
     },
     {
       key: 'donationType',
@@ -253,6 +265,7 @@ export function DonationsList() {
             setEditingDonation(null);
           }}
           isSubmitting={createMutation.isPending || updateMutation.isPending}
+          supporters={supporters}
           error={
             createMutation.isError
               ? (createMutation.error as Error).message
@@ -274,12 +287,14 @@ function DonationForm({
   onCancel,
   isSubmitting,
   error,
+  supporters,
 }: {
   defaultValues?: Partial<Donation>;
   onSubmit: (data: DonationFormData) => void;
   onCancel: () => void;
   isSubmitting: boolean;
   error?: string;
+  supporters: Supporter[];
 }) {
   const {
     register,
@@ -312,12 +327,24 @@ function DonationForm({
           {error}
         </div>
       )}
-      <Input
-        label="Supporter ID"
-        type="number"
-        error={errors.supporterId?.message}
-        {...register('supporterId')}
-      />
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-slate-navy dark:text-white">Supporter</label>
+        <select
+          className={selectClass}
+          value={watch('supporterId') || ''}
+          onChange={(e) => setValue('supporterId', Number(e.target.value))}
+        >
+          <option value="">Select supporter...</option>
+          {supporters.map((s) => (
+            <option key={s.supporterId} value={s.supporterId}>
+              {s.displayName}
+            </option>
+          ))}
+        </select>
+        {errors.supporterId?.message && (
+          <p className="text-xs text-red-600">{errors.supporterId.message}</p>
+        )}
+      </div>
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-slate-navy dark:text-white">Donation Type</label>
         <select className={selectClass} {...register('donationType')}>

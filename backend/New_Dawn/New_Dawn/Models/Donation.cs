@@ -48,7 +48,7 @@ public class Donation
 
     // Navigation properties
     [ForeignKey("SupporterId")]
-    public Supporter Supporter { get; set; } = null!;
+    public Supporter? Supporter { get; set; };
 
     [ForeignKey("ReferralPostId")]
     public SocialMediaPost? ReferralPost { get; set; }
