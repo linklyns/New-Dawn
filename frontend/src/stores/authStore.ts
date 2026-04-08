@@ -35,7 +35,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     const token = localStorage.getItem('nd_token');
     if (!token) return;
     try {
-      const user = await api.get<User>('/api/auth/me');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const user = await api.get<User>('/api/auth/me', { signal: controller.signal });
+      clearTimeout(timeout);
       set({ user, token, isAuthenticated: true });
     } catch {
       localStorage.removeItem('nd_token');
