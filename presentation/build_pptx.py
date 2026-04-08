@@ -21,6 +21,8 @@ WHITE        = RGBColor(0xFF, 0xFF, 0xFF)
 LIGHT_GRAY   = RGBColor(0xF5, 0xF5, 0xF5)
 MED_GRAY     = RGBColor(0x99, 0x99, 0x99)
 DARK_TEXT     = RGBColor(0x33, 0x33, 0x33)
+SOFT_WHITE   = RGBColor(0xDD, 0xDD, 0xDD)
+DIM_TEXT      = RGBColor(0xBB, 0xBB, 0xBB)
 
 prs = Presentation()
 prs.slide_width  = Inches(13.333)
@@ -37,15 +39,12 @@ def add_bg(slide, color):
     bg.fore_color.rgb = color
 
 
-def add_shape(slide, left, top, width, height, fill=None, line_color=None, line_width=None):
+def add_shape(slide, left, top, width, height, fill=None):
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
     shape.line.fill.background()
     if fill:
         shape.fill.solid()
         shape.fill.fore_color.rgb = fill
-    if line_color:
-        shape.line.color.rgb = line_color
-        shape.line.width = Pt(line_width or 1)
     return shape
 
 
@@ -60,7 +59,7 @@ def add_rounded_rect(slide, left, top, width, height, fill=None):
 
 def add_text(slide, text, left, top, width, height,
              font_size=18, color=WHITE, bold=False, alignment=PP_ALIGN.LEFT,
-             font_name="Calibri", line_spacing=1.2, anchor=MSO_ANCHOR.TOP):
+             font_name="Calibri", line_spacing=1.2):
     txBox = slide.shapes.add_textbox(left, top, width, height)
     txBox.text_frame.word_wrap = True
     txBox.text_frame.auto_size = None
@@ -100,7 +99,6 @@ def add_bullet_list(slide, items, left, top, width, height,
         buNone = pPr.findall(qn("a:buNone"))
         for bn in buNone:
             pPr.remove(bn)
-        # Add bullet char
         from lxml import etree
         buChar = etree.SubElement(pPr, qn("a:buChar"))
         buChar.set("char", "\u2022")
@@ -108,6 +106,40 @@ def add_bullet_list(slide, items, left, top, width, height,
             buClr = etree.SubElement(pPr, qn("a:buClr"))
             srgb = etree.SubElement(buClr, qn("a:srgbClr"))
             srgb.set("val", "%02X%02X%02X" % (bullet_color[0], bullet_color[1], bullet_color[2]))
+    return txBox
+
+
+def add_numbered_list(slide, items, left, top, width, height,
+                      font_size=14, color=WHITE, font_name="Calibri",
+                      num_color=None, spacing=1.4):
+    """Add a manually-numbered list (1. 2. 3. etc.)"""
+    txBox = slide.shapes.add_textbox(left, top, width, height)
+    tf = txBox.text_frame
+    tf.word_wrap = True
+    for i, item in enumerate(items):
+        if i == 0:
+            p = tf.paragraphs[0]
+        else:
+            p = tf.add_paragraph()
+        # Build the run manually so the number can be a different color
+        from pptx.oxml.ns import qn
+        from lxml import etree
+        p.clear()
+        # Number run
+        r1 = p.add_run()
+        r1.text = f"{i+1}. "
+        r1.font.size = Pt(font_size)
+        r1.font.color.rgb = num_color or color
+        r1.font.name = font_name
+        r1.font.bold = True
+        # Text run
+        r2 = p.add_run()
+        r2.text = item
+        r2.font.size = Pt(font_size)
+        r2.font.color.rgb = color
+        r2.font.name = font_name
+        r2.font.bold = False
+        p.line_spacing = Pt(int(font_size * spacing))
     return txBox
 
 
@@ -119,25 +151,32 @@ def add_accent_line(slide, left, top, width, color=GOLDEN_HONEY, height=Pt(4)):
     return shape
 
 
+def slide_header(slide, label, title, accent_color=GOLDEN_HONEY, title_color=WHITE):
+    add_bg(slide, DARK_NAVY)
+    add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+    add_text(slide, label, Inches(0.8), Inches(0.4), Inches(10), Inches(0.5),
+             font_size=14, color=accent_color, bold=True)
+    add_text(slide, title, Inches(0.8), Inches(0.9), Inches(11), Inches(0.8),
+             font_size=38, color=title_color, bold=True, font_name="Calibri Light")
+    add_accent_line(slide, Inches(0.8), Inches(1.65), Inches(2), accent_color, Pt(3))
+
+
 def add_slide_number(slide, num, total):
     add_text(slide, f"{num} / {total}", Inches(12.2), Inches(7.05),
              Inches(1), Inches(0.4), font_size=10, color=MED_GRAY,
              alignment=PP_ALIGN.RIGHT)
 
 
-TOTAL_SLIDES = 15
+TOTAL_SLIDES = 10
 
 
 # ════════════════════════════════════════════════════════════
 # SLIDE 1 — TITLE
 # ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide, DARK_NAVY)
-
-# Accent bar top
 add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
 
-# Main title
 add_text(slide, "NEW DAWN", Inches(1.5), Inches(1.8), Inches(10), Inches(1.2),
          font_size=64, color=WHITE, bold=True, alignment=PP_ALIGN.CENTER,
          font_name="Calibri Light")
@@ -145,430 +184,312 @@ add_text(slide, "NEW DAWN", Inches(1.5), Inches(1.8), Inches(10), Inches(1.2),
 add_accent_line(slide, Inches(5.5), Inches(3.1), Inches(2.3), GOLDEN_HONEY, Pt(3))
 
 add_text(slide, "A Path to Healing and Hope", Inches(1.5), Inches(3.4), Inches(10), Inches(0.8),
-         font_size=28, color=SKY_BLUE, bold=False, alignment=PP_ALIGN.CENTER,
-         font_name="Calibri Light")
+         font_size=28, color=SKY_BLUE, alignment=PP_ALIGN.CENTER, font_name="Calibri Light")
 
-add_text(slide, "An intelligent safehouse management platform\nfor girls rescued from abuse and trafficking in the Philippines",
-         Inches(2.5), Inches(4.3), Inches(8), Inches(1.2),
-         font_size=18, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
-
-add_text(slide, "Section 3  |  Group 9", Inches(1.5), Inches(5.8), Inches(10), Inches(0.5),
+add_text(slide, "Section 3  |  Group 9", Inches(1.5), Inches(5.4), Inches(10), Inches(0.5),
          font_size=16, color=GOLDEN_HONEY, alignment=PP_ALIGN.CENTER, bold=True)
 
 add_text(slide, "Zack Hada   |   Lincoln Lyons   |   [Team Members]",
-         Inches(1.5), Inches(6.2), Inches(10), Inches(0.5),
+         Inches(1.5), Inches(5.85), Inches(10), Inches(0.5),
          font_size=14, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
 
 add_slide_number(slide, 1, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 2 — THE PROBLEM
+# SLIDE 2 — THE MISSION (sensitive intro)
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide, DARK_NAVY)
 add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
 
-add_text(slide, "THE CHALLENGE", Inches(0.8), Inches(0.4), Inches(10), Inches(0.8),
-         font_size=14, color=GOLDEN_HONEY, bold=True, font_name="Calibri")
+# No big header -- let the words breathe
 
-add_text(slide, "Three Critical Problems", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=40, color=WHITE, bold=True, font_name="Calibri Light")
+add_text(slide,
+         "In the Philippines, thousands of girls are survivors of\nsexual abuse and trafficking.",
+         Inches(1.5), Inches(1.2), Inches(10.3), Inches(1.2),
+         font_size=28, color=SOFT_WHITE, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", line_spacing=1.5)
 
-add_accent_line(slide, Inches(0.8), Inches(1.65), Inches(2), GOLDEN_HONEY, Pt(3))
+add_text(slide,
+         "Many are minors. Many have nowhere safe to go.",
+         Inches(1.5), Inches(2.6), Inches(10.3), Inches(0.7),
+         font_size=22, color=MED_GRAY, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light")
 
-# Problem cards
-card_y = Inches(2.2)
-card_h = Inches(4.5)
-card_w = Inches(3.6)
-gap = Inches(0.4)
-start_x = Inches(0.8)
+add_accent_line(slide, Inches(5.8), Inches(3.6), Inches(1.7), GOLDEN_HONEY, Pt(2))
 
-# Card 1
-c1 = add_rounded_rect(slide, start_x, card_y, card_w, card_h, fill=SLATE_NAVY)
-add_text(slide, "01", start_x + Inches(0.3), card_y + Inches(0.3),
-         Inches(1), Inches(0.5), font_size=32, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Girls Falling Through\nthe Cracks", start_x + Inches(0.3), card_y + Inches(0.9),
-         Inches(3), Inches(0.9), font_size=20, color=WHITE, bold=True)
-add_text(slide, "Limited staff managing multiple safehouses can't track which girls are progressing vs. struggling. No system to predict readiness for reintegration or flag rising risk levels.",
-         start_x + Inches(0.3), card_y + Inches(2.0),
-         Inches(3), Inches(2.2), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
+add_text(slide,
+         "Organizations like Lighthouse Sanctuary operate safe homes\nwhere these girls can begin to heal -- through shelter, counseling,\neducation, and eventually, reintegration into safe communities.",
+         Inches(1.5), Inches(4.0), Inches(10.3), Inches(1.5),
+         font_size=20, color=DIM_TEXT, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", line_spacing=1.5)
 
-# Card 2
-c2_x = start_x + card_w + gap
-c2 = add_rounded_rect(slide, c2_x, card_y, card_w, card_h, fill=SLATE_NAVY)
-add_text(slide, "02", c2_x + Inches(0.3), card_y + Inches(0.3),
-         Inches(1), Inches(0.5), font_size=32, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "No Social Media\nStrategy", c2_x + Inches(0.3), card_y + Inches(0.9),
-         Inches(3), Inches(0.9), font_size=20, color=WHITE, bold=True)
-add_text(slide, "Founders post sporadically without knowing what content drives donations vs. just likes. No dedicated marketing team and no budget to hire one.",
-         c2_x + Inches(0.3), card_y + Inches(2.0),
-         Inches(3), Inches(2.2), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
+add_text(slide,
+         "Our client is building a new organization to extend this work\ninto regions where these services don't yet exist.",
+         Inches(1.5), Inches(5.6), Inches(10.3), Inches(1.0),
+         font_size=20, color=SKY_BLUE, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", line_spacing=1.5)
 
-# Card 3
-c3_x = c2_x + card_w + gap
-c3 = add_rounded_rect(slide, c3_x, card_y, card_w, card_h, fill=SLATE_NAVY)
-add_text(slide, "03", c3_x + Inches(0.3), card_y + Inches(0.3),
-         Inches(1), Inches(0.5), font_size=32, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Donor Retention\n& Growth", c3_x + Inches(0.3), card_y + Inches(0.9),
-         Inches(3), Inches(0.9), font_size=20, color=WHITE, bold=True)
-add_text(slide, "The organization depends entirely on donations but loses donors without understanding why. No way to identify at-risk supporters or personalize outreach at scale.",
-         c3_x + Inches(0.3), card_y + Inches(2.0),
-         Inches(3), Inches(2.2), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
+add_text(slide,
+         "They asked us to build the technology to help them do it.",
+         Inches(1.5), Inches(6.5), Inches(10.3), Inches(0.6),
+         font_size=18, color=GOLDEN_HONEY, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light")
 
 add_slide_number(slide, 2, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 3 — OUR SOLUTION (OVERVIEW)
+# SLIDE 3 — THE CHALLENGES (framed with empathy)
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "WHAT THEY TOLD US", "Three Things That Keep Them Up at Night")
 
-add_text(slide, "OUR SOLUTION", Inches(0.8), Inches(0.4), Inches(10), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "One Platform, Three Solutions", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=40, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.65), Inches(2), GOLDEN_HONEY, Pt(3))
+# Three cards -- same layout but with softer framing
+card_y = Inches(2.2)
+card_h = Inches(4.5)
+card_w = Inches(3.6)
+gap = Inches(0.4)
+sx = Inches(0.8)
 
-add_text(slide, "New Dawn is a full-stack web application that combines case management,\ndonor intelligence, and AI-powered social media tools into a single platform.",
-         Inches(0.8), Inches(2.0), Inches(11), Inches(0.8),
-         font_size=18, color=RGBColor(0xCC, 0xCC, 0xCC))
+# Card 1 - Girls
+c1 = add_rounded_rect(slide, sx, card_y, card_w, card_h, fill=SLATE_NAVY)
+add_shape(slide, sx, card_y, card_w, Inches(0.06), fill=SAGE_GREEN)
+add_text(slide, "\"We worry about girls\nfalling through the cracks.\"",
+         sx + Inches(0.3), card_y + Inches(0.4),
+         Inches(3), Inches(1.0), font_size=17, color=SAGE_GREEN, bold=True,
+         font_name="Calibri Light")
+add_text(slide, "With limited staff across multiple safehouses, they can't always see which girls are progressing and which are struggling. They have no way to predict when someone is ready for reintegration -- or at risk of regression.",
+         sx + Inches(0.3), card_y + Inches(1.6),
+         Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
-# Three solution boxes
-sol_y = Inches(3.2)
-sol_h = Inches(3.5)
-sol_w = Inches(3.6)
+# Card 2 - Social media
+c2x = sx + card_w + gap
+c2 = add_rounded_rect(slide, c2x, card_y, card_w, card_h, fill=SLATE_NAVY)
+add_shape(slide, c2x, card_y, card_w, Inches(0.06), fill=SKY_BLUE)
+add_text(slide, "\"We don't know what\nto post or when.\"",
+         c2x + Inches(0.3), card_y + Inches(0.4),
+         Inches(3), Inches(1.0), font_size=17, color=SKY_BLUE, bold=True,
+         font_name="Calibri Light")
+add_text(slide, "Social media is their primary channel for reaching donors, but the founders freely admit they aren't experienced with it. They post sporadically and can't tell what actually drives donations versus just generating likes.",
+         c2x + Inches(0.3), card_y + Inches(1.6),
+         Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
-# Solution 1
-s1 = add_rounded_rect(slide, start_x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
-add_shape(slide, start_x, sol_y, sol_w, Inches(0.06), fill=SAGE_GREEN)
-add_text(slide, "Caseload Intelligence", start_x + Inches(0.3), sol_y + Inches(0.3),
-         Inches(3), Inches(0.6), font_size=20, color=SAGE_GREEN, bold=True)
-add_text(slide, "ML-powered risk prediction flags at-risk residents before they regress. Causal analysis identifies which interventions actually drive successful reintegration.",
-         start_x + Inches(0.3), sol_y + Inches(1.0),
-         Inches(3), Inches(1.5), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
-add_text(slide, "Pipelines: Risk Prediction, Reintegration Causal Analysis",
-         start_x + Inches(0.3), sol_y + Inches(2.7),
-         Inches(3), Inches(0.6), font_size=11, color=MED_GRAY)
-
-# Solution 2
-s2_x = start_x + sol_w + gap
-s2 = add_rounded_rect(slide, s2_x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
-add_shape(slide, s2_x, sol_y, sol_w, Inches(0.06), fill=SKY_BLUE)
-add_text(slide, "AI Social Editor", s2_x + Inches(0.3), sol_y + Inches(0.3),
-         Inches(3), Inches(0.6), font_size=20, color=SKY_BLUE, bold=True)
-add_text(slide, "Real-time ML predictions show expected donations, engagement, and reach as staff craft posts. Optimal posting times maximize fundraising impact.",
-         s2_x + Inches(0.3), sol_y + Inches(1.0),
-         Inches(3), Inches(1.5), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
-add_text(slide, "Pipelines: Social Referrals, Best Posting Times",
-         s2_x + Inches(0.3), sol_y + Inches(2.7),
-         Inches(3), Inches(0.6), font_size=11, color=MED_GRAY)
-
-# Solution 3
-s3_x = s2_x + sol_w + gap
-s3 = add_rounded_rect(slide, s3_x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
-add_shape(slide, s3_x, sol_y, sol_w, Inches(0.06), fill=GOLDEN_HONEY)
-add_text(slide, "Donor Intelligence", s3_x + Inches(0.3), sol_y + Inches(0.3),
-         Inches(3), Inches(0.6), font_size=20, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "ML predicts donor likelihood to give again within 180 days. SHAP-driven reasons explain each prediction so staff can personalize outreach.",
-         s3_x + Inches(0.3), sol_y + Inches(1.0),
-         Inches(3), Inches(1.5), font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
-add_text(slide, "Pipeline: Donor Likelihood Prediction",
-         s3_x + Inches(0.3), sol_y + Inches(2.7),
-         Inches(3), Inches(0.6), font_size=11, color=MED_GRAY)
+# Card 3 - Donors
+c3x = c2x + card_w + gap
+c3 = add_rounded_rect(slide, c3x, card_y, card_w, card_h, fill=SLATE_NAVY)
+add_shape(slide, c3x, card_y, card_w, Inches(0.06), fill=GOLDEN_HONEY)
+add_text(slide, "\"We lose donors and\ndon't understand why.\"",
+         c3x + Inches(0.3), card_y + Inches(0.4),
+         Inches(3), Inches(1.0), font_size=17, color=GOLDEN_HONEY, bold=True,
+         font_name="Calibri Light")
+add_text(slide, "The organization depends entirely on donations. They run fundraising campaigns but aren't sure which ones move the needle. They want to know which donors might give more, which are at risk of lapsing, and how to personalize outreach without a marketing team.",
+         c3x + Inches(0.3), card_y + Inches(1.6),
+         Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
 add_slide_number(slide, 3, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 4 — TECH DEMO INTRO
+# SLIDE 4 — OUR SOLUTION (bridge to demo)
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "OUR ANSWER", "One Platform, Three Solutions")
 
-add_text(slide, "LIVE DEMO", Inches(1.5), Inches(2.5), Inches(10), Inches(1.2),
-         font_size=56, color=WHITE, bold=True, alignment=PP_ALIGN.CENTER,
-         font_name="Calibri Light")
+add_text(slide, "We built New Dawn -- a full-stack web application that combines case management,\ndonor intelligence, and AI-powered social media tools into one system.",
+         Inches(0.8), Inches(2.0), Inches(11), Inches(0.8),
+         font_size=18, color=RGBColor(0xCC, 0xCC, 0xCC))
 
-add_accent_line(slide, Inches(5.5), Inches(3.7), Inches(2.3), GOLDEN_HONEY, Pt(3))
+# Three solution boxes
+sol_y = Inches(3.2)
+sol_h = Inches(3.0)
+sol_w = Inches(3.6)
 
-add_text(slide, "new-dawn-virid.vercel.app", Inches(1.5), Inches(4.1), Inches(10), Inches(0.6),
-         font_size=22, color=SKY_BLUE, alignment=PP_ALIGN.CENTER)
+# Solution 1
+s1 = add_rounded_rect(slide, sx, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
+add_shape(slide, sx, sol_y, sol_w, Inches(0.06), fill=SAGE_GREEN)
+add_text(slide, "Caseload Intelligence", sx + Inches(0.3), sol_y + Inches(0.3),
+         Inches(3), Inches(0.5), font_size=20, color=SAGE_GREEN, bold=True)
+add_text(slide, "ML-powered risk prediction and causal reintegration analysis so no girl goes unnoticed.",
+         sx + Inches(0.3), sol_y + Inches(0.9),
+         Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
+add_text(slide, "Risk Prediction + Reintegration Causal",
+         sx + Inches(0.3), sol_y + Inches(2.3),
+         Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
 
-add_text(slide, "Landing  >  Impact Dashboard  >  Admin Dashboard  >  Caseload + ML Risk\n>  Social Editor + AI Predictions  >  Donor Intelligence  >  Reports",
-         Inches(2), Inches(5.0), Inches(9), Inches(1.0),
-         font_size=16, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
+# Solution 2
+s2x = sx + sol_w + gap
+s2 = add_rounded_rect(slide, s2x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
+add_shape(slide, s2x, sol_y, sol_w, Inches(0.06), fill=SKY_BLUE)
+add_text(slide, "AI Social Editor", s2x + Inches(0.3), sol_y + Inches(0.3),
+         Inches(3), Inches(0.5), font_size=20, color=SKY_BLUE, bold=True)
+add_text(slide, "Real-time ML predictions show expected donations and engagement as staff craft posts. Optimal posting times maximize impact.",
+         s2x + Inches(0.3), sol_y + Inches(0.9),
+         Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
+add_text(slide, "Social Referrals + Best Posting Times",
+         s2x + Inches(0.3), sol_y + Inches(2.3),
+         Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
+
+# Solution 3
+s3x = s2x + sol_w + gap
+s3 = add_rounded_rect(slide, s3x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
+add_shape(slide, s3x, sol_y, sol_w, Inches(0.06), fill=GOLDEN_HONEY)
+add_text(slide, "Donor Intelligence", s3x + Inches(0.3), sol_y + Inches(0.3),
+         Inches(3), Inches(0.5), font_size=20, color=GOLDEN_HONEY, bold=True)
+add_text(slide, "ML predicts which donors are likely to give again with explainable reasons, so staff can prioritize outreach.",
+         s3x + Inches(0.3), sol_y + Inches(0.9),
+         Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
+add_text(slide, "Donor Likelihood Prediction",
+         s3x + Inches(0.3), sol_y + Inches(2.3),
+         Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
+
+# Bridge line to demo
+add_text(slide, "Let us show you.",
+         Inches(1.5), Inches(6.6), Inches(10), Inches(0.5),
+         font_size=20, color=GOLDEN_HONEY, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", bold=True)
 
 add_slide_number(slide, 4, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 5 — DEMO: LANDING PAGE & PUBLIC EXPERIENCE
+# SLIDE 5 — CONSOLIDATED LIVE DEMO GUIDE
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide, DARK_NAVY)
 add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
 
-add_text(slide, "DEMO", Inches(0.8), Inches(0.4), Inches(2), Inches(0.5),
+add_text(slide, "LIVE DEMO", Inches(0.8), Inches(0.3), Inches(3), Inches(0.5),
          font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Public Experience", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
+add_text(slide, "new-dawn-virid.vercel.app", Inches(8.5), Inches(0.3), Inches(4.5), Inches(0.5),
+         font_size=14, color=SKY_BLUE, alignment=PP_ALIGN.RIGHT)
 
-# Left side - talking points
-add_text(slide, "What to show:", Inches(0.8), Inches(2.0), Inches(5), Inches(0.5),
-         font_size=16, color=SKY_BLUE, bold=True)
+# Three columns for the demo flow
+col_w = Inches(3.85)
+col_gap = Inches(0.25)
+col_top = Inches(0.9)
+col_h = Inches(6.3)
 
-items = [
-    "Landing page: mission, three pillars (Caring, Healing, Teaching)",
-    "Live impact stats pulled from the database",
-    "Impact Dashboard with charts (residents served, outcomes, donations)",
-    "Donation tiers ($25-$250/mo) with impact messaging",
-    "Privacy policy (GDPR-compliant) + cookie consent banner",
-    "Dark / light mode toggle (saved in browser cookie)",
-    "Google OAuth login + MFA setup flow",
+# ── COLUMN 1: Public + Admin ──
+c1x = Inches(0.5)
+add_rounded_rect(slide, c1x, col_top, col_w, col_h, fill=SLATE_NAVY)
+
+add_text(slide, "PUBLIC EXPERIENCE", c1x + Inches(0.25), col_top + Inches(0.2),
+         Inches(3.3), Inches(0.35), font_size=12, color=GOLDEN_HONEY, bold=True)
+
+pub_items = [
+    "Landing page -- mission, three pillars (Caring, Healing, Teaching), live stats",
+    "Impact Dashboard -- charts: residents served, program outcomes, donation impact",
+    "Donate page -- four tiers with impact messaging",
+    "Dark/light mode toggle (stored in browser cookie)",
+    "Privacy policy + GDPR cookie consent banner",
 ]
-add_bullet_list(slide, items, Inches(0.8), Inches(2.5), Inches(5.5), Inches(4.5),
-                font_size=15, color=RGBColor(0xCC, 0xCC, 0xCC),
-                bullet_color=(0xFF, 0xCC, 0x66))
+add_numbered_list(slide, pub_items, c1x + Inches(0.25), col_top + Inches(0.6),
+                  Inches(3.4), Inches(2.6),
+                  font_size=12, color=SOFT_WHITE, num_color=GOLDEN_HONEY, spacing=1.6)
 
-# Right side - screenshot placeholder
-placeholder = add_rounded_rect(slide, Inches(7.2), Inches(1.8), Inches(5.5), Inches(4.8), fill=SLATE_NAVY)
-add_text(slide, "[SCREENSHOT]\nLanding Page", Inches(7.2), Inches(3.5), Inches(5.5), Inches(1.5),
-         font_size=20, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
+add_accent_line(slide, c1x + Inches(0.25), col_top + Inches(3.2), Inches(3.3),
+                MED_GRAY, Pt(1))
 
-add_text(slide, "SPEAKER NOTE: Start with the public experience. Show the landing page, scroll through pillars, click Impact Dashboard, show charts. Toggle dark mode. Show privacy policy footer link. Show cookie consent.",
-         Inches(0.8), Inches(6.8), Inches(11), Inches(0.6),
-         font_size=10, color=RGBColor(0x66, 0x66, 0x66))
+add_text(slide, "AUTH & ADMIN", c1x + Inches(0.25), col_top + Inches(3.4),
+         Inches(3.3), Inches(0.35), font_size=12, color=GOLDEN_HONEY, bold=True)
+
+admin_items = [
+    "Login with Google OAuth; show MFA setup in profile",
+    "Admin Dashboard -- active residents, donations, interventions overview",
+    "Role-based access: Admin sees all, Donor sees own data only",
+    "Delete confirmation modals, pagination on every list",
+]
+add_numbered_list(slide, admin_items, c1x + Inches(0.25), col_top + Inches(3.8),
+                  Inches(3.4), Inches(2.3),
+                  font_size=12, color=SOFT_WHITE, num_color=GOLDEN_HONEY, spacing=1.6)
+
+# ── COLUMN 2: Caseload + Donors ──
+c2x = c1x + col_w + col_gap
+add_rounded_rect(slide, c2x, col_top, col_w, col_h, fill=SLATE_NAVY)
+
+add_text(slide, "CASELOAD INTELLIGENCE", c2x + Inches(0.25), col_top + Inches(0.2),
+         Inches(3.3), Inches(0.35), font_size=12, color=SAGE_GREEN, bold=True)
+
+case_items = [
+    "Residents list -- filters by status, safehouse, risk. Show ML risk arrows",
+    "Click a resident -- full profile, demographics, case info, disability data",
+    "ML Risk Assessment card -- predicted risk + confidence + top SHAP factors",
+    "Reintegration Insights -- causal factors from logistic regression",
+    "Process recordings, education, health, interventions, incidents (show 1-2)",
+]
+add_numbered_list(slide, case_items, c2x + Inches(0.25), col_top + Inches(0.6),
+                  Inches(3.4), Inches(2.6),
+                  font_size=12, color=SOFT_WHITE, num_color=SAGE_GREEN, spacing=1.6)
+
+add_accent_line(slide, c2x + Inches(0.25), col_top + Inches(3.2), Inches(3.3),
+                MED_GRAY, Pt(1))
+
+add_text(slide, "DONOR INTELLIGENCE", c2x + Inches(0.25), col_top + Inches(3.4),
+         Inches(3.3), Inches(0.35), font_size=12, color=GOLDEN_HONEY, bold=True)
+
+donor_items = [
+    "Supporters list with ML likelihood badges (High/Med/Low)",
+    "SHAP reasons in plain language explain each prediction",
+    "Sort by likelihood to prioritize at-risk donor outreach",
+    "Donor detail -- history, lifetime value, frequency, avg gift",
+    "Allocations -- where each dollar goes by safehouse/program",
+]
+add_numbered_list(slide, donor_items, c2x + Inches(0.25), col_top + Inches(3.8),
+                  Inches(3.4), Inches(2.3),
+                  font_size=12, color=SOFT_WHITE, num_color=GOLDEN_HONEY, spacing=1.6)
+
+# ── COLUMN 3: Social Editor (highlight) + Reports ──
+c3x = c2x + col_w + col_gap
+add_rounded_rect(slide, c3x, col_top, col_w, col_h, fill=SLATE_NAVY)
+
+# Highlight badge
+add_shape(slide, c3x + Inches(2.4), col_top + Inches(0.15), Inches(1.2), Inches(0.3),
+          fill=GOLDEN_HONEY)
+add_text(slide, "HIGHLIGHT", c3x + Inches(2.45), col_top + Inches(0.17),
+         Inches(1.1), Inches(0.25), font_size=10, color=DARK_NAVY, bold=True)
+
+add_text(slide, "AI SOCIAL EDITOR", c3x + Inches(0.25), col_top + Inches(0.2),
+         Inches(2.2), Inches(0.35), font_size=12, color=SKY_BLUE, bold=True)
+
+social_items = [
+    "Build a post: pick platform, type, media, topic, sentiment, CTA",
+    "Watch 6 prediction cards update live (referrals, value, engagement...)",
+    "Change platform or CTA -- narrate how predictions shift",
+    "Show Best Posting Times -- top 15 optimal day/hour slots",
+    "Click an optimal slot to auto-schedule the post",
+]
+add_numbered_list(slide, social_items, c3x + Inches(0.25), col_top + Inches(0.6),
+                  Inches(3.4), Inches(2.6),
+                  font_size=12, color=SOFT_WHITE, num_color=SKY_BLUE, spacing=1.6)
+
+add_accent_line(slide, c3x + Inches(0.25), col_top + Inches(3.2), Inches(3.3),
+                MED_GRAY, Pt(1))
+
+add_text(slide, "REPORTS & ANALYTICS", c3x + Inches(0.25), col_top + Inches(3.4),
+         Inches(3.3), Inches(0.35), font_size=12, color=GOLDEN_HONEY, bold=True)
+
+report_items = [
+    "Donation trends (monthly totals + counts over time)",
+    "Education progress & health trends by safehouse",
+    "Reintegration success rates per safehouse",
+    "Incident summary by type and severity",
+    "Social media post performance and platform comparison",
+]
+add_numbered_list(slide, report_items, c3x + Inches(0.25), col_top + Inches(3.8),
+                  Inches(3.4), Inches(2.3),
+                  font_size=12, color=SOFT_WHITE, num_color=GOLDEN_HONEY, spacing=1.6)
 
 add_slide_number(slide, 5, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 6 — DEMO: ADMIN DASHBOARD
+# SLIDE 6 — ML PIPELINES OVERVIEW
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "UNDER THE HOOD", "5 Production ML Pipelines")
 
-add_text(slide, "DEMO", Inches(0.8), Inches(0.4), Inches(2), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Admin Command Center", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-items = [
-    "Admin Dashboard: active residents, recent donations, open interventions",
-    "Quick-nav cards to every operational area",
-    "Role-based access: Admin sees everything, Donor sees own data",
-    "Full CRUD with delete confirmation modals",
-    "Pagination on all list views (20 per page)",
-]
-add_bullet_list(slide, items, Inches(0.8), Inches(2.2), Inches(5.5), Inches(4),
-                font_size=16, color=RGBColor(0xCC, 0xCC, 0xCC),
-                bullet_color=(0xFF, 0xCC, 0x66))
-
-placeholder = add_rounded_rect(slide, Inches(7.2), Inches(1.8), Inches(5.5), Inches(4.8), fill=SLATE_NAVY)
-add_text(slide, "[SCREENSHOT]\nAdmin Dashboard", Inches(7.2), Inches(3.5), Inches(5.5), Inches(1.5),
-         font_size=20, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
-
-add_text(slide, "SPEAKER NOTE: Log in as admin. Show dashboard overview. Highlight the quick-nav cards. Demonstrate RBAC by noting what a Donor user would see vs Admin.",
-         Inches(0.8), Inches(6.8), Inches(11), Inches(0.6),
-         font_size=10, color=RGBColor(0x66, 0x66, 0x66))
-
-add_slide_number(slide, 6, TOTAL_SLIDES)
-
-
-# ════════════════════════════════════════════════════════════
-# SLIDE 7 — DEMO: CASELOAD + ML RISK
-# ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
-
-add_text(slide, "DEMO  |  SOLUTION 1", Inches(0.8), Inches(0.4), Inches(5), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Caseload Intelligence", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=SAGE_GREEN, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), SAGE_GREEN, Pt(3))
-
-add_text(slide, "No more girls falling through the cracks.",
-         Inches(0.8), Inches(1.9), Inches(10), Inches(0.5),
-         font_size=18, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-items = [
-    "Residents list with ML risk predictions (arrows when ML disagrees with stored value)",
-    "Resident detail: demographics, case info, disability, family profile",
-    "ML Risk Assessment card: predicted risk + confidence + top SHAP factors",
-    "Reintegration Insights: causal factors from logistic regression analysis",
-    "Process recordings (counseling), education, health, interventions, incidents",
-    "Full case lifecycle from intake to reintegration",
-]
-add_bullet_list(slide, items, Inches(0.8), Inches(2.5), Inches(5.5), Inches(4),
-                font_size=15, color=RGBColor(0xCC, 0xCC, 0xCC),
-                bullet_color=(0x91, 0xB1, 0x91))
-
-placeholder = add_rounded_rect(slide, Inches(7.2), Inches(1.8), Inches(5.5), Inches(4.8), fill=SLATE_NAVY)
-add_text(slide, "[SCREENSHOT]\nResident Detail\nwith ML Risk Card", Inches(7.2), Inches(3.2), Inches(5.5), Inches(2),
-         font_size=18, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
-
-add_text(slide, "SPEAKER NOTE: Show residents list. Point out the ML risk arrows. Click into a resident. Show the ML Risk Assessment card and Reintegration Insights. Briefly show process recordings. Emphasize that these predictions update nightly.",
-         Inches(0.8), Inches(6.8), Inches(11), Inches(0.6),
-         font_size=10, color=RGBColor(0x66, 0x66, 0x66))
-
-add_slide_number(slide, 7, TOTAL_SLIDES)
-
-
-# ════════════════════════════════════════════════════════════
-# SLIDE 8 — DEMO: SOCIAL EDITOR (HIGHLIGHT)
-# ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
-
-add_text(slide, "DEMO  |  SOLUTION 2  |  HIGHLIGHT", Inches(0.8), Inches(0.4), Inches(8), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "AI-Powered Social Editor", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=SKY_BLUE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), SKY_BLUE, Pt(3))
-
-add_text(slide, "Turns a social media novice into a data-driven content strategist.",
-         Inches(0.8), Inches(1.9), Inches(10), Inches(0.5),
-         font_size=18, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-# Feature cards
-feat_y = Inches(2.7)
-feat_h = Inches(2.0)
-feat_w = Inches(3.7)
-
-# Prediction cards
-f1 = add_rounded_rect(slide, Inches(0.8), feat_y, feat_w, feat_h, fill=SLATE_NAVY)
-add_text(slide, "Live Predictions", Inches(1.1), feat_y + Inches(0.2),
-         Inches(3.2), Inches(0.4), font_size=16, color=SKY_BLUE, bold=True)
-add_text(slide, "6 real-time ML metrics update as you edit:\nDonation referrals, donation value,\nengagement rate, forwards, profile\nvisits, impressions",
-         Inches(1.1), feat_y + Inches(0.7),
-         Inches(3.2), Inches(1.2), font_size=13, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-f2 = add_rounded_rect(slide, Inches(4.8), feat_y, feat_w, feat_h, fill=SLATE_NAVY)
-add_text(slide, "Golden Window Optimizer", Inches(5.1), feat_y + Inches(0.2),
-         Inches(3.2), Inches(0.4), font_size=16, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Simulates all 168 day/hour combos\nto find the optimal posting window.\nTop 15 slots ranked by predicted\ndonation value with 1-click scheduling",
-         Inches(5.1), feat_y + Inches(0.7),
-         Inches(3.2), Inches(1.2), font_size=13, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-f3 = add_rounded_rect(slide, Inches(8.8), feat_y, feat_w, feat_h, fill=SLATE_NAVY)
-add_text(slide, "Content Builder", Inches(9.1), feat_y + Inches(0.2),
-         Inches(3.2), Inches(0.4), font_size=16, color=SAGE_GREEN, bold=True)
-add_text(slide, "Platform, post type, media type,\ntopic, sentiment, CTA selector.\nCaption editor with character count.\nSchedule for any date/time.",
-         Inches(9.1), feat_y + Inches(0.7),
-         Inches(3.2), Inches(1.2), font_size=13, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-# Bottom emphasis
-add_rounded_rect(slide, Inches(0.8), Inches(5.1), Inches(11.7), Inches(1.6), fill=SLATE_NAVY)
-add_text(slide, "THE DEMO MOMENT", Inches(1.1), Inches(5.3),
-         Inches(3), Inches(0.4), font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Change the platform from Instagram to LinkedIn, switch the CTA from LearnMore to DonateNow, and watch all 6 prediction cards update in real time. Then click an optimal time slot to auto-schedule. This is the feature that turns a small nonprofit with zero marketing budget into a data-driven fundraising machine.",
-         Inches(1.1), Inches(5.7), Inches(11.2), Inches(0.9),
-         font_size=14, color=RGBColor(0xCC, 0xCC, 0xCC))
-
-add_text(slide, "SPEAKER NOTE: This is the star of the show. Spend 3-4 minutes here. Build a post from scratch. Change attributes and narrate the prediction changes. Show the optimal times. Click one to schedule. Emphasize: no marketing hire needed.",
-         Inches(0.8), Inches(6.8), Inches(11), Inches(0.6),
-         font_size=10, color=RGBColor(0x66, 0x66, 0x66))
-
-add_slide_number(slide, 8, TOTAL_SLIDES)
-
-
-# ════════════════════════════════════════════════════════════
-# SLIDE 9 — DEMO: DONOR INTELLIGENCE
-# ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
-
-add_text(slide, "DEMO  |  SOLUTION 3", Inches(0.8), Inches(0.4), Inches(5), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Donor Intelligence", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=GOLDEN_HONEY, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-add_text(slide, "Know your donors before they leave.",
-         Inches(0.8), Inches(1.9), Inches(10), Inches(0.5),
-         font_size=18, color=RGBColor(0xBB, 0xBB, 0xBB))
-
-items = [
-    "Supporters list with ML likelihood scores: High / Medium / Low",
-    "SHAP-derived top reasons explain each prediction in plain language",
-    "Color-coded badges for instant triage (green = likely, red = at-risk)",
-    "Sort by likelihood to prioritize outreach to at-risk donors first",
-    "Donor detail: full history, total lifetime value, frequency, avg gift",
-    "Donation tracking across all types (monetary, in-kind, time, skills, social)",
-    "Allocation view: see exactly where each dollar goes (by safehouse/program)",
-]
-add_bullet_list(slide, items, Inches(0.8), Inches(2.5), Inches(5.5), Inches(4.3),
-                font_size=15, color=RGBColor(0xCC, 0xCC, 0xCC),
-                bullet_color=(0xFF, 0xCC, 0x66))
-
-placeholder = add_rounded_rect(slide, Inches(7.2), Inches(1.8), Inches(5.5), Inches(4.8), fill=SLATE_NAVY)
-add_text(slide, "[SCREENSHOT]\nSupporters List\nwith Likelihood Badges", Inches(7.2), Inches(3.2), Inches(5.5), Inches(2),
-         font_size=18, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
-
-add_text(slide, "SPEAKER NOTE: Show supporters list. Point out the likelihood badges. Click into a donor detail. Show their history and the SHAP reasons. Demonstrate sorting by likelihood. Show allocations page.",
-         Inches(0.8), Inches(6.8), Inches(11), Inches(0.6),
-         font_size=10, color=RGBColor(0x66, 0x66, 0x66))
-
-add_slide_number(slide, 9, TOTAL_SLIDES)
-
-
-# ════════════════════════════════════════════════════════════
-# SLIDE 10 — DEMO: REPORTS & ANALYTICS
-# ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
-
-add_text(slide, "DEMO", Inches(0.8), Inches(0.4), Inches(2), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Reports & Analytics", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-items = [
-    "Donation trends over time (monthly totals and counts)",
-    "Education progress by safehouse (avg progress %, enrollment)",
-    "Health & wellbeing trends (nutrition, sleep, energy, general health)",
-    "Reintegration success rates per safehouse",
-    "Incident summary by type and severity (pie charts)",
-    "Social media post performance and platform comparison",
-    "Structured to align with Philippine Annual Accomplishment Report format",
-]
-add_bullet_list(slide, items, Inches(0.8), Inches(2.2), Inches(5.5), Inches(4.5),
-                font_size=15, color=RGBColor(0xCC, 0xCC, 0xCC),
-                bullet_color=(0xFF, 0xCC, 0x66))
-
-placeholder = add_rounded_rect(slide, Inches(7.2), Inches(1.8), Inches(5.5), Inches(4.8), fill=SLATE_NAVY)
-add_text(slide, "[SCREENSHOT]\nReports Page\nwith Charts", Inches(7.2), Inches(3.2), Inches(5.5), Inches(2),
-         font_size=18, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
-
-add_slide_number(slide, 10, TOTAL_SLIDES)
-
-
-# ════════════════════════════════════════════════════════════
-# SLIDE 11 — ML PIPELINES OVERVIEW
-# ════════════════════════════════════════════════════════════
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
-
-add_text(slide, "UNDER THE HOOD", Inches(0.8), Inches(0.4), Inches(5), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "5 Production ML Pipelines", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-# Pipeline table
 pipelines = [
     ("1", "Donor Likelihood", "Predictive", "Gradient Boosting", "F1: 0.98, AUC: 0.98", "Supporters list badges"),
     ("2", "Social Referrals", "Explanatory + Predictive", "GBM / Ridge / LightGBM", "6 target models", "Social Editor live cards"),
@@ -577,7 +498,6 @@ pipelines = [
     ("5", "Risk Prediction", "Predictive", "Random Forest", "Accuracy: 65%", "Residents list + detail"),
 ]
 
-# Header row
 header_y = Inches(2.0)
 add_shape(slide, Inches(0.6), header_y, Inches(12.1), Inches(0.45), fill=SLATE_NAVY)
 cols = [("#", 0.6, 0.4), ("Pipeline", 1.1, 2.2), ("Approach", 3.4, 2.2), ("Algorithm", 5.7, 2.2),
@@ -586,7 +506,6 @@ for label, x, w in cols:
     add_text(slide, label, Inches(x), header_y + Inches(0.05), Inches(w), Inches(0.35),
              font_size=12, color=GOLDEN_HONEY, bold=True)
 
-# Data rows
 for i, (num, name, approach, algo, metric, integration) in enumerate(pipelines):
     row_y = header_y + Inches(0.5) + Inches(i * 0.55)
     bg_color = SLATE_NAVY if i % 2 == 0 else RGBColor(0x24, 0x30, 0x3E)
@@ -596,29 +515,20 @@ for i, (num, name, approach, algo, metric, integration) in enumerate(pipelines):
         add_text(slide, vals[j], Inches(x), row_y + Inches(0.07), Inches(w), Inches(0.35),
                  font_size=12, color=WHITE if j > 0 else SKY_BLUE, bold=(j==0))
 
-# Bottom note
 add_rounded_rect(slide, Inches(0.8), Inches(5.2), Inches(11.7), Inches(1.3), fill=SLATE_NAVY)
-add_text(slide, "All 5 pipelines run nightly at 2:00 AM via automated scheduler. Models serialized with joblib. Predictions served through .NET API endpoints as CSV lookups. Every pipeline follows the full lifecycle: Problem Framing > Data Prep > Exploration > Modeling > Feature Selection > Evaluation > Deployment.",
+add_text(slide, "All 5 pipelines run nightly at 2:00 AM via automated scheduler. Models serialized with joblib. Predictions served through .NET API as CSV lookups. Every pipeline follows the full textbook lifecycle: Problem Framing > Data Prep > Exploration > Modeling > Feature Selection > Evaluation > Deployment.",
          Inches(1.1), Inches(5.4), Inches(11.2), Inches(1.0),
-         font_size=14, color=RGBColor(0xBB, 0xBB, 0xBB))
+         font_size=14, color=DIM_TEXT)
 
-add_slide_number(slide, 11, TOTAL_SLIDES)
+add_slide_number(slide, 6, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 12 — ARCHITECTURE & SECURITY
+# SLIDE 7 — ARCHITECTURE & SECURITY
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "ARCHITECTURE & SECURITY", "Built for Trust")
 
-add_text(slide, "ARCHITECTURE & SECURITY", Inches(0.8), Inches(0.4), Inches(8), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Built for Trust", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-# Left column - Architecture
 add_text(slide, "Tech Stack", Inches(0.8), Inches(2.0), Inches(5), Inches(0.5),
          font_size=18, color=SKY_BLUE, bold=True)
 arch_items = [
@@ -634,76 +544,58 @@ add_bullet_list(slide, arch_items, Inches(0.8), Inches(2.5), Inches(5.5), Inches
                 font_size=14, color=RGBColor(0xCC, 0xCC, 0xCC),
                 bullet_color=(0xA2, 0xC9, 0xE1))
 
-# Right column - Security
 add_text(slide, "Security (IS 414)", Inches(7), Inches(2.0), Inches(5), Inches(0.5),
          font_size=18, color=SAGE_GREEN, bold=True)
 sec_items = [
     "HTTPS/TLS with HTTP > HTTPS redirect",
-    "ASP.NET Identity + JWT auth + custom password policy",
-    "Role-Based Access Control (Admin / Donor / Public)",
-    "Google OAuth third-party authentication",
-    "Multi-Factor Authentication (TOTP authenticator app)",
+    "ASP.NET Identity + JWT + custom password policy",
+    "RBAC: Admin / Donor / Public roles",
+    "Google OAuth + MFA (TOTP authenticator app)",
     "Content-Security-Policy header via middleware",
     "HSTS enabled | Delete confirmation required",
     "GDPR privacy policy + functional cookie consent",
-    "Data sanitization on all inputs",
-    "Credentials in env vars, not in repo",
+    "Data sanitization | Credentials in env vars",
     "Real DBMS (PostgreSQL) for identity store",
 ]
 add_bullet_list(slide, sec_items, Inches(7), Inches(2.5), Inches(5.5), Inches(4.5),
                 font_size=13, color=RGBColor(0xCC, 0xCC, 0xCC),
                 bullet_color=(0x91, 0xB1, 0x91))
 
-add_slide_number(slide, 12, TOTAL_SLIDES)
+add_slide_number(slide, 7, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 13 — RESPONSIVENESS & ACCESSIBILITY
+# SLIDE 8 — DESIGN QUALITY
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "QUALITY", "Design, Responsiveness & Accessibility")
 
-add_text(slide, "QUALITY", Inches(0.8), Inches(0.4), Inches(5), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Design, Responsiveness & Accessibility", Inches(0.8), Inches(0.9), Inches(10), Inches(0.8),
-         font_size=34, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(1.55), Inches(1.5), GOLDEN_HONEY, Pt(3))
-
-# Cards
 cards_data = [
-    ("Clean, Calming Design", "Purpose-built color palette: Sky Blue, Sage Green, Golden Honey. Designed to feel safe and professional -- not clinical. Significant whitespace, no harsh imagery. Consistent typography (Inter/Poppins headings, Montserrat body).", SKY_BLUE),
-    ("Fully Responsive", "Every page tested on desktop and mobile. Tailwind CSS responsive utilities ensure layouts adapt gracefully. Navigation collapses to mobile menu. Tables scroll horizontally on small screens.", SAGE_GREEN),
-    ("Accessible", "Targeting Lighthouse accessibility score >= 90 on all pages. Semantic HTML, proper ARIA labels, keyboard navigation support, sufficient color contrast ratios.", GOLDEN_HONEY),
-    ("Dark Mode", "Full dark/light mode with class-based toggling. Preference stored in a browser-accessible cookie (nd_theme). React reads and applies the theme on load.", CORAL_PINK),
+    ("Clean, Calming Design", "Purpose-built palette: Sky Blue, Sage Green, Golden Honey. Designed to feel safe -- not clinical. Consistent typography, significant whitespace.", SKY_BLUE),
+    ("Fully Responsive", "Every page works on desktop and mobile. Tailwind responsive utilities. Navigation collapses to mobile menu. Tables scroll horizontally.", SAGE_GREEN),
+    ("Accessible", "Targeting Lighthouse >= 90 on all pages. Semantic HTML, ARIA labels, keyboard navigation, sufficient contrast ratios.", GOLDEN_HONEY),
+    ("Dark Mode", "Full dark/light toggle. Preference stored in browser-accessible cookie (nd_theme). React reads and applies on load.", CORAL_PINK),
 ]
 
 for i, (title, desc, color) in enumerate(cards_data):
     x = Inches(0.8) + Inches(i * 3.1)
-    card = add_rounded_rect(slide, x, Inches(2.2), Inches(2.85), Inches(4.5), fill=SLATE_NAVY)
+    card = add_rounded_rect(slide, x, Inches(2.2), Inches(2.85), Inches(4.2), fill=SLATE_NAVY)
     add_shape(slide, x, Inches(2.2), Inches(2.85), Inches(0.06), fill=color)
     add_text(slide, title, x + Inches(0.2), Inches(2.5), Inches(2.45), Inches(0.5),
              font_size=15, color=color, bold=True)
-    add_text(slide, desc, x + Inches(0.2), Inches(3.1), Inches(2.45), Inches(3.4),
-             font_size=12, color=RGBColor(0xBB, 0xBB, 0xBB))
+    add_text(slide, desc, x + Inches(0.2), Inches(3.1), Inches(2.45), Inches(3.0),
+             font_size=12, color=DIM_TEXT)
 
-add_slide_number(slide, 13, TOTAL_SLIDES)
+add_slide_number(slide, 8, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 14 — BUSINESS CASE / WHY INVEST
+# SLIDE 9 — BUSINESS CASE
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, DARK_NAVY)
-add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
+slide_header(slide, "THE CASE FOR INVESTMENT", "Why New Dawn Deserves Continued Investment")
 
-add_text(slide, "THE CASE FOR INVESTMENT", Inches(0.8), Inches(0.4), Inches(8), Inches(0.5),
-         font_size=14, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "Why New Dawn Deserves\nContinued Investment", Inches(0.8), Inches(0.9), Inches(10), Inches(1.2),
-         font_size=36, color=WHITE, bold=True, font_name="Calibri Light")
-add_accent_line(slide, Inches(0.8), Inches(2.05), Inches(2), GOLDEN_HONEY, Pt(3))
-
-# Left - key stats
+# Key stats
 stats = [
     ("5", "Production ML\nPipelines"),
     ("17", "Database Tables\nSeeded"),
@@ -712,23 +604,22 @@ stats = [
 ]
 for i, (num, label) in enumerate(stats):
     x = Inches(0.8) + Inches(i * 1.7)
-    add_text(slide, num, x, Inches(2.5), Inches(1.5), Inches(0.7),
+    add_text(slide, num, x, Inches(2.3), Inches(1.5), Inches(0.7),
              font_size=36, color=GOLDEN_HONEY, bold=True, alignment=PP_ALIGN.CENTER)
-    add_text(slide, label, x, Inches(3.2), Inches(1.5), Inches(0.8),
+    add_text(slide, label, x, Inches(3.0), Inches(1.5), Inches(0.8),
              font_size=12, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
 
-# Right - value props
-add_text(slide, "Value Delivered", Inches(7.2), Inches(2.3), Inches(5), Inches(0.5),
+add_text(slide, "Value Delivered", Inches(7.2), Inches(2.1), Inches(5), Inches(0.5),
          font_size=18, color=GOLDEN_HONEY, bold=True)
 value_items = [
     "Replaces manual risk tracking with ML-powered early warning",
     "Eliminates guesswork from social media with real-time predictions",
-    "Predicts donor lapse before it happens, enabling proactive retention",
+    "Predicts donor lapse before it happens for proactive retention",
     "Full case lifecycle management in one place for limited staff",
     "All pipelines refresh nightly -- the system gets smarter over time",
-    "Built with enterprise-grade security for the most sensitive data",
+    "Enterprise-grade security for the most sensitive data",
 ]
-add_bullet_list(slide, value_items, Inches(7.2), Inches(2.8), Inches(5.5), Inches(3.5),
+add_bullet_list(slide, value_items, Inches(7.2), Inches(2.6), Inches(5.5), Inches(3.5),
                 font_size=14, color=RGBColor(0xCC, 0xCC, 0xCC),
                 bullet_color=(0xFF, 0xCC, 0x66))
 
@@ -736,11 +627,11 @@ add_text(slide, "\"New Dawn doesn't just manage data -- it transforms data into 
          Inches(0.8), Inches(5.8), Inches(11.5), Inches(0.8),
          font_size=18, color=SKY_BLUE, alignment=PP_ALIGN.CENTER, font_name="Calibri Light")
 
-add_slide_number(slide, 14, TOTAL_SLIDES)
+add_slide_number(slide, 9, TOTAL_SLIDES)
 
 
 # ════════════════════════════════════════════════════════════
-# SLIDE 15 — CLOSING / Q&A
+# SLIDE 10 — CLOSING / Q&A
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide, DARK_NAVY)
@@ -765,7 +656,7 @@ add_text(slide, "Section 3  |  Group 9\nZack Hada   |   Lincoln Lyons   |   [Tea
          Inches(1.5), Inches(6.1), Inches(10), Inches(0.8),
          font_size=14, color=MED_GRAY, alignment=PP_ALIGN.CENTER)
 
-add_slide_number(slide, 15, TOTAL_SLIDES)
+add_slide_number(slide, 10, TOTAL_SLIDES)
 
 
 # ── Save ────────────────────────────────────────────────────
