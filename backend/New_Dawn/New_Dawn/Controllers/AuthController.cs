@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +20,26 @@ public class AuthController(
     IPasswordHasher<ApplicationUser> passwordHasher) : ControllerBase
 {
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+
+    private async Task<string> ResolveRoleForUserAsync(ApplicationUser user)
+    {
+        // Check actual Identity roles first
+        var roles = await userManager.GetRolesAsync(user);
+        if (roles.Contains("Admin")) return "Admin";
+        if (roles.Contains("Staff")) return "Staff";
+        if (roles.Contains("Donor")) return "Donor";
+
+        // Fallback to hardcoded mapping for seed accounts
+        var email = user.Email?.Trim().ToLowerInvariant();
+        return email switch
+        {
+            "admin@newdawn.ph" => "Admin",
+            "mfa@newdawn.ph" => "Admin",
+            "staff@newdawn.ph" => "Staff",
+            "donor@newdawn.ph" => "Donor",
+            _ => "Donor"
+        };
+    }
 
     [HttpPost("register")]
     [AllowAnonymous]
@@ -79,7 +101,7 @@ public class AuthController(
             });
         }
 
-        var role = ResolveRoleForUser(user);
+        var role = await ResolveRoleForUserAsync(user);
         var token = await GenerateJwtToken(user, new[] { role });
         return Ok(new AuthResponse
         {
@@ -110,7 +132,7 @@ public class AuthController(
         var role = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
         if (string.IsNullOrWhiteSpace(role))
         {
-            role = ResolveRoleForUser(user);
+            role = await ResolveRoleForUserAsync(user);
         }
 
         return Ok(new
@@ -203,7 +225,95 @@ public class AuthController(
         if (!isValid)
             return Unauthorized(new { success = false, message = "Invalid verification code" });
 
-        var role = ResolveRoleForUser(user);
+        var role = await ResolveRoleForUserAsync(user);
+        var token = await GenerateJwtToken(user, new[] { role });
+        return Ok(new AuthResponse
+        {
+            Token = token,
+            Email = user.Email!,
+            DisplayName = user.DisplayName,
+            Role = role,
+            RequiresMfa = false
+        });
+    }
+
+    [HttpPost("google")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Credential))
+            return BadRequest(new { success = false, message = "Missing Google credential" });
+
+        var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+        if (string.IsNullOrWhiteSpace(clientId))
+            return StatusCode(503, new { success = false, message = "Google Sign-In is not configured" });
+
+        // Validate the ID token with Google's tokeninfo endpoint
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var response = await httpClient.GetAsync(
+            $"https://oauth2.googleapis.com/tokeninfo?id_token={Uri.EscapeDataString(request.Credential)}");
+
+        if (!response.IsSuccessStatusCode)
+            return Unauthorized(new { success = false, message = "Invalid Google token" });
+
+        var json = await response.Content.ReadAsStringAsync();
+        var payload = JsonSerializer.Deserialize<JsonElement>(json);
+
+        var aud = payload.GetProperty("aud").GetString();
+        if (aud != clientId)
+            return Unauthorized(new { success = false, message = "Token audience mismatch" });
+
+        var email = payload.GetProperty("email").GetString();
+        var emailVerified = payload.TryGetProperty("email_verified", out var ev) && ev.GetString() == "true";
+        var name = payload.TryGetProperty("name", out var n) ? n.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(email) || !emailVerified)
+            return Unauthorized(new { success = false, message = "Google account email is not verified" });
+
+        // Find or create user
+        var user = await userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                DisplayName = name ?? email.Split('@')[0],
+                EmailConfirmed = true
+            };
+
+            var createResult = await userManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+            {
+                var errors = createResult.Errors.Select(e => e.Description).ToArray();
+                return BadRequest(new { success = false, message = errors.FirstOrDefault() ?? "Failed to create account", errors });
+            }
+
+            await userManager.AddToRoleAsync(user, "Donor");
+            await userManager.AddLoginAsync(user, new UserLoginInfo("Google", payload.GetProperty("sub").GetString()!, "Google"));
+        }
+        else
+        {
+            // Link Google login if not already linked
+            var logins = await userManager.GetLoginsAsync(user);
+            if (!logins.Any(l => l.LoginProvider == "Google"))
+            {
+                await userManager.AddLoginAsync(user, new UserLoginInfo("Google", payload.GetProperty("sub").GetString()!, "Google"));
+            }
+        }
+
+        if (user.TwoFactorEnabled)
+        {
+            return Ok(new AuthResponse
+            {
+                RequiresMfa = true,
+                Email = user.Email!
+            });
+        }
+
+        var role = await ResolveRoleForUserAsync(user);
         var token = await GenerateJwtToken(user, new[] { role });
         return Ok(new AuthResponse
         {
@@ -267,17 +377,4 @@ public class AuthController(
         return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(token));
     }
 
-    private static string ResolveRoleForUser(ApplicationUser user)
-    {
-        var email = user.Email?.Trim().ToLowerInvariant();
-
-        return email switch
-        {
-            "admin@newdawn.ph" => "Admin",
-            "mfa@newdawn.ph" => "Admin",
-            "staff@newdawn.ph" => "Staff",
-            "donor@newdawn.ph" => "Donor",
-            _ => "Donor"
-        };
-    }
 }

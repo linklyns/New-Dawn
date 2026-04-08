@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Check, X } from 'lucide-react';
+import { useGoogleLogin } from '../../hooks/useGoogleLogin';
 import type { AuthResponse } from '../../types/auth';
 import logoSymbol from '../../assets/favicon.png';
 
@@ -39,6 +40,31 @@ export function RegisterPage() {
   const login = useAuthStore((s) => s.login);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleCredential = async (credential: string) => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await api.post<AuthResponse>('/api/auth/google', { credential });
+      login(res.token, {
+        email: res.email,
+        displayName: res.displayName,
+        role: res.role,
+        has2fa: false,
+      });
+      navigate(redirectTo || '/admin');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-up failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useGoogleLogin({
+    onCredential: handleGoogleCredential,
+    buttonElementId: 'google-signup-btn',
+    buttonText: 'signup_with',
+  });
 
   const {
     register,
@@ -146,6 +172,19 @@ export function RegisterPage() {
           <Button type="submit" loading={loading} className="w-full">
             Create Account
           </Button>
+
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-navy/10" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-warm-gray dark:bg-slate-navy">
+                Or sign up with
+              </span>
+            </div>
+          </div>
+
+          <div id="google-signup-btn" className="flex justify-center" />
 
           <p className="text-center text-sm text-warm-gray">
             Already have an account?{' '}

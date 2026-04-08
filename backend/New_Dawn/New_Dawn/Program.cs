@@ -126,6 +126,24 @@ if (runDbInitOnStartup)
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             await context.Database.MigrateAsync();
+
+            // Enable RLS on all public tables so Supabase PostgREST can't bypass app-level auth.
+            // The postgres connection role bypasses RLS, so the .NET backend is unaffected.
+            await context.Database.ExecuteSqlRawAsync("""
+                DO $$
+                DECLARE t text;
+                BEGIN
+                  FOR t IN
+                    SELECT quote_ident(tablename)
+                    FROM pg_tables
+                    WHERE schemaname = 'public'
+                      AND NOT rowsecurity
+                  LOOP
+                    EXECUTE format('ALTER TABLE public.%s ENABLE ROW LEVEL SECURITY', t);
+                  END LOOP;
+                END $$;
+                """);
+
             await CsvSeeder.SeedAsync(context, userManager, roleManager,
                 Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "lighthouse_csv_v7"));
         }
