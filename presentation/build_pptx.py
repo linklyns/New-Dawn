@@ -203,38 +203,42 @@ slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide, DARK_NAVY)
 add_shape(slide, 0, 0, W, Inches(0.08), fill=GOLDEN_HONEY)
 
-# No big header -- let the words breathe
+# Addressed TO the client (judges). Brief -- they know their own mission.
 
 add_text(slide,
-         "In the Philippines, thousands of girls are survivors of\nsexual abuse and trafficking.",
-         Inches(1.5), Inches(1.2), Inches(10.3), Inches(1.2),
-         font_size=28, color=SOFT_WHITE, alignment=PP_ALIGN.CENTER,
+         "YOUR MISSION", Inches(1.5), Inches(1.0), Inches(10.3), Inches(0.5),
+         font_size=14, color=GOLDEN_HONEY, bold=True, alignment=PP_ALIGN.CENTER)
+
+add_text(slide,
+         "You're building an organization to provide safe homes for girls\nwho are survivors of sexual abuse and trafficking in the Philippines.",
+         Inches(1.5), Inches(1.6), Inches(10.3), Inches(1.2),
+         font_size=26, color=SOFT_WHITE, alignment=PP_ALIGN.CENTER,
          font_name="Calibri Light", line_spacing=1.5)
 
 add_text(slide,
-         "Many are minors. Many have nowhere safe to go.",
-         Inches(1.5), Inches(2.6), Inches(10.3), Inches(0.7),
-         font_size=22, color=MED_GRAY, alignment=PP_ALIGN.CENTER,
-         font_name="Calibri Light")
+         "Caring. Healing. Teaching.",
+         Inches(1.5), Inches(3.0), Inches(10.3), Inches(0.7),
+         font_size=22, color=SKY_BLUE, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", bold=True)
 
-add_accent_line(slide, Inches(5.8), Inches(3.6), Inches(1.7), GOLDEN_HONEY, Pt(2))
+add_accent_line(slide, Inches(5.8), Inches(3.8), Inches(1.7), GOLDEN_HONEY, Pt(2))
 
 add_text(slide,
-         "Organizations like Lighthouse Sanctuary operate safe homes\nwhere these girls can begin to heal -- through shelter, counseling,\neducation, and eventually, reintegration into safe communities.",
-         Inches(1.5), Inches(4.0), Inches(10.3), Inches(1.5),
+         "Shelter, counseling, education, and reintegration\nfor the most vulnerable -- with limited staff, limited budget,\nand data that could be saving lives if you had the tools to use it.",
+         Inches(1.5), Inches(4.2), Inches(10.3), Inches(1.5),
          font_size=20, color=DIM_TEXT, alignment=PP_ALIGN.CENTER,
          font_name="Calibri Light", line_spacing=1.5)
 
 add_text(slide,
-         "Our client is building a new organization to extend this work\ninto regions where these services don't yet exist.",
-         Inches(1.5), Inches(5.6), Inches(10.3), Inches(1.0),
-         font_size=20, color=SKY_BLUE, alignment=PP_ALIGN.CENTER,
-         font_name="Calibri Light", line_spacing=1.5)
+         "You asked us to build those tools.",
+         Inches(1.5), Inches(5.8), Inches(10.3), Inches(0.6),
+         font_size=22, color=GOLDEN_HONEY, alignment=PP_ALIGN.CENTER,
+         font_name="Calibri Light", bold=True)
 
 add_text(slide,
-         "They asked us to build the technology to help them do it.",
-         Inches(1.5), Inches(6.5), Inches(10.3), Inches(0.6),
-         font_size=18, color=GOLDEN_HONEY, alignment=PP_ALIGN.CENTER,
+         "This is what we built.",
+         Inches(1.5), Inches(6.4), Inches(10.3), Inches(0.6),
+         font_size=18, color=MED_GRAY, alignment=PP_ALIGN.CENTER,
          font_name="Calibri Light")
 
 add_slide_number(slide, 2, TOTAL_SLIDES)
@@ -244,7 +248,7 @@ add_slide_number(slide, 2, TOTAL_SLIDES)
 # SLIDE 3 — THE CHALLENGES (framed with empathy)
 # ════════════════════════════════════════════════════════════
 slide = prs.slides.add_slide(prs.slide_layouts[6])
-slide_header(slide, "WHAT THEY TOLD US", "Three Things That Keep Them Up at Night")
+slide_header(slide, "WHAT YOU SHARED WITH US", "Three Things That Keep You Up at Night")
 
 # Three cards -- same layout but with softer framing
 card_y = Inches(2.2)
@@ -260,7 +264,7 @@ add_text(slide, "\"We worry about girls\nfalling through the cracks.\"",
          sx + Inches(0.3), card_y + Inches(0.4),
          Inches(3), Inches(1.0), font_size=17, color=SAGE_GREEN, bold=True,
          font_name="Calibri Light")
-add_text(slide, "With limited staff across multiple safehouses, they can't always see which girls are progressing and which are struggling. They have no way to predict when someone is ready for reintegration -- or at risk of regression.",
+add_text(slide, "With limited staff across multiple safehouses, you can't always see which girls are progressing and which are struggling. There's no way to predict when someone is ready for reintegration -- or at risk of regression.",
          sx + Inches(0.3), card_y + Inches(1.6),
          Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
@@ -272,7 +276,7 @@ add_text(slide, "\"We don't know what\nto post or when.\"",
          c2x + Inches(0.3), card_y + Inches(0.4),
          Inches(3), Inches(1.0), font_size=17, color=SKY_BLUE, bold=True,
          font_name="Calibri Light")
-add_text(slide, "Social media is their primary channel for reaching donors, but the founders freely admit they aren't experienced with it. They post sporadically and can't tell what actually drives donations versus just generating likes.",
+add_text(slide, "Social media is your primary channel for reaching donors, but you've told us you aren't experienced with it. You post sporadically and can't tell what actually drives donations versus just generating likes.",
          c2x + Inches(0.3), card_y + Inches(1.6),
          Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
@@ -284,7 +288,7 @@ add_text(slide, "\"We lose donors and\ndon't understand why.\"",
          c3x + Inches(0.3), card_y + Inches(0.4),
          Inches(3), Inches(1.0), font_size=17, color=GOLDEN_HONEY, bold=True,
          font_name="Calibri Light")
-add_text(slide, "The organization depends entirely on donations. They run fundraising campaigns but aren't sure which ones move the needle. They want to know which donors might give more, which are at risk of lapsing, and how to personalize outreach without a marketing team.",
+add_text(slide, "Your organization depends entirely on donations. You run fundraising campaigns but aren't sure which ones move the needle. You want to know which donors might give more, which are at risk of lapsing, and how to personalize outreach without a marketing team.",
          c3x + Inches(0.3), card_y + Inches(1.6),
          Inches(3), Inches(2.6), font_size=14, color=DIM_TEXT)
 
