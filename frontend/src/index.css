@@ -35,3 +35,51 @@
     font-family: var(--font-heading);
   }
 }
+
+@layer components {
+  .rich-text-editor .ql-toolbar {
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-slate-navy) 12%, transparent);
+    background: color-mix(in srgb, var(--color-coral-pink) 35%, white);
+    padding: 0.75rem 1rem;
+  }
+
+  .dark .rich-text-editor .ql-toolbar {
+    border-bottom-color: color-mix(in srgb, white 10%, transparent);
+    background: color-mix(in srgb, var(--color-dark-surface) 82%, transparent);
+  }
+
+  .rich-text-editor .ql-container {
+    border: 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+  }
+
+  .rich-text-editor .ql-editor {
+    min-height: 14rem;
+    padding: 1rem;
+    color: var(--color-slate-navy);
+    line-height: 1.75;
+  }
+
+  .dark .rich-text-editor .ql-editor {
+    color: var(--color-white);
+  }
+
+  .rich-text-editor .ql-editor.ql-blank::before {
+    color: color-mix(in srgb, var(--color-warm-gray) 75%, transparent);
+    font-style: normal;
+  }
+
+  .dark .rich-text-editor .ql-stroke {
+    stroke: var(--color-white);
+  }
+
+  .dark .rich-text-editor .ql-fill {
+    fill: var(--color-white);
+  }
+
+  .dark .rich-text-editor .ql-picker {
+    color: var(--color-white);
+  }
+}

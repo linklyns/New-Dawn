@@ -152,6 +152,60 @@ export interface SocialMediaPost {
   forwards: number | null;
 }
 
+export interface SocialMediaDraftChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface SocialMediaDraftMedia {
+  mediaId: number;
+  fileName: string;
+  contentType: string;
+  mediaKind: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface SocialMediaDraftSummary {
+  draftId: number;
+  title: string;
+  stage: string;
+  status: string;
+  platform: string;
+  mediaType: string;
+  contentTopic: string;
+  sentimentTone: string;
+  updatedAt: string;
+  mediaCount: number;
+}
+
+export interface SocialMediaDraft {
+  draftId: number;
+  title: string;
+  stage: string;
+  status: string;
+  platform: string;
+  postType: string;
+  mediaType: string;
+  callToActionType: string;
+  contentTopic: string;
+  sentimentTone: string;
+  hashtags: string;
+  audience: string;
+  campaignName: string;
+  additionalInstructions: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+  websiteUrl: string;
+  scheduledDay: string | null;
+  scheduledHour: number | null;
+  chatHistory: SocialMediaDraftChatMessage[];
+  mediaItems: SocialMediaDraftMedia[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProcessRecording {
   recordingId: number;
   residentId: number;

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAuthStore } from './stores/authStore';
 import MfaPromptModal from './components/ui/MfaPromptModal';
 import { AppShell } from './components/layout/AppShell';
@@ -11,32 +11,33 @@ import { LandingPage } from './features/landing/LandingPage';
 import { ImpactDashboard } from './features/impact/ImpactDashboard';
 import { PrivacyPolicyPage } from './features/privacy/PrivacyPolicyPage';
 import { CookieConsentBanner } from './features/privacy/CookieConsentBanner';
-import { AdminDashboard } from './features/dashboard/AdminDashboard';
-import { ResidentsList } from './features/residents/ResidentsList';
-import { ResidentDetail } from './features/residents/ResidentDetail';
-import { ProcessRecordingsPage } from './features/case-management/ProcessRecordingsPage';
-import { HomeVisitationsPage } from './features/case-management/HomeVisitationsPage';
-import { EducationRecordsPage } from './features/case-management/EducationRecordsPage';
-import { HealthRecordsPage } from './features/case-management/HealthRecordsPage';
-import { InterventionPlansPage } from './features/case-management/InterventionPlansPage';
-import { IncidentReportsPage } from './features/case-management/IncidentReportsPage';
-import { AllRecordingsPage } from './features/case-management/AllRecordingsPage';
-import { AllVisitationsPage } from './features/case-management/AllVisitationsPage';
-import { AllEducationPage } from './features/case-management/AllEducationPage';
-import { AllHealthPage } from './features/case-management/AllHealthPage';
-import { AllInterventionsPage } from './features/case-management/AllInterventionsPage';
-import { AllIncidentsPage } from './features/case-management/AllIncidentsPage';
-import { SupportersList } from './features/donors/SupportersList';
-import { SupporterDetail } from './features/donors/SupporterDetail';
-import { DonationsList } from './features/donors/DonationsList';
-import { AllocationsList } from './features/donors/AllocationsList';
-import { ReportsPage } from './features/reports/ReportsPage';
-import { SocialAnalyticsPage } from './features/social-media/SocialAnalyticsPage';
-import { SocialEditorPage } from './features/social-media/SocialEditorPage';
-import { ProfilePage } from './features/profile/ProfilePage';
 import { DonatePage } from './features/donate/DonatePage';
-import { UserManagementPage } from './features/admin/UserManagementPage';
-import { PartnersList } from './features/partners/PartnersList';
+
+const AdminDashboard = lazy(async () => ({ default: (await import('./features/dashboard/AdminDashboard')).AdminDashboard }));
+const ResidentsList = lazy(async () => ({ default: (await import('./features/residents/ResidentsList')).ResidentsList }));
+const ResidentDetail = lazy(async () => ({ default: (await import('./features/residents/ResidentDetail')).ResidentDetail }));
+const ProcessRecordingsPage = lazy(async () => ({ default: (await import('./features/case-management/ProcessRecordingsPage')).ProcessRecordingsPage }));
+const HomeVisitationsPage = lazy(async () => ({ default: (await import('./features/case-management/HomeVisitationsPage')).HomeVisitationsPage }));
+const EducationRecordsPage = lazy(async () => ({ default: (await import('./features/case-management/EducationRecordsPage')).EducationRecordsPage }));
+const HealthRecordsPage = lazy(async () => ({ default: (await import('./features/case-management/HealthRecordsPage')).HealthRecordsPage }));
+const InterventionPlansPage = lazy(async () => ({ default: (await import('./features/case-management/InterventionPlansPage')).InterventionPlansPage }));
+const IncidentReportsPage = lazy(async () => ({ default: (await import('./features/case-management/IncidentReportsPage')).IncidentReportsPage }));
+const AllRecordingsPage = lazy(async () => ({ default: (await import('./features/case-management/AllRecordingsPage')).AllRecordingsPage }));
+const AllVisitationsPage = lazy(async () => ({ default: (await import('./features/case-management/AllVisitationsPage')).AllVisitationsPage }));
+const AllEducationPage = lazy(async () => ({ default: (await import('./features/case-management/AllEducationPage')).AllEducationPage }));
+const AllHealthPage = lazy(async () => ({ default: (await import('./features/case-management/AllHealthPage')).AllHealthPage }));
+const AllInterventionsPage = lazy(async () => ({ default: (await import('./features/case-management/AllInterventionsPage')).AllInterventionsPage }));
+const AllIncidentsPage = lazy(async () => ({ default: (await import('./features/case-management/AllIncidentsPage')).AllIncidentsPage }));
+const SupportersList = lazy(async () => ({ default: (await import('./features/donors/SupportersList')).SupportersList }));
+const SupporterDetail = lazy(async () => ({ default: (await import('./features/donors/SupporterDetail')).SupporterDetail }));
+const DonationsList = lazy(async () => ({ default: (await import('./features/donors/DonationsList')).DonationsList }));
+const AllocationsList = lazy(async () => ({ default: (await import('./features/donors/AllocationsList')).AllocationsList }));
+const ReportsPage = lazy(async () => ({ default: (await import('./features/reports/ReportsPage')).ReportsPage }));
+const SocialAnalyticsPage = lazy(async () => ({ default: (await import('./features/social-media/SocialAnalyticsPage')).SocialAnalyticsPage }));
+const SocialEditorPage = lazy(async () => ({ default: (await import('./features/social-media/SocialEditorPage')).SocialEditorPage }));
+const ProfilePage = lazy(async () => ({ default: (await import('./features/profile/ProfilePage')).ProfilePage }));
+const UserManagementPage = lazy(async () => ({ default: (await import('./features/admin/UserManagementPage')).UserManagementPage }));
+const PartnersList = lazy(async () => ({ default: (await import('./features/partners/PartnersList')).PartnersList }));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +51,14 @@ const queryClient = new QueryClient({
 function NotFoundRedirect() {
   const { isAuthenticated } = useAuthStore();
   return <Navigate to={isAuthenticated ? '/admin' : '/'} replace />;
+}
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center rounded-3xl bg-white/70 dark:bg-slate-navy/40">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-blue border-t-transparent" />
+    </div>
+  );
 }
 
 function AppContent() {
@@ -126,38 +135,38 @@ function AppContent() {
           </ProtectedRoute>
         }
       >
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/residents" element={<ResidentsList />} />
-        <Route path="/admin/residents/new" element={<ResidentDetail />} />
-        <Route path="/admin/residents/:id" element={<ResidentDetail />} />
-        <Route path="/admin/case/recordings" element={<AllRecordingsPage />} />
-        <Route path="/admin/case/visits" element={<AllVisitationsPage />} />
-        <Route path="/admin/case/education" element={<AllEducationPage />} />
-        <Route path="/admin/case/health" element={<AllHealthPage />} />
-        <Route path="/admin/case/interventions" element={<AllInterventionsPage />} />
-        <Route path="/admin/case/incidents" element={<AllIncidentsPage />} />
-        <Route path="/admin/case/:residentId/recordings" element={<ProcessRecordingsPage />} />
-        <Route path="/admin/case/:residentId/visits" element={<HomeVisitationsPage />} />
-        <Route path="/admin/case/:residentId/education" element={<EducationRecordsPage />} />
-        <Route path="/admin/case/:residentId/health" element={<HealthRecordsPage />} />
-        <Route path="/admin/case/:residentId/interventions" element={<InterventionPlansPage />} />
-        <Route path="/admin/case/:residentId/incidents" element={<IncidentReportsPage />} />
-        <Route path="/admin/supporters" element={<SupportersList />} />
-        <Route path="/admin/supporters/:id" element={<SupporterDetail />} />
-        <Route path="/admin/donations" element={<DonationsList />} />
-        <Route path="/admin/allocations" element={<AllocationsList />} />
-        <Route path="/admin/reports" element={<ReportsPage />} />
-        <Route path="/admin/social" element={<SocialAnalyticsPage />} />
-        <Route path="/admin/social/editor" element={<SocialEditorPage />} />
+        <Route path="/admin" element={<Suspense fallback={<RouteLoadingFallback />}><AdminDashboard /></Suspense>} />
+        <Route path="/admin/residents" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentsList /></Suspense>} />
+        <Route path="/admin/residents/new" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
+        <Route path="/admin/residents/:id" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
+        <Route path="/admin/case/recordings" element={<Suspense fallback={<RouteLoadingFallback />}><AllRecordingsPage /></Suspense>} />
+        <Route path="/admin/case/visits" element={<Suspense fallback={<RouteLoadingFallback />}><AllVisitationsPage /></Suspense>} />
+        <Route path="/admin/case/education" element={<Suspense fallback={<RouteLoadingFallback />}><AllEducationPage /></Suspense>} />
+        <Route path="/admin/case/health" element={<Suspense fallback={<RouteLoadingFallback />}><AllHealthPage /></Suspense>} />
+        <Route path="/admin/case/interventions" element={<Suspense fallback={<RouteLoadingFallback />}><AllInterventionsPage /></Suspense>} />
+        <Route path="/admin/case/incidents" element={<Suspense fallback={<RouteLoadingFallback />}><AllIncidentsPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/recordings" element={<Suspense fallback={<RouteLoadingFallback />}><ProcessRecordingsPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/visits" element={<Suspense fallback={<RouteLoadingFallback />}><HomeVisitationsPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/education" element={<Suspense fallback={<RouteLoadingFallback />}><EducationRecordsPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/health" element={<Suspense fallback={<RouteLoadingFallback />}><HealthRecordsPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/interventions" element={<Suspense fallback={<RouteLoadingFallback />}><InterventionPlansPage /></Suspense>} />
+        <Route path="/admin/case/:residentId/incidents" element={<Suspense fallback={<RouteLoadingFallback />}><IncidentReportsPage /></Suspense>} />
+        <Route path="/admin/supporters" element={<Suspense fallback={<RouteLoadingFallback />}><SupportersList /></Suspense>} />
+        <Route path="/admin/supporters/:id" element={<Suspense fallback={<RouteLoadingFallback />}><SupporterDetail /></Suspense>} />
+        <Route path="/admin/donations" element={<Suspense fallback={<RouteLoadingFallback />}><DonationsList /></Suspense>} />
+        <Route path="/admin/allocations" element={<Suspense fallback={<RouteLoadingFallback />}><AllocationsList /></Suspense>} />
+        <Route path="/admin/reports" element={<Suspense fallback={<RouteLoadingFallback />}><ReportsPage /></Suspense>} />
+        <Route path="/admin/social" element={<Suspense fallback={<RouteLoadingFallback />}><SocialAnalyticsPage /></Suspense>} />
+        <Route path="/admin/social/editor" element={<Suspense fallback={<RouteLoadingFallback />}><SocialEditorPage /></Suspense>} />
         <Route path="/admin/partners" element={
           <ProtectedRoute requiredRole="Admin">
-            <PartnersList />
+            <Suspense fallback={<RouteLoadingFallback />}><PartnersList /></Suspense>
           </ProtectedRoute>
         } />
-        <Route path="/admin/profile" element={<ProfilePage />} />
+        <Route path="/admin/profile" element={<Suspense fallback={<RouteLoadingFallback />}><ProfilePage /></Suspense>} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="Admin">
-            <UserManagementPage />
+            <Suspense fallback={<RouteLoadingFallback />}><UserManagementPage /></Suspense>
           </ProtectedRoute>
         } />
       </Route>

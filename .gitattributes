@@ -1,0 +1,5 @@
+# Normalize line endings for text files to LF on commit
+* text=auto
+
+# Keep Jupyter notebooks with LF (prevents mid-word diff noise)
+*.ipynb text eol=lf
