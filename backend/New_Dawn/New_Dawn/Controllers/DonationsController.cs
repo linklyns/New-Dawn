@@ -101,9 +101,79 @@ public class DonationsController(AppDbContext db, UserManager<ApplicationUser> u
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] Donation entity)
     {
+        if (!User.IsInRole("Admin"))
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var appUser = await userManager.FindByIdAsync(userId!);
+            if (appUser == null)
+                return StatusCode(403, new { success = false, message = "Donor account was not found." });
+
+            if (appUser.LinkedSupporterId == null)
+            {
+                var supporterByEmail = await db.Supporters
+                    .FirstOrDefaultAsync(s => s.Email == appUser.Email);
+
+                if (supporterByEmail == null)
+                {
+                    var nextSupporterId = (await db.Supporters.MaxAsync(s => (int?)s.SupporterId) ?? 0) + 1;
+                    var displayName = string.IsNullOrWhiteSpace(appUser.DisplayName)
+                        ? (appUser.Email ?? "New Donor")
+                        : appUser.DisplayName;
+                    var nameParts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var firstName = nameParts.Length > 0 ? nameParts[0] : "Donor";
+                    var lastName = nameParts.Length > 1 ? string.Join(' ', nameParts.Skip(1)) : "User";
+
+                    supporterByEmail = new Supporter
+                    {
+                        SupporterId = nextSupporterId,
+                        SupporterType = "MonetaryDonor",
+                        DisplayName = displayName,
+                        FirstName = firstName,
+                        LastName = lastName,
+                        RelationshipType = "Local",
+                        Region = "Unknown",
+                        Country = "Philippines",
+                        Email = appUser.Email ?? string.Empty,
+                        Phone = string.Empty,
+                        Status = "Active",
+                        CreatedAt = DateTime.UtcNow,
+                        FirstDonationDate = entity.DonationDate,
+                        AcquisitionChannel = string.IsNullOrWhiteSpace(entity.ChannelSource) ? "Website" : entity.ChannelSource,
+                    };
+
+                    db.Supporters.Add(supporterByEmail);
+                    await db.SaveChangesAsync();
+                }
+
+                appUser.LinkedSupporterId = supporterByEmail.SupporterId;
+                await userManager.UpdateAsync(appUser);
+            }
+
+            if (appUser.LinkedSupporterId == null)
+            {
+                return StatusCode(403, new
+                {
+                    success = false,
+                    message = "Your donor account is not linked to a supporter profile yet. Please contact an admin."
+                });
+            }
+
+            // Donors can only create donations for their own linked supporter.
+            entity.SupporterId = appUser.LinkedSupporterId.Value;
+        }
+
+        // Some environments seed explicit IDs and do not run sequence repair at startup.
+        // Assigning the next ID avoids duplicate key violations when identity sequence is stale.
+        if (entity.DonationId <= 0)
+        {
+            var maxDonationId = await db.Donations.MaxAsync(d => (int?)d.DonationId) ?? 0;
+            entity.DonationId = maxDonationId + 1;
+        }
+
+        NormalizeDonationByType(entity);
+
         db.Donations.Add(entity);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = entity.DonationId }, entity);
@@ -116,6 +186,7 @@ public class DonationsController(AppDbContext db, UserManager<ApplicationUser> u
         if (id != entity.DonationId) return BadRequest(new { success = false, message = "ID mismatch" });
         var existing = await db.Donations.FindAsync(id);
         if (existing == null) return NotFound(new { success = false, message = "Not found" });
+        NormalizeDonationByType(entity);
         db.Entry(existing).CurrentValues.SetValues(entity);
         await db.SaveChangesAsync();
         return Ok(entity);
@@ -131,5 +202,32 @@ public class DonationsController(AppDbContext db, UserManager<ApplicationUser> u
         db.Donations.Remove(entity);
         await db.SaveChangesAsync();
         return Ok(new { success = true, message = "Deleted" });
+    }
+
+    private static void NormalizeDonationByType(Donation entity)
+    {
+        if (entity.DonationType == "Monetary")
+        {
+            entity.CurrencyCode = string.IsNullOrWhiteSpace(entity.CurrencyCode) ? "PHP" : entity.CurrencyCode;
+            entity.EstimatedValue = entity.Amount ?? 0;
+            entity.ImpactUnit = "pesos";
+            return;
+        }
+
+        entity.CurrencyCode = null;
+        entity.Amount = null;
+        entity.EstimatedValue = 0;
+
+        if (string.IsNullOrWhiteSpace(entity.ImpactUnit))
+        {
+            entity.ImpactUnit = entity.DonationType switch
+            {
+                "InKind" => "items",
+                "Time" => "hours",
+                "Skills" => "skills",
+                "SocialMedia" => "engagement",
+                _ => "units",
+            };
+        }
     }
 }

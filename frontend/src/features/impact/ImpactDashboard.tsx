@@ -25,7 +25,7 @@ interface DashboardData {
   safehouseRegions: { region: string; count: number; occupancy: number }[];
 }
 
-const PIE_COLORS = ['#A2C9E1', '#91B191', '#FFCC66', '#2D3A4A', '#FFE6E1'];
+const PIE_COLORS = ['#A2C9E1', '#91B191', '#FFCC66', '#2D3A4A', '#E85D75'];
 
 // Static outcomes data (not directly queryable from DB aggregates)
 const outcomesData = [

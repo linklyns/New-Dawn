@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getPageSizeOptions } from '../../lib/pagination';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -59,7 +60,7 @@ export function ResidentsList() {
   const navigate = useNavigate();
 
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(20);
   const [caseStatus, setCaseStatus] = useState('');
   const [safehouseId, setSafehouseId] = useState('');
   const [caseCategory, setCaseCategory] = useState('');
@@ -96,6 +97,11 @@ export function ResidentsList() {
   });
 
   const resetPage = () => setPage(1);
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  };
 
   const { data: riskResp } = useQuery({
     queryKey: ['risk-predictions'],
@@ -283,8 +289,12 @@ export function ResidentsList() {
             navigate(`/admin/residents/${(row as unknown as Resident).residentId}`)
           }
           page={residentsData?.page}
+          pageSize={pageSize}
           totalPages={residentsData?.totalPages}
+          totalCount={residentsData?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(residentsData?.totalCount)}
         />
       </Card>
     </div>

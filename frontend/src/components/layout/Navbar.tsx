@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Menu, X } from 'lucide-react';
-import { useThemeStore } from '../../stores/themeStore';
+import { Menu, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../ui/Button';
-import logoSymbol from '../../assets/favicon.png';
+import { BrandHomeLink } from './BrandHomeLink';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -14,28 +13,34 @@ const navLinks = [
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isDark, toggle } = useThemeStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userRole = useAuthStore((s) => s.user?.role);
   const location = useLocation();
 
+  const getHomeLink = () => {
+    if (isAuthenticated) {
+      return userRole === 'Donor' ? '/donate' : '/admin';
+    }
+    return '/';
+  };
+
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-navy/10 bg-white dark:border-white/10 dark:bg-dark-surface">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        {/* Left: Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logoSymbol} alt="New Dawn" className="h-9 w-9" />
-          <span className="font-heading text-lg font-bold text-slate-navy dark:text-white">
-            New Dawn
-          </span>
-        </Link>
+    <nav className="sticky top-0 z-40 border-b border-sky-blue/20 bg-white shadow-md transition-all dark:border-white/10 dark:bg-dark-surface">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6">
+        {/* Left: Logo & Brand - Full height, no padding */}
+        <BrandHomeLink to={getHomeLink()} />
 
         {/* Center: Desktop nav links */}
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className={`text-sm font-medium transition-colors hover:text-golden-honey ${location.pathname === link.to ? 'text-golden-honey' : 'text-slate-navy dark:text-white'}`}
+              className={`text-sm font-medium transition-colors duration-200 ${
+                location.pathname === link.to
+                  ? 'text-golden-honey'
+                  : 'text-slate-navy hover:text-golden-honey dark:text-white dark:hover:text-golden-honey'
+              }`}
             >
               {link.label}
             </Link>
@@ -44,23 +49,15 @@ export function Navbar() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={toggle}
-            className="rounded-lg p-2 text-slate-navy transition-colors hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10"
-            aria-label="Toggle dark mode"
-          >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-
           <div className="hidden md:block">
             {isAuthenticated ? (
-              <Link to="/admin">
+              <Link to="/admin" className="transition-opacity hover:opacity-80">
                 <Button variant="primary" size="sm">
                   Dashboard
                 </Button>
               </Link>
             ) : (
-              <Link to="/login">
+              <Link to="/login" className="transition-opacity hover:opacity-80">
                 <Button variant="primary" size="sm">
                   Login
                 </Button>
@@ -70,7 +67,7 @@ export function Navbar() {
 
           {/* Mobile hamburger */}
           <button
-            className="rounded-lg p-2 text-slate-navy md:hidden dark:text-white"
+            className="rounded-lg p-2 text-slate-navy transition-colors hover:bg-sky-blue/10 md:hidden dark:text-white dark:hover:bg-sky-blue/20"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -81,26 +78,30 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-slate-navy/10 px-4 pb-4 md:hidden dark:border-white/10">
-          <div className="flex flex-col gap-3 pt-3">
+        <div className="border-t border-sky-blue/20 px-4 pb-4 md:hidden dark:border-white/10">
+          <div className="flex flex-col gap-3 pt-4">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`text-sm font-medium ${location.pathname === link.to ? 'text-golden-honey' : 'text-slate-navy dark:text-white'}`}
+                className={`text-sm font-medium transition-colors ${
+                  location.pathname === link.to
+                    ? 'text-golden-honey'
+                    : 'text-slate-navy hover:text-golden-honey dark:text-white dark:hover:text-golden-honey'
+                }`}
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
             {isAuthenticated ? (
-              <Link to="/admin" onClick={() => setMobileOpen(false)}>
+              <Link to="/admin" onClick={() => setMobileOpen(false)} className="mt-2">
                 <Button variant="primary" size="sm" className="w-full">
                   Dashboard
                 </Button>
               </Link>
             ) : (
-              <Link to="/login" onClick={() => setMobileOpen(false)}>
+              <Link to="/login" onClick={() => setMobileOpen(false)} className="mt-2">
                 <Button variant="primary" size="sm" className="w-full">
                   Login
                 </Button>

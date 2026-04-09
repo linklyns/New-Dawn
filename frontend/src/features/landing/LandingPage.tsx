@@ -50,24 +50,28 @@ export function LandingPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-white to-sky-blue/30 px-4 py-20 dark:from-slate-navy dark:to-sky-blue/10 sm:px-6 sm:py-28">
-        <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-          <img
-            src={logo}
-            alt="New Dawn - A Path to Healing and Hope"
-            className="mb-8 h-24 sm:h-32"
-          />
-          <h1 className="font-heading text-4xl font-bold text-slate-navy dark:text-white sm:text-5xl lg:text-6xl">
-            New Dawn
+      <section
+        className="relative overflow-hidden bg-slate-900 px-4 py-24 sm:px-6 lg:py-32"
+        style={{
+          backgroundImage:
+            "url('/landing-hero.jpg'), url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80')",
+          backgroundPosition: 'top center',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          minHeight: '70vh',
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-900/60" />
+        <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+          <h1 className="font-heading text-4xl font-bold text-white sm:text-5xl lg:text-6xl">
+            Every Girl Deserves a <span className="text-golden-honey">New Dawn</span>
           </h1>
-          <p className="mt-3 font-heading text-lg font-medium text-golden-honey-text dark:text-golden-honey sm:text-xl">
-            A Path to Healing and Hope
+          <p className="mt-5 text-base leading-8 text-slate-100/90 sm:text-lg">
+            A path to healing and hope. We provide shelter, support, and hope for girls escaping abuse.
           </p>
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-warm-gray dark:text-white/70 sm:text-lg">
-            We provide safe harbor for girls in crisis, guiding them from
-            darkness toward the promise of a new dawn. Through our network of
-            safehouses across the Philippines, we offer shelter, healing,
-            education, and the support needed to rebuild their lives.
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-100/80 sm:text-lg">
+            We provide safe harbor for girls in crisis, guiding them from darkness toward the promise of a new dawn.
+            Through our network of safehouses across the Philippines, we offer shelter, healing, education, and the support needed to rebuild their lives.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <Link to="/impact">
@@ -79,7 +83,7 @@ export function LandingPage() {
               <Button
                 variant="ghost"
                 size="lg"
-                className="border border-slate-navy/20 dark:border-white/20"
+                className="border border-white/25 text-white hover:bg-white/10"
               >
                 Staff Login
               </Button>

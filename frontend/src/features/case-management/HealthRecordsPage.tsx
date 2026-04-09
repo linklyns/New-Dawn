@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Search, ArrowUpDown } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -17,6 +17,7 @@ import {
   Legend,
 } from 'recharts';
 import { api } from '../../lib/api';
+import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -66,16 +67,34 @@ export function HealthRecordsPage() {
   const [editingRecord, setEditingRecord] = useState<HealthWellbeingRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HealthWellbeingRecord | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize] = useState(100);
+  const [search, setSearch] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['health-records', residentId, page],
+    queryKey: ['health-records', residentId, page, pageSize],
     queryFn: () =>
       api.get<PagedResult<HealthWellbeingRecord>>(
-        `/api/health-records?residentId=${residentId}&page=${page}&pageSize=50`,
+        `/api/health-records?residentId=${residentId}&page=${page}&pageSize=${pageSize}`,
       ),
   });
 
-  const records = data?.items ?? [];
+  const records = useMemo(() => {
+    let items = data?.items ?? [];
+    if (search.trim()) {
+      items = items.filter((r) =>
+        smartMatch(search, [
+          r.recordDate, r.generalHealthScore, r.nutritionScore,
+          r.sleepQualityScore, r.energyLevelScore, r.heightCm,
+          r.weightKg, r.bmi, r.notes,
+        ]),
+      );
+    }
+    return [...items].sort((a, b) => {
+      const cmp = a.recordDate.localeCompare(b.recordDate);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [data, search, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: HealthFormData) =>
@@ -187,11 +206,31 @@ export function HealthRecordsPage() {
         }
       />
 
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/residents/${residentId}`)}>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Resident
+          Back
         </Button>
+        <div className="relative min-w-[200px] flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
+          <input
+            className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+            placeholder="Search any field…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <button
+          className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            sortDir === 'desc'
+              ? 'border-golden-honey bg-golden-honey/10 text-golden-honey'
+              : 'border-slate-navy/20 text-slate-navy dark:border-white/20 dark:text-white'
+          }`}
+          onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+        >
+          <ArrowUpDown size={14} />
+          Date {sortDir === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
 
       {formOpen && (
@@ -245,8 +284,11 @@ export function HealthRecordsPage() {
           loading={isLoading}
           emptyMessage="No health records found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={records.length}
           onPageChange={setPage}
+          onPageSizeChange={() => {}}
         />
       </Card>
 

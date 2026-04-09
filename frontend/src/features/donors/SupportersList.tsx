@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getPageSizeOptions } from '../../lib/pagination';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -75,6 +76,7 @@ export function SupportersList() {
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -82,18 +84,23 @@ export function SupportersList() {
 
   const queryParams = new URLSearchParams();
   queryParams.set('page', String(page));
-  queryParams.set('pageSize', '20');
+  queryParams.set('pageSize', String(pageSize));
   if (typeFilter) queryParams.set('supporterType', typeFilter);
   if (statusFilter) queryParams.set('status', statusFilter);
   if (search) queryParams.set('search', search);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['supporters', page, typeFilter, statusFilter, search],
+    queryKey: ['supporters', page, pageSize, typeFilter, statusFilter, search],
     queryFn: () =>
       api.get<PagedResult<Supporter>>(`/api/supporters?${queryParams.toString()}`),
   });
 
   const supporters = data?.items ?? [];
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  };
 
   const { data: likelihoodResp } = useQuery({
     queryKey: ['supporter-likelihood'],
@@ -228,8 +235,12 @@ export function SupportersList() {
           loading={isLoading}
           emptyMessage="No supporters found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={data?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(data?.totalCount)}
           onRowClick={(row) =>
             navigate(`/admin/supporters/${(row as unknown as Supporter).supporterId}`)
           }

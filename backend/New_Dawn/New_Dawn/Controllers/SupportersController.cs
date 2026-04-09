@@ -28,8 +28,50 @@ public class SupportersController(AppDbContext db, UserManager<ApplicationUser> 
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var appUser = await userManager.FindByIdAsync(userId!);
-            if (appUser?.LinkedSupporterId == null)
+            if (appUser == null)
                 return Ok(new { items = new List<Supporter>(), totalCount = 0, page, pageSize, totalPages = 0 });
+
+            if (appUser.LinkedSupporterId == null)
+            {
+                var supporterByEmail = await db.Supporters
+                    .FirstOrDefaultAsync(s => s.Email == appUser.Email);
+
+                if (supporterByEmail == null)
+                {
+                    var nextSupporterId = (await db.Supporters.MaxAsync(s => (int?)s.SupporterId) ?? 0) + 1;
+                    var displayName = string.IsNullOrWhiteSpace(appUser.DisplayName)
+                        ? (appUser.Email ?? "New Donor")
+                        : appUser.DisplayName;
+                    var nameParts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var firstName = nameParts.Length > 0 ? nameParts[0] : "Donor";
+                    var lastName = nameParts.Length > 1 ? string.Join(' ', nameParts.Skip(1)) : "User";
+
+                    supporterByEmail = new Supporter
+                    {
+                        SupporterId = nextSupporterId,
+                        SupporterType = "MonetaryDonor",
+                        DisplayName = displayName,
+                        FirstName = firstName,
+                        LastName = lastName,
+                        RelationshipType = "Local",
+                        Region = "Unknown",
+                        Country = "Philippines",
+                        Email = appUser.Email ?? string.Empty,
+                        Phone = string.Empty,
+                        Status = "Active",
+                        CreatedAt = DateTime.UtcNow,
+                        FirstDonationDate = DateTime.UtcNow,
+                        AcquisitionChannel = "Website",
+                    };
+
+                    db.Supporters.Add(supporterByEmail);
+                    await db.SaveChangesAsync();
+                }
+
+                appUser.LinkedSupporterId = supporterByEmail.SupporterId;
+                await userManager.UpdateAsync(appUser);
+            }
+
             query = query.Where(s => s.SupporterId == appUser.LinkedSupporterId.Value);
         }
 
@@ -64,6 +106,10 @@ public class SupportersController(AppDbContext db, UserManager<ApplicationUser> 
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] Supporter entity)
     {
+        if (entity.SupporterId <= 0)
+        {
+            entity.SupporterId = (await db.Supporters.MaxAsync(s => (int?)s.SupporterId) ?? 0) + 1;
+        }
         db.Supporters.Add(entity);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = entity.SupporterId }, entity);

@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, CreditCard, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
 
 const donationTiers = [
@@ -12,7 +14,19 @@ const donationTiers = [
 ];
 
 export function DonatePage() {
+  const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [customAmount, setCustomAmount] = useState('');
+
+  const openPrefilledDonate = (amount: number) => {
+    navigate(`/admin/donations?openNew=1&amount=${amount}&donationType=Monetary&channelSource=Website`);
+  };
+
+  const handleCustomDonate = () => {
+    const parsed = Number(customAmount);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    openPrefilledDonate(parsed);
+  };
 
   return (
     <div className="bg-gradient-to-b from-white to-coral-pink/10 dark:from-slate-navy dark:to-coral-pink/5">
@@ -54,7 +68,12 @@ export function DonatePage() {
                 </div>
                 <div className="mt-6">
                   {isAuthenticated ? (
-                    <Button variant="primary" size="sm" className="w-full">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => openPrefilledDonate(tier.amount)}
+                    >
                       <CreditCard size={16} className="mr-2" />
                       Donate ${tier.amount}
                     </Button>
@@ -70,6 +89,46 @@ export function DonatePage() {
               </Card>
             ))}
           </div>
+
+          {/* Custom Amount */}
+          <Card className="mt-6">
+            <h3 className="font-heading text-xl font-semibold text-slate-navy dark:text-white">
+              Custom Amount
+            </h3>
+            <p className="mt-2 text-sm text-warm-gray dark:text-white/70">
+              Choose any amount that feels right for you.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="sm:max-w-xs sm:flex-1">
+                <Input
+                  label="Amount"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  placeholder="Enter custom amount"
+                  value={customAmount}
+                  onChange={(e) => setCustomAmount(e.target.value)}
+                />
+              </div>
+              {isAuthenticated ? (
+                <Button
+                  variant="primary"
+                  onClick={handleCustomDonate}
+                  disabled={!customAmount || Number(customAmount) <= 0}
+                >
+                  <CreditCard size={16} className="mr-2" />
+                  Donate Custom Amount
+                </Button>
+              ) : (
+                <Link to="/register?redirect=/donate">
+                  <Button variant="primary">
+                    Sign Up to Donate
+                    <ArrowRight size={16} className="ml-2" />
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </Card>
 
           {/* Unauthenticated CTA */}
           {!isAuthenticated && (

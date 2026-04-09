@@ -90,7 +90,7 @@ export function LoginPage() {
           role: res.role,
           has2fa: false,
         });
-        navigate('/admin');
+        navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -113,7 +113,7 @@ export function LoginPage() {
         role: res.role,
         has2fa: true,
       });
-      navigate('/admin');
+      navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
