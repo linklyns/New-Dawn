@@ -1,9 +1,8 @@
 import { Link, Outlet } from 'react-router-dom';
-import { Sun, Moon, LogOut, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
-import { useThemeStore } from '../../stores/themeStore';
 import { useAuthStore } from '../../stores/authStore';
 
 interface AppShellProps {
@@ -11,7 +10,6 @@ interface AppShellProps {
 }
 
 export function AppShell({ variant }: AppShellProps) {
-  const { isDark, toggle } = useThemeStore();
   const { user, logout } = useAuthStore();
 
   if (variant === 'public') {
@@ -50,13 +48,6 @@ export function AppShell({ variant }: AppShellProps) {
               </span>
             </Link>
           )}
-          <button
-            onClick={toggle}
-            className="rounded-lg p-2 text-slate-navy hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10"
-            aria-label="Toggle dark mode"
-          >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           <button
             onClick={logout}
             className="rounded-lg p-2 text-slate-navy hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10"

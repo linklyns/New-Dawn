@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from './stores/authStore';
+import { useThemeStore } from './stores/themeStore';
 import MfaPromptModal from './components/ui/MfaPromptModal';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './features/auth/ProtectedRoute';
@@ -59,10 +60,15 @@ function AppContent() {
   const [ready, setReady] = useState(false);
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
   const [mfaPromptShown, setMfaPromptShown] = useState(false);
+  const applyTheme = useThemeStore((s) => s.applyTheme);
 
   useEffect(() => {
     initialize().finally(() => setReady(true));
   }, [initialize]);
+
+  useEffect(() => {
+    applyTheme();
+  }, [applyTheme]);
 
   useEffect(() => {
     if (!ready || !user || user.has2fa || mfaPromptShown) return;
@@ -126,7 +132,16 @@ function AppContent() {
           </ProtectedRoute>
         }
       >
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route
+          path="/admin"
+          element={
+            user?.role === 'Donor'
+              ? <Navigate to="/admin/donate" replace />
+              : <AdminDashboard />
+          }
+        />
+        <Route path="/admin/impact" element={<ImpactDashboard />} />
+        <Route path="/admin/donate" element={<DonatePage />} />
         <Route path="/admin/residents" element={<ResidentsList />} />
         <Route path="/admin/residents/new" element={<ResidentDetail />} />
         <Route path="/admin/residents/:id" element={<ResidentDetail />} />

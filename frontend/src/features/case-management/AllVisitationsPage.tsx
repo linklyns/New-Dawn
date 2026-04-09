@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { api } from '../../lib/api';
+import { getPageSizeOptions } from '../../lib/pagination';
+import { useResidentMap } from '../../hooks/useResidentMap';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -31,20 +33,37 @@ function outcomeVariant(o: string): 'success' | 'warning' | 'info' | 'neutral' {
 export function AllVisitationsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['all-home-visitations', page],
+    queryKey: ['all-home-visitations', page, pageSize],
     queryFn: () =>
       api.get<PagedResult<HomeVisitation>>(
-        `/api/home-visitations?page=${page}&pageSize=20`,
+        `/api/home-visitations?page=${page}&pageSize=${pageSize}`,
       ),
   });
+
+  const { residentMap } = useResidentMap();
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
 
   const columns = [
     {
       key: 'residentId',
       header: 'Resident',
-      render: (row: Record<string, unknown>) => `#${row.residentId}`,
+      render: (row: Record<string, unknown>) => {
+        const residentId = Number(row.residentId ?? 0);
+        const resident = residentMap.get(residentId);
+        return resident ? (
+          <div className="space-y-0.5">
+            <div>{resident.internalCode}</div>
+            <div className="text-xs text-warm-gray">{resident.caseControlNo}</div>
+          </div>
+        ) : `#${residentId}`;
+      },
     },
     {
       key: 'visitDate',
@@ -89,8 +108,12 @@ export function AllVisitationsPage() {
           loading={isLoading}
           emptyMessage="No home visitations found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={data?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(data?.totalCount)}
           onRowClick={(row) => {
             const visit = row as unknown as HomeVisitation;
             navigate(`/admin/case/${visit.residentId}/visits`);

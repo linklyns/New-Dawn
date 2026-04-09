@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Plus, Pencil, Search, Trash2, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
 import { api } from '../../lib/api';
+import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -70,27 +71,38 @@ export function IncidentReportsPage() {
   const [editingReport, setEditingReport] = useState<IncidentReport | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IncidentReport | null>(null);
 
-  // Filters
+  // Filters & search
+  const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
   const [resolvedFilter, setResolvedFilter] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(100);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['incident-reports', residentId],
+    queryKey: ['incident-reports', residentId, page, pageSize],
     queryFn: () =>
       api.get<PagedResult<IncidentReport>>(
-        `/api/incident-reports?residentId=${residentId}&page=1&pageSize=50`,
+        `/api/incident-reports?residentId=${residentId}&page=${page}&pageSize=${pageSize}`,
       ),
   });
 
-  const allReports = data?.items ?? [];
-  const reports = allReports.filter((r) => {
-    if (typeFilter && r.incidentType !== typeFilter) return false;
-    if (severityFilter && r.severity !== severityFilter) return false;
-    if (resolvedFilter === 'true' && !r.resolved) return false;
-    if (resolvedFilter === 'false' && r.resolved) return false;
-    return true;
-  });
+  const reports = useMemo(() => {
+    const items = data?.items ?? [];
+    const filtered = items.filter((r) => {
+      if (typeFilter && r.incidentType !== typeFilter) return false;
+      if (severityFilter && r.severity !== severityFilter) return false;
+      if (resolvedFilter === 'true' && !r.resolved) return false;
+      if (resolvedFilter === 'false' && r.resolved) return false;
+      return smartMatch(search, [r.incidentDate, r.incidentType, r.severity, r.description, r.responseTaken, r.reportedBy, r.resolutionDate]);
+    });
+    return [...filtered].sort((a, b) => {
+      const da = a.incidentDate ?? '';
+      const db = b.incidentDate ?? '';
+      return sortDir === 'desc' ? db.localeCompare(da) : da.localeCompare(db);
+    });
+  }, [data, typeFilter, severityFilter, resolvedFilter, search, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: IncidentFormData) =>
@@ -150,44 +162,60 @@ export function IncidentReportsPage() {
         }
       />
 
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/residents/${residentId}`)}>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Resident
+          Back
+        </Button>
+        <div className="relative min-w-48 flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray" />
+          <input
+            type="text"
+            placeholder="Search reports..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-navy/20 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+          />
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+        >
+          <option value="">All Types</option>
+          {incidentTypes.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <select
+          value={severityFilter}
+          onChange={(e) => setSeverityFilter(e.target.value)}
+          className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+        >
+          <option value="">All Severities</option>
+          {severityLevels.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select
+          value={resolvedFilter}
+          onChange={(e) => setResolvedFilter(e.target.value)}
+          className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+        >
+          <option value="">All</option>
+          <option value="true">Resolved</option>
+          <option value="false">Unresolved</option>
+        </select>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+          title={`Sort by incident date (${sortDir === 'desc' ? 'newest first' : 'oldest first'})`}
+        >
+          <ArrowUpDown size={14} />
+          Date {sortDir === 'desc' ? '↓' : '↑'}
         </Button>
       </div>
-
-      {/* Filters */}
-      <Card className="mb-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-navy dark:text-white">Incident Type</label>
-            <select className={selectClass} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">All Types</option>
-              {incidentTypes.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-navy dark:text-white">Severity</label>
-            <select className={selectClass} value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
-              <option value="">All Severities</option>
-              {severityLevels.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-navy dark:text-white">Resolved</label>
-            <select className={selectClass} value={resolvedFilter} onChange={(e) => setResolvedFilter(e.target.value)}>
-              <option value="">All</option>
-              <option value="true">Resolved</option>
-              <option value="false">Unresolved</option>
-            </select>
-          </div>
-        </div>
-      </Card>
 
       {formOpen && (
         <Card className="mb-6">

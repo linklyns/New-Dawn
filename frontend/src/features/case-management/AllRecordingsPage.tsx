@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { api } from '../../lib/api';
+import { getPageSizeOptions } from '../../lib/pagination';
+import { useResidentMap } from '../../hooks/useResidentMap';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -31,20 +33,37 @@ function sessionTypeBadge(t: string): 'info' | 'warning' | 'success' {
 export function AllRecordingsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['all-process-recordings', page],
+    queryKey: ['all-process-recordings', page, pageSize],
     queryFn: () =>
       api.get<PagedResult<ProcessRecording>>(
-        `/api/process-recordings?page=${page}&pageSize=20`,
+        `/api/process-recordings?page=${page}&pageSize=${pageSize}`,
       ),
   });
+
+  const { residentMap } = useResidentMap();
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
 
   const columns = [
     {
       key: 'residentId',
       header: 'Resident',
-      render: (row: Record<string, unknown>) => `#${row.residentId}`,
+      render: (row: Record<string, unknown>) => {
+        const residentId = Number(row.residentId ?? 0);
+        const resident = residentMap.get(residentId);
+        return resident ? (
+          <div className="space-y-0.5">
+            <div>{resident.internalCode}</div>
+            <div className="text-xs text-warm-gray">{resident.caseControlNo}</div>
+          </div>
+        ) : `#${residentId}`;
+      },
     },
     {
       key: 'sessionDate',
@@ -94,8 +113,12 @@ export function AllRecordingsPage() {
           loading={isLoading}
           emptyMessage="No process recordings found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={data?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(data?.totalCount)}
           onRowClick={(row) => {
             const rec = row as unknown as ProcessRecording;
             navigate(`/admin/case/${rec.residentId}/recordings`);

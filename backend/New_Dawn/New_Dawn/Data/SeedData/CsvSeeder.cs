@@ -64,6 +64,15 @@ public static class CsvSeeder
         if (!await context.SafehouseMonthlyMetrics.AnyAsync())
             await SeedEntity<SafehouseMonthlyMetric, SafehouseMonthlyMetricMap>(context, csvBasePath, "safehouse_monthly_metrics.csv", context.SafehouseMonthlyMetrics);
 
+        // CSV imports include explicit IDs; keep identity sequence in sync for new inserts.
+        await context.Database.ExecuteSqlRawAsync(@"
+            SELECT setval(
+                pg_get_serial_sequence('public.donations', 'donation_id'),
+                COALESCE((SELECT MAX(donation_id) FROM public.donations), 0) + 1,
+                false
+            );
+        ");
+
         // Link donor user to supporter 1 now that supporters are seeded
         var donorUser = await userManager.FindByEmailAsync("donor@newdawn.ph");
         if (donorUser != null && donorUser.LinkedSupporterId == null)

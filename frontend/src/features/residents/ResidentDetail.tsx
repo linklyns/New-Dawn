@@ -179,8 +179,8 @@ export function ResidentDetail() {
           <p className="text-red-600 dark:text-red-400">
             Failed to load resident: {(error as Error).message}
           </p>
-          <Button variant="ghost" onClick={() => navigate('/admin/residents')}>
-            Back to Residents
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            Back
           </Button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export function ResidentDetail() {
             size="sm"
             onClick={() => {
               if (isCreateMode) {
-                navigate('/admin/residents');
+                navigate(-1);
               } else {
                 setIsEditing(false);
               }
@@ -276,9 +276,9 @@ export function ResidentDetail() {
 
       {/* Back Link */}
       <div className="mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/admin/residents')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Residents
+          Back
         </Button>
       </div>
 

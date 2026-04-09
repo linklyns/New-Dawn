@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -20,6 +21,8 @@ import { api } from '../../lib/api';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
+import { useThemeStore } from '../../stores/themeStore';
+import { formatSafehouseName } from '../../lib/formatters';
 
 /* ── API Response Types ──────────────────────────────────────── */
 
@@ -78,23 +81,41 @@ const COLORS = {
   slateNavy: '#2D3A4A',
   goldenHoney: '#FFCC66',
   coralPink: '#FFE6E1',
+  energyLevel: '#F7A9A0',
 };
 
 const PIE_COLORS = [
   COLORS.skyBlue,
   COLORS.sageGreen,
   COLORS.goldenHoney,
-  COLORS.slateNavy,
-  COLORS.coralPink,
-  '#8884d8',
-  '#82ca9d',
-  '#ffc658',
+  '#7BC7FF',
+  '#FFAB91',
+  '#FBD38D',
+  '#A3E635',
+  '#7C3AED',
 ];
+
+const INCIDENT_TYPE_COLORS: Record<string, string> = {
+  Behavioral: COLORS.sageGreen,
+  ConflictWithPeer: '#FB7185',
+  Medical: '#60A5FA',
+  PropertyDamage: '#F97316',
+  RunawayAttempt: COLORS.skyBlue,
+  Security: COLORS.goldenHoney,
+  SelfHarm: '#DC2626',
+};
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#fff',
   border: `1px solid ${COLORS.skyBlue}`,
   borderRadius: 8,
+};
+
+const DARK_TOOLTIP_STYLE = {
+  backgroundColor: '#0f172a',
+  border: '1px solid rgba(148, 163, 184, 0.3)',
+  borderRadius: 8,
+  color: '#e2e8f0',
 };
 
 const MONTH_NAMES = [
@@ -106,8 +127,8 @@ const MONTH_NAMES = [
 
 function StatBox({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-slate-navy/5 p-4 dark:bg-white/5">
-      <p className="text-xs font-medium uppercase tracking-wide text-warm-gray">
+    <div className="rounded-lg bg-slate-navy/5 p-4 dark:bg-slate-navy/70 dark:border dark:border-white/10">
+      <p className="text-xs font-medium uppercase tracking-wide text-warm-gray dark:text-slate-300">
         {label}
       </p>
       <p className="mt-1 font-heading text-2xl font-bold text-slate-navy dark:text-white">
@@ -117,9 +138,27 @@ function StatBox({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+const getDarkMode = (mode: string) => {
+  if (mode === 'dark') return true;
+  if (mode === 'light') return false;
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+};
+
 /* ── Component ───────────────────────────────────────────────── */
 
 export function ReportsPage() {
+  const themeMode = useThemeStore((s) => s.mode);
+  const isDark = getDarkMode(themeMode);
+  const chartTheme = useMemo(
+    () => ({
+      textColor: isDark ? '#e2e8f0' : '#2D3A4A',
+      gridStroke: isDark ? '#ffffff1a' : '#2D3A4A20',
+      tooltipStyle: isDark ? DARK_TOOLTIP_STYLE : TOOLTIP_STYLE,
+    }),
+    [isDark],
+  );
+
   const dashboard = useQuery({
     queryKey: ['reports', 'dashboard-stats'],
     queryFn: () => api.get<DashboardStats>('/api/reports/dashboard-stats'),
@@ -160,7 +199,10 @@ export function ReportsPage() {
 
   /* ── Computed values ─────────────────────────────────────── */
 
-  const safehouseData = dashboard.data?.activeResidentsBySafehouse ?? [];
+  const safehouseData = (dashboard.data?.activeResidentsBySafehouse ?? []).map((sh) => ({
+    ...sh,
+    safehouseName: formatSafehouseName(sh.safehouseName),
+  }));
   const totalResidents = safehouseData.reduce((s, sh) => s + sh.activeResidents, 0);
 
   const donationChartData = (donationTrends.data ?? []).map((d) => ({
@@ -192,13 +234,19 @@ export function ReportsPage() {
       ? (latestHealth.avgGeneralHealth - firstHealth.avgGeneralHealth).toFixed(1)
       : '—';
 
-  const eduData = educationProgress.data ?? [];
+  const eduData = (educationProgress.data ?? []).map((e) => ({
+    ...e,
+    safehouseName: formatSafehouseName(e.safehouseName),
+  }));
   const avgProgress =
     eduData.length > 0
       ? (eduData.reduce((s, e) => s + e.avgProgressPercent, 0) / eduData.length).toFixed(1)
       : '—';
 
-  const reintData = reintegrationRates.data ?? [];
+  const reintData = (reintegrationRates.data ?? []).map((r) => ({
+    ...r,
+    safehouseName: formatSafehouseName(r.safehouseName),
+  }));
 
   const incidentByType = incidentSummary.data?.byType ?? [];
 
@@ -227,13 +275,17 @@ export function ReportsPage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={safehouseData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
                         dataKey="safehouseName"
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       />
-                      <YAxis tick={{ fill: '#2D3A4A', fontSize: 12 }} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <YAxis tick={{ fill: chartTheme.textColor, fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={chartTheme.tooltipStyle}
+                        labelStyle={{ color: chartTheme.textColor }}
+                        itemStyle={{ color: chartTheme.textColor }}
+                      />
                       <Bar
                         dataKey="activeResidents"
                         name="Active Residents"
@@ -262,17 +314,21 @@ export function ReportsPage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={healthChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       />
                       <YAxis
                         domain={[0, 10]}
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
-                      <Legend />
+                      <Tooltip
+                        contentStyle={chartTheme.tooltipStyle}
+                        labelStyle={{ color: chartTheme.textColor }}
+                        itemStyle={{ color: chartTheme.textColor }}
+                      />
+                      <Legend wrapperStyle={{ color: chartTheme.textColor }} />
                       <Line
                         type="monotone"
                         dataKey="General Health"
@@ -297,8 +353,8 @@ export function ReportsPage() {
                       <Line
                         type="monotone"
                         dataKey="Energy Level"
-                        stroke={COLORS.slateNavy}
-                        strokeWidth={2}
+                        stroke={COLORS.energyLevel}
+                        strokeWidth={3}
                         dot={false}
                       />
                     </LineChart>
@@ -325,18 +381,20 @@ export function ReportsPage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={eduData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
                         dataKey="safehouseName"
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       />
                       <YAxis
                         domain={[0, 100]}
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                         tickFormatter={(v: number) => `${v}%`}
                       />
                       <Tooltip
-                        contentStyle={TOOLTIP_STYLE}
+                        contentStyle={chartTheme.tooltipStyle}
+                        labelStyle={{ color: chartTheme.textColor }}
+                        itemStyle={{ color: chartTheme.textColor }}
                         formatter={(v) => `${v}%`}
                       />
                       <Bar
@@ -367,14 +425,16 @@ export function ReportsPage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={donationChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                        tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       />
-                      <YAxis tick={{ fill: '#2D3A4A', fontSize: 12 }} />
+                      <YAxis tick={{ fill: chartTheme.textColor, fontSize: 12 }} />
                       <Tooltip
-                        contentStyle={TOOLTIP_STYLE}
+                        contentStyle={chartTheme.tooltipStyle}
+                        labelStyle={{ color: chartTheme.textColor }}
+                        itemStyle={{ color: chartTheme.textColor }}
                         formatter={(v) => `₱${v}`}
                       />
                       <Area
@@ -417,21 +477,23 @@ export function ReportsPage() {
                     layout="vertical"
                     margin={{ left: 20 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                     <XAxis
                       type="number"
                       domain={[0, 100]}
-                      tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                      tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       tickFormatter={(v: number) => `${v}%`}
                     />
                     <YAxis
                       type="category"
                       dataKey="safehouseName"
-                      tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                      tick={{ fill: chartTheme.textColor, fontSize: 12 }}
                       width={120}
                     />
                     <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
+                      contentStyle={chartTheme.tooltipStyle}
+                      labelStyle={{ color: chartTheme.textColor }}
+                      itemStyle={{ color: chartTheme.textColor }}
                       formatter={(v) => `${v}%`}
                     />
                     <Bar
@@ -463,19 +525,29 @@ export function ReportsPage() {
                       paddingAngle={3}
                       dataKey="count"
                       nameKey="incidentType"
-                      label={({ name, percent }) =>
-                        `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
-                      }
+                      label={({ name, percent }) => (
+                        <text
+                          fill={chartTheme.textColor}
+                          fontSize={12}
+                          textAnchor="middle"
+                        >
+                          {`${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                        </text>
+                      )}
                     >
                       {incidentByType.map((item, index) => (
                         <Cell
                           key={item.incidentType}
-                          fill={PIE_COLORS[index % PIE_COLORS.length]}
+                          fill={INCIDENT_TYPE_COLORS[item.incidentType] ?? PIE_COLORS[index % PIE_COLORS.length]}
                         />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Legend />
+                    <Tooltip
+                      contentStyle={chartTheme.tooltipStyle}
+                      labelStyle={{ color: chartTheme.textColor }}
+                      itemStyle={{ color: chartTheme.textColor }}
+                    />
+                    <Legend wrapperStyle={{ color: chartTheme.textColor }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

@@ -7,16 +7,26 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+  hideFooter?: boolean;
   onConfirm?: () => void;
   confirmText?: string;
   confirmVariant?: 'primary' | 'secondary' | 'danger' | 'ghost';
 }
+
+const sizeClass = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+} as const;
 
 export function Modal({
   isOpen,
   onClose,
   title,
   children,
+  size = 'md',
+  hideFooter = false,
   onConfirm,
   confirmText = 'Confirm',
   confirmVariant = 'primary',
@@ -41,7 +51,7 @@ export function Modal({
 
           {/* Dialog */}
           <motion.div
-            className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-navy dark:text-white"
+            className={`relative z-10 mx-4 w-full ${sizeClass[size]} rounded-xl bg-white p-6 shadow-xl dark:bg-slate-navy dark:text-white`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
@@ -52,16 +62,18 @@ export function Modal({
           >
             <h2 id="modal-title" className="mb-4 font-heading text-lg font-semibold">{title}</h2>
             <div className="mb-6">{children}</div>
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={onClose}>
-                Cancel
-              </Button>
-              {onConfirm && (
-                <Button variant={confirmVariant} onClick={onConfirm}>
-                  {confirmText}
+            {!hideFooter && (
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={onClose}>
+                  Cancel
                 </Button>
-              )}
-            </div>
+                {onConfirm && (
+                  <Button variant={confirmVariant} onClick={onConfirm}>
+                    {confirmText}
+                  </Button>
+                )}
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

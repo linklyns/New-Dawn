@@ -39,14 +39,43 @@ function typeVariant(t: string): 'info' | 'success' | 'warning' | 'neutral' {
 
 export function PartnersList() {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['partners', page],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['partners', page, pageSize],
     queryFn: () =>
       api.get<PagedResult<Partner>>(
-        `/api/partners?page=${page}&pageSize=20`,
+        `/api/partners?page=${page}&pageSize=${pageSize}`,
       ),
   });
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  };
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader
+          title="Partners"
+          subtitle="Manage organizational partnerships"
+        />
+        <Card>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <h3 className="mb-2 font-heading text-lg font-semibold text-slate-navy dark:text-white">
+                Error Loading Partners
+              </h3>
+              <p className="text-warm-gray dark:text-white/70">
+                {error instanceof Error ? error.message : 'Failed to load partners data'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const columns = [
     { key: 'partnerName', header: 'Partner Name' },
@@ -93,8 +122,11 @@ export function PartnersList() {
           loading={isLoading}
           emptyMessage="No partners found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={data?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </Card>
     </div>

@@ -41,7 +41,16 @@ interface NavGroup {
 const navGroups: NavGroup[] = [
   {
     label: '',
+    roles: ['Admin', 'Staff'],
     items: [{ to: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> }],
+  },
+  {
+    label: '',
+    roles: ['Donor'],
+    items: [
+      { to: '/admin/impact', label: 'Impact', icon: <Heart size={18} /> },
+      { to: '/admin/donate', label: 'Donate', icon: <DollarSign size={18} /> },
+    ],
   },
   {
     label: 'Case Management',
@@ -49,7 +58,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/residents', label: 'Residents', icon: <Users size={18} /> },
       { to: '/admin/case/recordings', label: 'Process Recordings', icon: <FileText size={18} /> },
-      { to: '/admin/case/visits', label: 'Home Visits', icon: <Home size={18} /> },
+      { to: '/admin/case/visits', label: 'Home Visitations', icon: <Home size={18} /> },
       { to: '/admin/case/education', label: 'Education', icon: <GraduationCap size={18} /> },
       { to: '/admin/case/health', label: 'Health', icon: <Heart size={18} /> },
       { to: '/admin/case/interventions', label: 'Interventions', icon: <Target size={18} /> },

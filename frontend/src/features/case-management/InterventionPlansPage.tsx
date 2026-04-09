@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Plus, Pencil, Search, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -63,20 +64,34 @@ export function InterventionPlansPage() {
   const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [search, setSearch] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [formOpen, setFormOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<InterventionPlan | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InterventionPlan | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(100);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['intervention-plans', residentId],
+    queryKey: ['intervention-plans', residentId, page, pageSize],
     queryFn: () =>
       api.get<PagedResult<InterventionPlan>>(
-        `/api/intervention-plans?residentId=${residentId}&page=1&pageSize=50`,
+        `/api/intervention-plans?residentId=${residentId}&page=${page}&pageSize=${pageSize}`,
       ),
   });
 
-  const allPlans = data?.items ?? [];
-  const plans = statusFilter === 'All' ? allPlans : allPlans.filter((p) => p.status === statusFilter);
+  const plans = useMemo(() => {
+    const items = data?.items ?? [];
+    const filtered = items.filter((p) => {
+      if (statusFilter !== 'All' && p.status !== statusFilter) return false;
+      return smartMatch(search, [p.planCategory, p.planDescription, p.servicesProvided, p.status, p.targetDate, p.caseConferenceDate]);
+    });
+    return [...filtered].sort((a, b) => {
+      const da = a.targetDate ?? '';
+      const db = b.targetDate ?? '';
+      return sortDir === 'desc' ? db.localeCompare(da) : da.localeCompare(db);
+    });
+  }, [data, statusFilter, search, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: PlanFormData) =>
@@ -136,25 +151,39 @@ export function InterventionPlansPage() {
         }
       />
 
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/residents/${residentId}`)}>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Resident
+          Back
         </Button>
-      </div>
-
-      {/* Status Filter */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        {filterOptions.map((opt) => (
-          <Button
-            key={opt}
-            variant={statusFilter === opt ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setStatusFilter(opt)}
-          >
-            {opt}
-          </Button>
-        ))}
+        <div className="relative min-w-48 flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray" />
+          <input
+            type="text"
+            placeholder="Search plans..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-navy/20 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+        >
+          {filterOptions.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+          title={`Sort by target date (${sortDir === 'desc' ? 'newest first' : 'oldest first'})`}
+        >
+          <ArrowUpDown size={14} />
+          Date {sortDir === 'desc' ? '↓' : '↑'}
+        </Button>
       </div>
 
       {formOpen && (

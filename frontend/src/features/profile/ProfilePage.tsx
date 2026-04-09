@@ -3,6 +3,7 @@ import QRCodeLib from 'react-qr-code';
 // react-qr-code CJS build exports the component as .QRCode, not as the default
 const QRCode = (QRCodeLib as any).QRCode ?? QRCodeLib;
 import { useAuthStore } from '../../stores/authStore';
+import { useThemeStore, type ThemeMode } from '../../stores/themeStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { User, Shield, Mail, KeyRound, Smartphone, ScanLine, CheckCircle2, KeySquare } from 'lucide-react';
@@ -10,6 +11,7 @@ import { api } from '../../lib/api';
 
 export function ProfilePage() {
   const { user, setUser } = useAuthStore();
+  const { mode, setMode } = useThemeStore();
   const [mfaSetup, setMfaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaError, setMfaError] = useState('');
@@ -87,6 +89,33 @@ export function ProfilePage() {
               <Shield size={14} />
               <span className="capitalize">{user.role}</span>
             </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Theme Mode */}
+      <Card>
+        <div className="flex items-center gap-3 mb-4">
+          <KeyRound size={20} className="text-slate-navy dark:text-white" />
+          <h2 className="text-lg font-semibold text-slate-navy dark:text-white">
+            Theme Mode
+          </h2>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm text-warm-gray dark:text-white/60">
+            Choose whether the app follows your system preference, always stays light, or always stays dark.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="text-sm font-medium text-slate-navy dark:text-white">Appearance</label>
+            <select
+              className="max-w-xs rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as ThemeMode)}
+            >
+              <option value="auto">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
         </div>
       </Card>

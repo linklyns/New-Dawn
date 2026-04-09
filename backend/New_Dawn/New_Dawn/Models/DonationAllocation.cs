@@ -8,6 +8,7 @@ public class DonationAllocation
 {
     [Key]
     [Column("allocation_id")]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int AllocationId { get; set; }
 
     [Column("donation_id")]

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Search, ArrowUpDown } from 'lucide-react';
 import { api } from '../../lib/api';
+import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -82,16 +83,39 @@ export function HomeVisitationsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<HomeVisitation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HomeVisitation | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(100);
+  const [search, setSearch] = useState('');
+  const [visitTypeFilter, setVisitTypeFilter] = useState('');
+  const [outcomeFilter, setOutcomeFilter] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['home-visitations', residentId],
+    queryKey: ['home-visitations', residentId, page, pageSize],
     queryFn: () =>
       api.get<PagedResult<HomeVisitation>>(
-        `/api/home-visitations?residentId=${residentId}&page=1&pageSize=50`,
+        `/api/home-visitations?residentId=${residentId}&page=${page}&pageSize=${pageSize}`,
       ),
   });
 
-  const visits = data?.items ?? [];
+  const visits = useMemo(() => {
+    let items = data?.items ?? [];
+    if (visitTypeFilter) items = items.filter((v) => v.visitType === visitTypeFilter);
+    if (outcomeFilter) items = items.filter((v) => v.visitOutcome === outcomeFilter);
+    if (search.trim()) {
+      items = items.filter((v) =>
+        smartMatch(search, [
+          v.visitDate, v.socialWorker, v.visitType, v.locationVisited,
+          v.familyMembersPresent, v.purpose, v.observations,
+          v.familyCooperationLevel, v.visitOutcome, v.followUpNotes,
+        ]),
+      );
+    }
+    return [...items].sort((a, b) => {
+      const cmp = a.visitDate.localeCompare(b.visitDate);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [data, search, visitTypeFilter, outcomeFilter, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: VisitFormData) =>
@@ -151,11 +175,39 @@ export function HomeVisitationsPage() {
         }
       />
 
-      <div className="mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/residents/${residentId}`)}>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Resident
+          Back
         </Button>
+        <div className="relative min-w-[200px] flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
+          <input
+            className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+            placeholder="Search any field…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select className={selectClass} style={{ maxWidth: 200 }} value={visitTypeFilter} onChange={(e) => setVisitTypeFilter(e.target.value)}>
+          <option value="">All visit types</option>
+          {visitTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className={selectClass} style={{ maxWidth: 170 }} value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)}>
+          <option value="">All outcomes</option>
+          {outcomeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <button
+          className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            sortDir === 'desc'
+              ? 'border-golden-honey bg-golden-honey/10 text-golden-honey'
+              : 'border-slate-navy/20 text-slate-navy dark:border-white/20 dark:text-white'
+          }`}
+          onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+        >
+          <ArrowUpDown size={14} />
+          Date {sortDir === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
 
       {formOpen && (

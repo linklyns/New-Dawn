@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { api } from '../../lib/api';
+import { getPageSizeOptions } from '../../lib/pagination';
+import { useResidentMap } from '../../hooks/useResidentMap';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -32,20 +34,37 @@ function statusVariant(s: string): 'success' | 'warning' | 'info' | 'neutral' {
 export function AllEducationPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['all-education-records', page],
+    queryKey: ['all-education-records', page, pageSize],
     queryFn: () =>
       api.get<PagedResult<EducationRecord>>(
-        `/api/education-records?page=${page}&pageSize=20`,
+        `/api/education-records?page=${page}&pageSize=${pageSize}`,
       ),
   });
+
+  const { residentMap } = useResidentMap();
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
 
   const columns = [
     {
       key: 'residentId',
       header: 'Resident',
-      render: (row: Record<string, unknown>) => `#${row.residentId}`,
+      render: (row: Record<string, unknown>) => {
+        const residentId = Number(row.residentId ?? 0);
+        const resident = residentMap.get(residentId);
+        return resident ? (
+          <div className="space-y-0.5">
+            <div>{resident.internalCode}</div>
+            <div className="text-xs text-warm-gray">{resident.caseControlNo}</div>
+          </div>
+        ) : `#${residentId}`;
+      },
     },
     {
       key: 'recordDate',
@@ -90,8 +109,12 @@ export function AllEducationPage() {
           loading={isLoading}
           emptyMessage="No education records found."
           page={page}
+          pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
+          totalCount={data?.totalCount}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(data?.totalCount)}
           onRowClick={(row) => {
             const rec = row as unknown as EducationRecord;
             navigate(`/admin/case/${rec.residentId}/education`);
