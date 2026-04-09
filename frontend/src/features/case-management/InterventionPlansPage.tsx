@@ -69,7 +69,7 @@ export function InterventionPlansPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<InterventionPlan | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InterventionPlan | null>(null);
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [pageSize] = useState(100);
 
   const { data, isLoading } = useQuery({

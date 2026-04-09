@@ -73,8 +73,8 @@ export function ProcessRecordingsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ProcessRecording | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProcessRecording | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
+  const [page] = useState(1);
+  const [pageSize] = useState(100);
   const [search, setSearch] = useState('');
   const [sessionTypeFilter, setSessionTypeFilter] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');

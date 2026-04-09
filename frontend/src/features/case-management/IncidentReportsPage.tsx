@@ -77,7 +77,7 @@ export function IncidentReportsPage() {
   const [severityFilter, setSeverityFilter] = useState('');
   const [resolvedFilter, setResolvedFilter] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [pageSize] = useState(100);
 
   const { data, isLoading } = useQuery({

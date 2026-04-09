@@ -83,7 +83,7 @@ export function HomeVisitationsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<HomeVisitation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HomeVisitation | null>(null);
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [pageSize] = useState(100);
   const [search, setSearch] = useState('');
   const [visitTypeFilter, setVisitTypeFilter] = useState('');
