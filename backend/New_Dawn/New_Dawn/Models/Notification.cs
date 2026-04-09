@@ -31,4 +31,13 @@ public class Notification
 
     [Column("group_key")]
     public string? GroupKey { get; set; }
+
+    [Column("user_id")]
+    public string? UserId { get; set; }
+
+    [Column("target_role")]
+    public string? TargetRole { get; set; }
+
+    [Column("list_data")]
+    public string? ListData { get; set; }
 }

@@ -4,10 +4,10 @@ import type { NotificationPagedResult } from '../types';
 
 const NOTIFICATIONS_KEY = ['notifications'] as const;
 
-export function useNotifications(page = 1, pageSize = 20) {
+export function useNotifications(page = 1, pageSize = 20, unreadOnly = false) {
   return useQuery<NotificationPagedResult>({
-    queryKey: [...NOTIFICATIONS_KEY, page, pageSize],
-    queryFn: () => api.get(`/api/notifications?page=${page}&pageSize=${pageSize}`),
+    queryKey: [...NOTIFICATIONS_KEY, page, pageSize, unreadOnly],
+    queryFn: () => api.get(`/api/notifications?page=${page}&pageSize=${pageSize}${unreadOnly ? '&unreadOnly=true' : ''}`),
     refetchInterval: 60_000,
   });
 }
@@ -33,6 +33,31 @@ export function useMarkAllRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.put('/api/notifications/read-all'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
+}
+
+export function useSnoozeNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, months }: { id: number; months: number }) =>
+      api.put(`/api/notifications/${id}/snooze?months=${months}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
+}
+
+export function useMarkUnread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.put(`/api/notifications/${id}/unread`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
+}
+
+export function useGenerateNotifications() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/api/notifications/generate'),
     onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
   });
 }
