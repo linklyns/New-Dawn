@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import Cookies from 'js-cookie';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
@@ -32,31 +33,32 @@ function saveConsent(prefs: CookiePreferences) {
 
 const toggles: {
   key: keyof CookiePreferences;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   locked: boolean;
 }[] = [
   {
     key: 'essential',
-    label: 'Essential Cookies',
-    description: 'Required for the website to function.',
+    labelKey: 'cookies.essential',
+    descriptionKey: 'cookies.essentialDesc',
     locked: true,
   },
   {
     key: 'preferences',
-    label: 'Preference Cookies',
-    description: 'Remembers your settings like dark/light mode.',
+    labelKey: 'cookies.preference',
+    descriptionKey: 'cookies.preferenceDesc',
     locked: false,
   },
   {
     key: 'analytics',
-    label: 'Analytics Cookies',
-    description: 'Helps us understand how visitors use our site.',
+    labelKey: 'cookies.analyticsLabel',
+    descriptionKey: 'cookies.analyticsDesc',
     locked: false,
   },
 ];
 
 export function CookieConsentBanner() {
+  const { t } = useTranslation();
   const [consented, setConsented] = useState(() => readConsent() !== null);
   const [showModal, setShowModal] = useState(false);
   const [prefs, setPrefs] = useState<CookiePreferences>(DEFAULT_PREFERENCES);
@@ -92,19 +94,18 @@ export function CookieConsentBanner() {
           >
             <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
               <p className="text-sm text-warm-gray dark:text-white/70">
-                We use cookies to enhance your experience. We use a functional
-                cookie to remember your theme preference.
+                {t('cookies.bannerMessage')}
               </p>
               <div className="flex shrink-0 gap-2">
                 <Button variant="primary" size="sm" onClick={acceptAll}>
-                  Accept All
+                  {t('cookies.acceptAll')}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowModal(true)}
                 >
-                  Manage Preferences
+                  {t('cookies.customize')}
                 </Button>
               </div>
             </div>
@@ -115,39 +116,39 @@ export function CookieConsentBanner() {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title="Cookie Preferences"
+        title={t('cookies.preferencesTitle')}
         onConfirm={savePreferences}
-        confirmText="Save Preferences"
+        confirmText={t('cookies.savePreferences')}
       >
         <div className="space-y-5">
-          {toggles.map((t) => (
+          {toggles.map((toggle) => (
             <div
-              key={t.key}
+              key={toggle.key}
               className="flex items-start justify-between gap-4"
             >
               <div>
                 <p className="text-sm font-medium text-slate-navy dark:text-white">
-                  {t.label}
+                  {t(toggle.labelKey)}
                 </p>
                 <p className="text-xs text-warm-gray dark:text-white/60">
-                  {t.description}
+                  {t(toggle.descriptionKey)}
                 </p>
               </div>
               <button
                 type="button"
                 role="switch"
-                aria-checked={prefs[t.key]}
-                disabled={t.locked}
+                aria-checked={prefs[toggle.key]}
+                disabled={toggle.locked}
                 onClick={() =>
-                  setPrefs((p) => ({ ...p, [t.key]: !p[t.key] }))
+                  setPrefs((p) => ({ ...p, [toggle.key]: !p[toggle.key] }))
                 }
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-golden-honey/50 disabled:cursor-not-allowed disabled:opacity-70 ${
-                  prefs[t.key] ? 'bg-golden-honey' : 'bg-slate-navy/20 dark:bg-white/20'
+                  prefs[toggle.key] ? 'bg-golden-honey' : 'bg-slate-navy/20 dark:bg-white/20'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    prefs[t.key] ? 'translate-x-6' : 'translate-x-1'
+                    prefs[toggle.key] ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>

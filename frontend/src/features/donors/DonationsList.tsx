@@ -4,11 +4,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
 import { ArrowUpDown, Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { getPageSizeOptions } from '../../lib/pagination';
 import { useDebounce } from '../../hooks/useDebounce';
+import { CURRENCY_OPTIONS } from '../../lib/userPreferences';
+import {
+  formatLocalizedCurrency,
+  formatLocalizedDate,
+  resolvePreferredCurrency,
+  resolveUserPreferences,
+} from '../../lib/locale';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -28,15 +35,21 @@ const textareaClass =
   'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
 
 function formatDate(d: string | null | undefined): string {
-  if (!d) return '--';
-  try {
-    return format(parseISO(d), 'MMM d, yyyy');
-  } catch {
-    return d;
-  }
+  return formatLocalizedDate(d);
 }
 
 const donationTypes = ['Monetary', 'InKind', 'Time', 'Skills', 'SocialMedia'] as const;
+
+function getDonationTypeLabel(type: string, t: (key: string) => string): string {
+  switch (type) {
+    case 'Monetary': return t('donors.monetary');
+    case 'InKind': return t('donors.inKind');
+    case 'Time': return t('donors.time');
+    case 'Skills': return t('donors.skills');
+    case 'SocialMedia': return t('donors.socialMedia');
+    default: return type;
+  }
+}
 
 function donationTypeVariant(t: string): 'success' | 'info' | 'warning' | 'neutral' {
   switch (t) {
@@ -49,105 +62,107 @@ function donationTypeVariant(t: string): 'success' | 'info' | 'warning' | 'neutr
   }
 }
 
-const donationSchema = z.object({
-  supporterId: z.coerce.number().min(1, 'Required'),
-  donationType: z.string().min(1, 'Required'),
-  donationDate: z.string().min(1, 'Required'),
-  isRecurring: z.boolean().default(false),
-  campaignName: z.string().nullable().optional(),
-  channelSource: z.string().optional().default(''),
-  currencyCode: z.string().nullable().optional(),
-  amount: z.coerce.number().nullable().optional(),
-  impactUnit: z.string().optional().default(''),
-  skillType: z.string().optional().default(''),
-  availability: z.string().optional().default(''),
-  timesPerWeek: z.coerce.number().nullable().optional(),
-  inKindItem: z.string().optional().default(''),
-  inKindQuantity: z.coerce.number().nullable().optional(),
-  inKindCondition: z.string().optional().default(''),
-  socialPlatform: z.string().optional().default(''),
-  socialPostUrl: z.string().optional().default(''),
-  expectedReach: z.coerce.number().nullable().optional(),
-  notes: z.string().nullable().optional(),
-}).superRefine((value, ctx) => {
-  if (value.donationType === 'Monetary') {
-    if (value.amount == null || Number(value.amount) <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['amount'],
-        message: 'Amount is required for monetary donations',
-      });
+function createDonationSchema(t: (key: string) => string) {
+  return z.object({
+    supporterId: z.coerce.number().min(1, t('common.required')),
+    donationType: z.string().min(1, t('common.required')),
+    donationDate: z.string().min(1, t('common.required')),
+    isRecurring: z.boolean().default(false),
+    campaignName: z.string().nullable().optional(),
+    channelSource: z.string().optional().default(''),
+    currencyCode: z.string().nullable().optional(),
+    amount: z.coerce.number().nullable().optional(),
+    impactUnit: z.string().optional().default(''),
+    skillType: z.string().optional().default(''),
+    availability: z.string().optional().default(''),
+    timesPerWeek: z.coerce.number().nullable().optional(),
+    inKindItem: z.string().optional().default(''),
+    inKindQuantity: z.coerce.number().nullable().optional(),
+    inKindCondition: z.string().optional().default(''),
+    socialPlatform: z.string().optional().default(''),
+    socialPostUrl: z.string().optional().default(''),
+    expectedReach: z.coerce.number().nullable().optional(),
+    notes: z.string().nullable().optional(),
+  }).superRefine((value, ctx) => {
+    if (value.donationType === 'Monetary') {
+      if (value.amount == null || Number(value.amount) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['amount'],
+          message: t('donors.amountRequired'),
+        });
+      }
+      if (!value.currencyCode || value.currencyCode.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['currencyCode'],
+          message: t('donors.currencyRequired'),
+        });
+      }
     }
-    if (!value.currencyCode || value.currencyCode.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['currencyCode'],
-        message: 'Currency code is required for monetary donations',
-      });
-    }
-  }
 
-  if (value.donationType === 'Skills' && (!value.skillType || value.skillType.trim().length === 0)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['skillType'],
-      message: 'Please specify the skill type',
-    });
-  }
+    if (value.donationType === 'Skills' && (!value.skillType || value.skillType.trim().length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['skillType'],
+        message: t('donors.skillTypeRequired'),
+      });
+    }
 
-  if (value.donationType === 'Time') {
-    if (!value.availability || value.availability.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['availability'],
-        message: 'Availability is required for time donations',
-      });
+    if (value.donationType === 'Time') {
+      if (!value.availability || value.availability.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['availability'],
+          message: t('donors.availabilityRequired'),
+        });
+      }
+      if (value.timesPerWeek == null || Number(value.timesPerWeek) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['timesPerWeek'],
+          message: t('donors.timesPerWeekRequired'),
+        });
+      }
     }
-    if (value.timesPerWeek == null || Number(value.timesPerWeek) <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['timesPerWeek'],
-        message: 'Times per week is required for time donations',
-      });
-    }
-  }
 
-  if (value.donationType === 'InKind') {
-    if (!value.inKindItem || value.inKindItem.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['inKindItem'],
-        message: 'Please describe the in-kind donation item',
-      });
+    if (value.donationType === 'InKind') {
+      if (!value.inKindItem || value.inKindItem.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['inKindItem'],
+          message: t('donors.inKindDescRequired'),
+        });
+      }
+      if (value.inKindQuantity == null || Number(value.inKindQuantity) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['inKindQuantity'],
+          message: t('donors.quantityRequired'),
+        });
+      }
     }
-    if (value.inKindQuantity == null || Number(value.inKindQuantity) <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['inKindQuantity'],
-        message: 'Quantity is required for in-kind donations',
-      });
-    }
-  }
 
-  if (value.donationType === 'SocialMedia') {
-    if (!value.socialPlatform || value.socialPlatform.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['socialPlatform'],
-        message: 'Platform is required for social media donations',
-      });
+    if (value.donationType === 'SocialMedia') {
+      if (!value.socialPlatform || value.socialPlatform.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['socialPlatform'],
+          message: t('donors.platformRequired'),
+        });
+      }
+      if (!value.socialPostUrl || value.socialPostUrl.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['socialPostUrl'],
+          message: t('donors.postUrlRequired'),
+        });
+      }
     }
-    if (!value.socialPostUrl || value.socialPostUrl.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['socialPostUrl'],
-        message: 'Post URL or handle is required for social media donations',
-      });
-    }
-  }
-});
+  });
+}
 
-type DonationFormData = z.infer<typeof donationSchema>;
+type DonationFormData = z.infer<ReturnType<typeof createDonationSchema>>;
 
 type DonationPayload = {
   supporterId: number;
@@ -237,14 +252,19 @@ function normalizeDonationPayload(formData: DonationFormData): DonationPayload {
   };
 }
 
-const deleteReasonSchema = z.object({
-  reason: z.string().min(1, 'A reason is required to delete this donation'),
-});
-type DeleteReasonData = z.infer<typeof deleteReasonSchema>;
+function createDeleteReasonSchema(t: (key: string) => string) {
+  return z.object({
+    reason: z.string().min(1, t('common.required')),
+  });
+}
+type DeleteReasonData = z.infer<ReturnType<typeof createDeleteReasonSchema>>;
 
 export function DonationsList() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const userRole = useAuthStore((s) => s.user?.role ?? '');
+  const user = useAuthStore((s) => s.user);
+  const userRole = user?.role ?? '';
+  const preferences = resolveUserPreferences(user);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [page, setPage] = useState(1);
@@ -356,7 +376,7 @@ export function DonationsList() {
       isRecurring: false,
       campaignName: '',
       channelSource,
-      currencyCode: 'PHP',
+      currencyCode: preferences.preferredCurrency,
       amount,
       notes: '',
     });
@@ -369,7 +389,7 @@ export function DonationsList() {
       next.delete('channelSource');
       return next;
     }, { replace: true });
-  }, [searchParams, setSearchParams, supportersData, supporters, userRole]);
+  }, [preferences.preferredCurrency, searchParams, setSearchParams, supportersData, supporters, userRole]);
 
   function handleFormSubmit(formData: DonationFormData) {
     const payload = normalizeDonationPayload(formData);
@@ -383,12 +403,12 @@ export function DonationsList() {
   const columns = useMemo(() => [
     {
       key: 'donationDate',
-      header: 'Date',
+      header: t('common.date'),
       render: (row: Record<string, unknown>) => formatDate(row.donationDate as string),
     },
     {
       key: 'supporterId',
-      header: 'Supporter',
+      header: t('donors.supporter'),
       render: (row: Record<string, unknown>) => {
         const id = row.supporterId as number;
         const name = supporterMap.get(id);
@@ -397,35 +417,48 @@ export function DonationsList() {
     },
     {
       key: 'donationType',
-      header: 'Type',
+      header: t('common.type'),
       render: (row: Record<string, unknown>) => (
         <Badge variant={donationTypeVariant(row.donationType as string)}>
-          {row.donationType as string}
+          {getDonationTypeLabel(row.donationType as string, t)}
         </Badge>
       ),
     },
     {
       key: 'amount',
-      header: 'Amount',
-      render: (row: Record<string, unknown>) =>
-        row.amount != null
-          ? `${row.currencyCode ?? 'PHP'} ${Number(row.amount).toLocaleString()}`
-          : '--',
+      header: t('donors.amount'),
+      render: (row: Record<string, unknown>) => {
+        if (row.amount == null) {
+          return '--';
+        }
+
+        const currencyCode = typeof row.currencyCode === 'string' && row.currencyCode.trim().length > 0
+          ? resolvePreferredCurrency(row.currencyCode)
+          : null;
+
+        return currencyCode
+          ? formatLocalizedCurrency(Number(row.amount), preferences, {
+            sourceCurrency: currencyCode,
+          })
+          : formatLocalizedCurrency(Number(row.amount), preferences, {
+            currency: preferences.preferredCurrency,
+          });
+      },
     },
-    { key: 'campaignName', header: 'Campaign' },
-    { key: 'channelSource', header: 'Channel' },
+    { key: 'campaignName', header: t('donors.campaign') },
+    { key: 'channelSource', header: t('donors.channel') },
     {
       key: 'isRecurring',
-      header: 'Recurring',
-      render: (row: Record<string, unknown>) => (row.isRecurring ? 'Yes' : 'No'),
+      header: t('donors.recurring'),
+      render: (row: Record<string, unknown>) => (row.isRecurring ? t('common.yes') : t('common.no')),
     },
     ...(userRole === 'Admin' ? [{
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       render: (row: Record<string, unknown>) => (
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(row as unknown as Donation); }}>
-            Edit
+            {t('common.edit')}
           </Button>
           <Button variant="ghost" size="sm" className="text-red-600" onClick={(e) => {
             e.stopPropagation();
@@ -433,22 +466,22 @@ export function DonationsList() {
             setEditingDonation(donation);
             setDeleteConfirmOpen(true);
           }}>
-            Delete
+            {t('common.delete')}
           </Button>
         </div>
       ),
     }] : []),
-  ], [supporterMap, userRole]);
+  ], [preferences, supporterMap, t, userRole]);
 
   return (
     <div>
       <PageHeader
-        title="Donations"
-        subtitle="Track all donations and contributions"
+        title={t('donors.donationsTitle')}
+        subtitle={t('donors.donationsSubtitle')}
         action={
           <Button size="sm" onClick={() => openCreate()}>
             <Plus size={16} />
-            Add Donation
+            {t('donors.addDonation')}
           </Button>
         }
       />
@@ -459,22 +492,22 @@ export function DonationsList() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <Input
-                label="Search"
-                placeholder="Search by name, type, campaign, channel, notes…"
+                label={t('common.search')}
+                placeholder={t('donors.searchDonations')}
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
             <div className="flex flex-col gap-1 sm:w-44">
-              <label className="text-sm font-medium text-slate-navy dark:text-white">Type</label>
+              <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.type')}</label>
               <select
                 className={selectClass}
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
               >
-                <option value="">All Types</option>
-                {donationTypes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                <option value="">{t('common.all')}</option>
+                {donationTypes.map((donationType) => (
+                  <option key={donationType} value={donationType}>{getDonationTypeLabel(donationType, t)}</option>
                 ))}
               </select>
             </div>
@@ -535,7 +568,7 @@ export function DonationsList() {
           columns={columns}
           data={donations as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No donations found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
@@ -553,7 +586,7 @@ export function DonationsList() {
           setModalOpen(false);
           setEditingDonation(null);
         }}
-        title={editingDonation ? 'Edit Donation' : 'Add Donation'}
+        title={editingDonation ? `${t('common.edit')} ${t('donors.donation')}` : t('donors.addDonation')}
         hideFooter
       >
         <DonationForm
@@ -586,7 +619,7 @@ export function DonationsList() {
           setDeleteConfirmOpen(false);
           setModalOpen(true);
         }}
-        title="Delete Donation"
+        title={`${t('common.delete')} ${t('donors.donation')}`}
         hideFooter
       >
         <DeleteConfirmForm
@@ -628,6 +661,9 @@ function DonationForm({
   supporters: Supporter[];
   userRole: string;
 }) {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
+  const donationSchema = useMemo(() => createDonationSchema(t), [t]);
   const {
     register,
     handleSubmit,
@@ -644,7 +680,7 @@ function DonationForm({
       isRecurring: defaultValues?.isRecurring ?? false,
       campaignName: defaultValues?.campaignName ?? '',
       channelSource: defaultValues?.channelSource ?? '',
-      currencyCode: defaultValues?.currencyCode ?? 'PHP',
+      currencyCode: defaultValues?.currencyCode ?? preferences.preferredCurrency,
       amount: defaultValues?.amount ?? null,
       impactUnit: defaultValues?.impactUnit ?? '',
       skillType: '',
@@ -678,7 +714,7 @@ function DonationForm({
       )}
       {userRole === 'Admin' ? (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Supporter</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('donors.supporter')}</label>
           <select
             className={selectClass}
             value={watch('supporterId') || ''}
@@ -701,11 +737,11 @@ function DonationForm({
         </div>
       )}
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Donation Type</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('donors.donationType')}</label>
         <select className={selectClass} {...register('donationType')}>
           <option value="">Select...</option>
-          {donationTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
+          {donationTypes.map((donationType) => (
+            <option key={donationType} value={donationType}>{getDonationTypeLabel(donationType, t)}</option>
           ))}
         </select>
         {errors.donationType?.message && (
@@ -713,15 +749,23 @@ function DonationForm({
         )}
       </div>
       <Input
-        label="Donation Date"
+        label={t('common.date')}
         type="date"
         error={errors.donationDate?.message}
         {...register('donationDate')}
       />
       {isMonetary ? (
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Currency Code" error={errors.currencyCode?.message} {...register('currencyCode')} />
-          <Input label="Amount" type="number" step="0.01" error={errors.amount?.message} {...register('amount')} />
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-navy dark:text-white">{t('profile.currency')}</label>
+            <select className={selectClass} {...register('currencyCode')}>
+              {CURRENCY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            {errors.currencyCode?.message && <p className="text-xs text-red-600">{errors.currencyCode.message}</p>}
+          </div>
+          <Input label={t('donors.amount')} type="number" step="0.01" error={errors.amount?.message} {...register('amount')} />
         </div>
       ) : null}
 
@@ -734,7 +778,7 @@ function DonationForm({
             {...register('inKindItem')}
           />
           <Input
-            label="Quantity"
+            label={t('common.quantity', { defaultValue: 'Quantity' })}
             type="number"
             min="1"
             error={errors.inKindQuantity?.message}
@@ -802,7 +846,7 @@ function DonationForm({
       )}
 
       <Input label="Campaign Name" {...register('campaignName')} />
-      <Input label="Channel Source" {...register('channelSource')} />
+      <Input label={t('donors.channel')} {...register('channelSource')} />
       <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
         <input
           type="checkbox"
@@ -810,11 +854,11 @@ function DonationForm({
           checked={watch('isRecurring')}
           onChange={(e) => setValue('isRecurring', e.target.checked)}
         />
-        Recurring Donation
+        {t('donors.recurring')}
       </label>
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-slate-navy dark:text-white">
-          Notes{isEditing && <span className="ml-1 text-red-500">*</span>}
+          {t('common.notes')}{isEditing && <span className="ml-1 text-red-500">*</span>}
         </label>
         <textarea
           className={textareaClass}
@@ -835,16 +879,16 @@ function DonationForm({
           {isEditing && (
             <Button variant="ghost" type="button" onClick={onDeleteRequest} className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
               <Trash2 size={15} className="mr-1" />
-              Delete
+              {t('common.delete')}
             </Button>
           )}
         </div>
         <div className="flex gap-3">
           <Button variant="ghost" type="button" onClick={onCancel}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button type="submit" loading={isSubmitting}>
-            {isEditing ? 'Update Donation' : 'Create Donation'}
+            {isEditing ? t('common.save') : t('donors.addDonation')}
           </Button>
         </div>
       </div>
@@ -869,6 +913,9 @@ function DeleteConfirmForm({
   isDeleting: boolean;
   error?: string;
 }) {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
+  const deleteReasonSchema = useMemo(() => createDeleteReasonSchema(t), [t]);
   const {
     register,
     handleSubmit,
@@ -886,7 +933,16 @@ function DeleteConfirmForm({
         <strong>{supporterName}</strong> on{' '}
         <strong>{formatDate(donation.donationDate)}</strong>
         {donation.amount != null && (
-          <> — <strong>{donation.currencyCode ?? 'PHP'} {Number(donation.amount).toLocaleString()}</strong></>
+          <> — <strong>{(() => {
+            const currencyCode = donation.currencyCode ? resolvePreferredCurrency(donation.currencyCode) : null;
+            return currencyCode
+              ? formatLocalizedCurrency(Number(donation.amount), preferences, {
+                sourceCurrency: currencyCode,
+              })
+              : formatLocalizedCurrency(Number(donation.amount), preferences, {
+                currency: preferences.preferredCurrency,
+              });
+          })()}</strong></>
         )}
         . This action cannot be undone.
       </div>
@@ -914,14 +970,14 @@ function DeleteConfirmForm({
 
       <div className="flex justify-end gap-3 pt-1">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           loading={isDeleting}
           className="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white"
         >
-          Confirm Delete
+          {t('common.confirm')} {t('common.delete')}
         </Button>
       </div>
     </form>

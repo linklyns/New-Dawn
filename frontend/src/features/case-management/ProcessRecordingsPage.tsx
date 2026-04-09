@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { ProcessRecording } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -64,10 +66,20 @@ function sessionTypeBadge(t: string): 'info' | 'warning' | 'success' {
   }
 }
 
+function translateSessionType(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Individual': return t('caseManagement.individual');
+    case 'Group': return t('caseManagement.group');
+    case 'Family': return t('caseManagement.family');
+    default: return value;
+  }
+}
+
 export function ProcessRecordingsPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -135,11 +147,13 @@ export function ProcessRecordingsPage() {
   function openCreate() {
     setEditingRecord(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(rec: ProcessRecording) {
     setEditingRecord(rec);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: RecordingFormData) {
@@ -153,12 +167,12 @@ export function ProcessRecordingsPage() {
   return (
     <div>
       <PageHeader
-        title="Process Recordings"
-        subtitle="Session documentation and case notes"
+        title={t('caseManagement.processRecordings')}
+        subtitle={t('caseManagement.sessionNarrative')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Recording
+            {t('caseManagement.addRecording')}
           </Button>
         }
       />
@@ -166,13 +180,13 @@ export function ProcessRecordingsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-[200px] flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
           <input
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            placeholder="Search any field…"
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -183,8 +197,8 @@ export function ProcessRecordingsPage() {
           value={sessionTypeFilter}
           onChange={(e) => setSessionTypeFilter(e.target.value)}
         >
-          <option value="">All session types</option>
-          {sessionTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+          <option value="">{t('common.all')} {t('caseManagement.sessionType').toLowerCase()}</option>
+          {sessionTypes.map((sessionType) => <option key={sessionType} value={sessionType}>{translateSessionType(t, sessionType)}</option>)}
         </select>
         <button
           className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
@@ -195,14 +209,14 @@ export function ProcessRecordingsPage() {
           onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'asc' ? '↑' : '↓'}
+          {t('common.date')} {sortDir === 'asc' ? '↑' : '↓'}
         </button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingRecord ? 'Edit Recording' : 'New Recording'}
+            {editingRecord ? `${t('common.edit')} ${t('caseManagement.processRecordings')}` : t('caseManagement.newRecord')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -227,7 +241,7 @@ export function ProcessRecordingsPage() {
         </div>
       ) : recordings.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-warm-gray">
-          No process recordings found.
+          {t('common.noData')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -244,7 +258,7 @@ export function ProcessRecordingsPage() {
                       {formatDate(rec.sessionDate)}
                     </span>
                     <span className="text-sm text-warm-gray">{rec.socialWorker}</span>
-                    <Badge variant={sessionTypeBadge(rec.sessionType)}>{rec.sessionType}</Badge>
+                    <Badge variant={sessionTypeBadge(rec.sessionType)}>{translateSessionType(t, rec.sessionType)}</Badge>
                     <span className="text-xs text-warm-gray">{rec.sessionDurationMinutes} min</span>
                     <span className="text-xs text-warm-gray">
                       {rec.emotionalStateObserved} &rarr; {rec.emotionalStateEnd}
@@ -279,7 +293,7 @@ export function ProcessRecordingsPage() {
                   <div className="mt-4 space-y-3 border-t border-slate-navy/10 pt-4 dark:border-white/10">
                     <div>
                       <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                        Session Narrative
+                        {t('caseManagement.sessionNarrative')}
                       </span>
                       <p className="mt-1 text-sm text-slate-navy dark:text-white">
                         {rec.sessionNarrative}
@@ -288,7 +302,7 @@ export function ProcessRecordingsPage() {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Interventions Applied
+                          {t('caseManagement.interventionsApplied')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
                           {rec.interventionsApplied || '--'}
@@ -296,7 +310,7 @@ export function ProcessRecordingsPage() {
                       </div>
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Follow-Up Actions
+                          {t('caseManagement.followUpActions')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
                           {rec.followUpActions || '--'}
@@ -304,14 +318,14 @@ export function ProcessRecordingsPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {rec.progressNoted && <Badge variant="success">Progress Noted</Badge>}
-                      {rec.concernsFlagged && <Badge variant="danger">Concerns Flagged</Badge>}
-                      {rec.referralMade && <Badge variant="info">Referral Made</Badge>}
+                      {rec.progressNoted && <Badge variant="success">{t('caseManagement.progressNoted')}</Badge>}
+                      {rec.concernsFlagged && <Badge variant="danger">{t('caseManagement.concernsFlagged')}</Badge>}
+                      {rec.referralMade && <Badge variant="info">{t('caseManagement.referralMade')}</Badge>}
                     </div>
                     {rec.notesRestricted && (
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Restricted Notes
+                          {t('residents.restrictedNotes')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
                           {rec.notesRestricted}
@@ -329,13 +343,13 @@ export function ProcessRecordingsPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Recording"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.processRecordings')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.recordingId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this recording from{' '}
+          {t('common.delete')} {t('caseManagement.processRecordings').toLowerCase()} {t('common.date').toLowerCase()}{' '}
           {deleteTarget ? formatDate(deleteTarget.sessionDate) : ''}? This action cannot be undone.
         </p>
       </Modal>
@@ -356,6 +370,7 @@ function RecordingForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -386,22 +401,22 @@ function RecordingForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Session Date"
+          label={t('caseManagement.sessionDate')}
           type="date"
           error={errors.sessionDate?.message}
           {...register('sessionDate')}
         />
         <Input
-          label="Social Worker"
+          label={t('caseManagement.socialWorker')}
           error={errors.socialWorker?.message}
           {...register('socialWorker')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Session Type</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.sessionType')}</label>
           <select className={selectClass} {...register('sessionType')}>
-            <option value="">Select...</option>
-            {sessionTypes.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {sessionTypes.map((sessionType) => (
+              <option key={sessionType} value={sessionType}>{translateSessionType(t, sessionType)}</option>
             ))}
           </select>
           {errors.sessionType?.message && (
@@ -409,16 +424,16 @@ function RecordingForm({
           )}
         </div>
         <Input
-          label="Duration (minutes)"
+          label={t('caseManagement.sessionDuration')}
           type="number"
           step="any"
           error={errors.sessionDurationMinutes?.message}
           {...register('sessionDurationMinutes')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Emotional State Observed</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.emotionalStateObserved')}</label>
           <select className={selectClass} {...register('emotionalStateObserved')}>
-            <option value="">Select...</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
             {emotionalStates.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
@@ -428,9 +443,9 @@ function RecordingForm({
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Emotional State End</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.emotionalStateEnd')}</label>
           <select className={selectClass} {...register('emotionalStateEnd')}>
-            <option value="">Select...</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
             {emotionalStates.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
@@ -442,7 +457,7 @@ function RecordingForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Session Narrative</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.sessionNarrative')}</label>
         <textarea className={textareaClass} rows={4} {...register('sessionNarrative')} />
         {errors.sessionNarrative?.message && (
           <p className="text-xs text-red-600">{errors.sessionNarrative.message}</p>
@@ -451,11 +466,11 @@ function RecordingForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Interventions Applied</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.interventionsApplied')}</label>
           <textarea className={textareaClass} rows={2} {...register('interventionsApplied')} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Follow-Up Actions</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.followUpActions')}</label>
           <textarea className={textareaClass} rows={2} {...register('followUpActions')} />
         </div>
       </div>
@@ -468,7 +483,7 @@ function RecordingForm({
             checked={watch('progressNoted')}
             onChange={(e) => setValue('progressNoted', e.target.checked)}
           />
-          Progress Noted
+          {t('caseManagement.progressNoted')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -477,7 +492,7 @@ function RecordingForm({
             checked={watch('concernsFlagged')}
             onChange={(e) => setValue('concernsFlagged', e.target.checked)}
           />
-          Concerns Flagged
+          {t('caseManagement.concernsFlagged')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -486,21 +501,21 @@ function RecordingForm({
             checked={watch('referralMade')}
             onChange={(e) => setValue('referralMade', e.target.checked)}
           />
-          Referral Made
+          {t('caseManagement.referralMade')}
         </label>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Restricted Notes</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('residents.restrictedNotes')}</label>
         <textarea className={textareaClass} rows={2} {...register('notesRestricted')} />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Recording' : 'Save Recording'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.processRecordings')}` : `${t('common.save')} ${t('caseManagement.processRecordings')}`}
         </Button>
       </div>
     </form>

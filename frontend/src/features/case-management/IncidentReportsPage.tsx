@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, ArrowUpDown, Plus, Pencil, Search, Trash2, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { IncidentReport } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -46,6 +48,29 @@ function severityVariant(s: string): 'success' | 'warning' | 'danger' {
   }
 }
 
+function translateIncidentType(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Behavioral': return t('caseManagement.behavioral');
+    case 'Medical': return t('caseManagement.medical');
+    case 'Safety': return t('caseManagement.safety');
+    case 'Abuse': return t('caseManagement.abuse');
+    case 'Runaway': return t('caseManagement.runaway');
+    case 'Property': return t('caseManagement.property');
+    case 'Other': return t('caseManagement.other');
+    default: return value;
+  }
+}
+
+function translateSeverity(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Low': return t('caseManagement.low');
+    case 'Medium': return t('caseManagement.medium');
+    case 'High': return t('caseManagement.high');
+    case 'Critical': return t('caseManagement.critical');
+    default: return value;
+  }
+}
+
 const incidentSchema = z.object({
   incidentDate: z.string().min(1, 'Required'),
   incidentType: z.string().min(1, 'Required'),
@@ -65,6 +90,7 @@ export function IncidentReportsPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -134,11 +160,13 @@ export function IncidentReportsPage() {
   function openCreate() {
     setEditingReport(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(report: IncidentReport) {
     setEditingReport(report);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: IncidentFormData) {
@@ -152,12 +180,12 @@ export function IncidentReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Incident Reports"
-        subtitle="Log and track incident reports"
+        title={t('caseManagement.incidentReports')}
+        subtitle={t('caseManagement.reportIncident')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Report
+            {t('caseManagement.reportIncident')}
           </Button>
         }
       />
@@ -165,13 +193,13 @@ export function IncidentReportsPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-48 flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray" />
           <input
             type="text"
-            placeholder="Search reports..."
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
@@ -182,9 +210,9 @@ export function IncidentReportsPage() {
           onChange={(e) => setTypeFilter(e.target.value)}
           className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
         >
-          <option value="">All Types</option>
-          {incidentTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
+          <option value="">{t('common.all')} {t('common.type').toLowerCase()}</option>
+          {incidentTypes.map((incidentType) => (
+            <option key={incidentType} value={incidentType}>{translateIncidentType(t, incidentType)}</option>
           ))}
         </select>
         <select
@@ -192,9 +220,9 @@ export function IncidentReportsPage() {
           onChange={(e) => setSeverityFilter(e.target.value)}
           className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
         >
-          <option value="">All Severities</option>
-          {severityLevels.map((s) => (
-            <option key={s} value={s}>{s}</option>
+          <option value="">{t('common.all')} {t('caseManagement.severity').toLowerCase()}</option>
+          {severityLevels.map((severity) => (
+            <option key={severity} value={severity}>{translateSeverity(t, severity)}</option>
           ))}
         </select>
         <select
@@ -202,9 +230,9 @@ export function IncidentReportsPage() {
           onChange={(e) => setResolvedFilter(e.target.value)}
           className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
         >
-          <option value="">All</option>
-          <option value="true">Resolved</option>
-          <option value="false">Unresolved</option>
+          <option value="">{t('common.all')}</option>
+          <option value="true">{t('caseManagement.resolved')}</option>
+          <option value="false">{t('common.no')}</option>
         </select>
         <Button
           variant="ghost"
@@ -213,14 +241,14 @@ export function IncidentReportsPage() {
           title={`Sort by incident date (${sortDir === 'desc' ? 'newest first' : 'oldest first'})`}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'desc' ? '↓' : '↑'}
+          {t('common.date')} {sortDir === 'desc' ? '↓' : '↑'}
         </Button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingReport ? 'Edit Report' : 'New Report'}
+            {editingReport ? `${t('common.edit')} ${t('caseManagement.incidentReports')}` : t('caseManagement.reportIncident')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -245,7 +273,7 @@ export function IncidentReportsPage() {
         </div>
       ) : reports.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-warm-gray">
-          No incident reports found.
+          {t('common.noData')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -261,8 +289,8 @@ export function IncidentReportsPage() {
                     <span className="text-sm font-medium text-slate-navy dark:text-white">
                       {formatDate(report.incidentDate)}
                     </span>
-                    <Badge variant="info">{report.incidentType}</Badge>
-                    <Badge variant={severityVariant(report.severity)}>{report.severity}</Badge>
+                    <Badge variant="info">{translateIncidentType(t, report.incidentType)}</Badge>
+                    <Badge variant={severityVariant(report.severity)}>{translateSeverity(t, report.severity)}</Badge>
                     <span className="max-w-xs truncate text-sm text-warm-gray">
                       {report.description}
                     </span>
@@ -304,20 +332,20 @@ export function IncidentReportsPage() {
                   <div className="mt-4 space-y-3 border-t border-slate-navy/10 pt-4 dark:border-white/10">
                     <div>
                       <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                        Full Description
+                        {t('common.description')}
                       </span>
                       <p className="mt-1 text-sm text-slate-navy dark:text-white">{report.description}</p>
                     </div>
                     <div>
                       <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                        Response Taken
+                        {t('caseManagement.responseTaken')}
                       </span>
                       <p className="mt-1 text-sm text-slate-navy dark:text-white">{report.responseTaken}</p>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Resolution Date
+                          {t('caseManagement.resolutionDate')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
                           {formatDate(report.resolutionDate)}
@@ -325,18 +353,18 @@ export function IncidentReportsPage() {
                       </div>
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Resolved
+                          {t('caseManagement.resolved')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
-                          {report.resolved ? 'Yes' : 'No'}
+                          {report.resolved ? t('common.yes') : t('common.no')}
                         </p>
                       </div>
                       <div>
                         <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
-                          Follow-Up Required
+                          {t('caseManagement.followUpRequired')}
                         </span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">
-                          {report.followUpRequired ? 'Yes' : 'No'}
+                          {report.followUpRequired ? t('common.yes') : t('common.no')}
                         </p>
                       </div>
                     </div>
@@ -351,13 +379,13 @@ export function IncidentReportsPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Incident Report"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.incidentReports')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.incidentId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this incident report? This action cannot be undone.
+          {t('common.delete')} {t('caseManagement.incidentReports').toLowerCase()}? This action cannot be undone.
         </p>
       </Modal>
     </div>
@@ -377,6 +405,7 @@ function IncidentForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -404,17 +433,17 @@ function IncidentForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Incident Date"
+          label={t('caseManagement.incidentDate')}
           type="date"
           error={errors.incidentDate?.message}
           {...register('incidentDate')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Incident Type</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.incidentType')}</label>
           <select className={selectClass} {...register('incidentType')}>
-            <option value="">Select...</option>
-            {incidentTypes.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {incidentTypes.map((incidentType) => (
+              <option key={incidentType} value={incidentType}>{translateIncidentType(t, incidentType)}</option>
             ))}
           </select>
           {errors.incidentType?.message && (
@@ -422,11 +451,11 @@ function IncidentForm({
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Severity</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.severity')}</label>
           <select className={selectClass} {...register('severity')}>
-            <option value="">Select...</option>
-            {severityLevels.map((s) => (
-              <option key={s} value={s}>{s}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {severityLevels.map((severity) => (
+              <option key={severity} value={severity}>{translateSeverity(t, severity)}</option>
             ))}
           </select>
           {errors.severity?.message && (
@@ -434,19 +463,19 @@ function IncidentForm({
           )}
         </div>
         <Input
-          label="Reported By"
+          label={t('caseManagement.reportedBy')}
           error={errors.reportedBy?.message}
           {...register('reportedBy')}
         />
         <Input
-          label="Resolution Date"
+          label={t('caseManagement.resolutionDate')}
           type="date"
           {...register('resolutionDate')}
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Description</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.description')}</label>
         <textarea className={textareaClass} rows={3} {...register('description')} />
         {errors.description?.message && (
           <p className="text-xs text-red-600">{errors.description.message}</p>
@@ -454,7 +483,7 @@ function IncidentForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Response Taken</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.responseTaken')}</label>
         <textarea className={textareaClass} rows={3} {...register('responseTaken')} />
         {errors.responseTaken?.message && (
           <p className="text-xs text-red-600">{errors.responseTaken.message}</p>
@@ -469,7 +498,7 @@ function IncidentForm({
             checked={watch('resolved')}
             onChange={(e) => setValue('resolved', e.target.checked)}
           />
-          Resolved
+          {t('caseManagement.resolved')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -478,16 +507,16 @@ function IncidentForm({
             checked={watch('followUpRequired')}
             onChange={(e) => setValue('followUpRequired', e.target.checked)}
           />
-          Follow-Up Required
+          {t('caseManagement.followUpRequired')}
         </label>
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Report' : 'Save Report'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.incidentReports')}` : `${t('common.save')} ${t('caseManagement.incidentReports')}`}
         </Button>
       </div>
     </form>

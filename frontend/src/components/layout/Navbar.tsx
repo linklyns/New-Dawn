@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -6,12 +7,13 @@ import { Button } from '../ui/Button';
 import { BrandHomeLink } from './BrandHomeLink';
 
 const navLinks = [
-  { to: '/', label: 'Home' },
-  { to: '/impact', label: 'Impact' },
-  { to: '/donate', label: 'Donate' },
+  { to: '/', label: 'nav.home' },
+  { to: '/impact', label: 'nav.impact' },
+  { to: '/donate', label: 'nav.donate' },
 ];
 
 export function Navbar() {
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userRole = useAuthStore((s) => s.user?.role);
@@ -42,7 +44,7 @@ export function Navbar() {
                   : 'text-slate-navy hover:text-golden-honey dark:text-white dark:hover:text-golden-honey'
               }`}
             >
-              {link.label}
+              {t(link.label)}
             </Link>
           ))}
         </div>
@@ -53,13 +55,13 @@ export function Navbar() {
             {isAuthenticated ? (
               <Link to="/admin" className="transition-opacity hover:opacity-80">
                 <Button variant="primary" size="sm">
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Button>
               </Link>
             ) : (
               <Link to="/login" className="transition-opacity hover:opacity-80">
                 <Button variant="primary" size="sm">
-                  Login
+                  {t('nav.login')}
                 </Button>
               </Link>
             )}
@@ -69,7 +71,7 @@ export function Navbar() {
           <button
             className="rounded-lg p-2 text-slate-navy transition-colors hover:bg-sky-blue/10 md:hidden dark:text-white dark:hover:bg-sky-blue/20"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
+            aria-label={t('nav.toggleMenu')}
           >
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -91,19 +93,19 @@ export function Navbar() {
                 }`}
                 onClick={() => setMobileOpen(false)}
               >
-                {link.label}
+                {t(link.label)}
               </Link>
             ))}
             {isAuthenticated ? (
               <Link to="/admin" onClick={() => setMobileOpen(false)} className="mt-2">
                 <Button variant="primary" size="sm" className="w-full">
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Button>
               </Link>
             ) : (
               <Link to="/login" onClick={() => setMobileOpen(false)} className="mt-2">
                 <Button variant="primary" size="sm" className="w-full">
-                  Login
+                  {t('nav.login')}
                 </Button>
               </Link>
             )}

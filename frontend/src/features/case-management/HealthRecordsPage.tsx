@@ -16,6 +16,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -24,6 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { HealthWellbeingRecord } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -62,6 +64,7 @@ export function HealthRecordsPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<HealthWellbeingRecord | null>(null);
@@ -126,11 +129,13 @@ export function HealthRecordsPage() {
   function openCreate() {
     setEditingRecord(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(rec: HealthWellbeingRecord) {
     setEditingRecord(rec);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: HealthFormData) {
@@ -154,21 +159,21 @@ export function HealthRecordsPage() {
   const columns = [
     {
       key: 'recordDate',
-      header: 'Date',
+      header: t('common.date'),
       render: (row: Record<string, unknown>) => formatDate(row.recordDate as string),
     },
-    { key: 'generalHealthScore', header: 'Health' },
-    { key: 'nutritionScore', header: 'Nutrition' },
-    { key: 'sleepQualityScore', header: 'Sleep' },
-    { key: 'energyLevelScore', header: 'Energy' },
+    { key: 'generalHealthScore', header: t('caseManagement.generalHealth') },
+    { key: 'nutritionScore', header: t('caseManagement.nutritionScore') },
+    { key: 'sleepQualityScore', header: t('caseManagement.sleepQualityScore') },
+    { key: 'energyLevelScore', header: t('caseManagement.energyLevelScore') },
     {
       key: 'bmi',
-      header: 'BMI',
+      header: t('caseManagement.bmi'),
       render: (row: Record<string, unknown>) => (row.bmi as number).toFixed(1),
     },
     {
       key: 'checkups',
-      header: 'Checkups',
+      header: t('common.status'),
       render: (row: Record<string, unknown>) => {
         const checks: string[] = [];
         if (row.medicalCheckupDone) checks.push('Med');
@@ -196,12 +201,12 @@ export function HealthRecordsPage() {
   return (
     <div>
       <PageHeader
-        title="Health Records"
-        subtitle="Track health and wellbeing metrics"
+        title={t('caseManagement.healthRecords')}
+        subtitle={t('caseManagement.generalHealthTrend')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Record
+            {t('caseManagement.addRecord')}
           </Button>
         }
       />
@@ -209,13 +214,13 @@ export function HealthRecordsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-[200px] flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
           <input
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            placeholder="Search any field…"
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -229,14 +234,14 @@ export function HealthRecordsPage() {
           onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'asc' ? '↑' : '↓'}
+          {t('common.date')} {sortDir === 'asc' ? '↑' : '↓'}
         </button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingRecord ? 'Edit Record' : 'New Record'}
+            {editingRecord ? `${t('common.edit')} ${t('caseManagement.healthRecords')}` : t('caseManagement.newRecord')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -259,7 +264,7 @@ export function HealthRecordsPage() {
       {chartData.length > 1 && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Wellbeing Scores Over Time
+            {t('caseManagement.generalHealthTrend')}
           </h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
@@ -268,10 +273,10 @@ export function HealthRecordsPage() {
               <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="health" stroke="#22c55e" strokeWidth={2} name="Health" dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="nutrition" stroke="#f59e0b" strokeWidth={2} name="Nutrition" dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="sleep" stroke="#8b5cf6" strokeWidth={2} name="Sleep" dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="energy" stroke="#38bdf8" strokeWidth={2} name="Energy" dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="health" stroke="#22c55e" strokeWidth={2} name={t('caseManagement.generalHealth')} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="nutrition" stroke="#f59e0b" strokeWidth={2} name={t('caseManagement.nutritionScore')} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="sleep" stroke="#8b5cf6" strokeWidth={2} name={t('caseManagement.sleepQualityScore')} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="energy" stroke="#38bdf8" strokeWidth={2} name={t('caseManagement.energyLevelScore')} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -282,7 +287,7 @@ export function HealthRecordsPage() {
           columns={columns}
           data={records as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No health records found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
@@ -295,13 +300,13 @@ export function HealthRecordsPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Health Record"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.healthRecords')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.healthRecordId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this health record? This action cannot be undone.
+          {t('common.delete')} {t('caseManagement.healthRecords').toLowerCase()}? This action cannot be undone.
         </p>
       </Modal>
     </div>
@@ -321,6 +326,7 @@ function HealthForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -361,34 +367,34 @@ function HealthForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Record Date"
+          label={t('caseManagement.recordDate')}
           type="date"
           error={errors.recordDate?.message}
           {...register('recordDate')}
         />
         <Input
-          label="General Health Score (1-5)"
+          label={t('caseManagement.generalHealthScore')}
           type="number"
           step="any"
           error={errors.generalHealthScore?.message}
           {...register('generalHealthScore')}
         />
         <Input
-          label="Nutrition Score (1-5)"
+          label={t('caseManagement.nutritionScore')}
           type="number"
           step="any"
           error={errors.nutritionScore?.message}
           {...register('nutritionScore')}
         />
         <Input
-          label="Sleep Quality Score (1-5)"
+          label={t('caseManagement.sleepQualityScore')}
           type="number"
           step="any"
           error={errors.sleepQualityScore?.message}
           {...register('sleepQualityScore')}
         />
         <Input
-          label="Energy Level Score (1-5)"
+          label={t('caseManagement.energyLevelScore')}
           type="number"
           step="any"
           error={errors.energyLevelScore?.message}
@@ -398,21 +404,21 @@ function HealthForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Input
-          label="Height (cm)"
+          label={t('caseManagement.heightCm')}
           type="number"
           step="0.1"
           error={errors.heightCm?.message}
           {...register('heightCm')}
         />
         <Input
-          label="Weight (kg)"
+          label={t('caseManagement.weightKg')}
           type="number"
           step="0.1"
           error={errors.weightKg?.message}
           {...register('weightKg')}
         />
         <Input
-          label="BMI (auto-calculated)"
+          label={t('caseManagement.bmi')}
           type="number"
           step="0.1"
           readOnly
@@ -428,7 +434,7 @@ function HealthForm({
             checked={watch('medicalCheckupDone')}
             onChange={(e) => setValue('medicalCheckupDone', e.target.checked)}
           />
-          Medical Checkup Done
+          {t('caseManagement.medicalCheckup')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -437,7 +443,7 @@ function HealthForm({
             checked={watch('dentalCheckupDone')}
             onChange={(e) => setValue('dentalCheckupDone', e.target.checked)}
           />
-          Dental Checkup Done
+          {t('caseManagement.dentalCheckup')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -446,21 +452,21 @@ function HealthForm({
             checked={watch('psychologicalCheckupDone')}
             onChange={(e) => setValue('psychologicalCheckupDone', e.target.checked)}
           />
-          Psychological Checkup Done
+          {t('caseManagement.psychologicalCheckup')}
         </label>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Notes</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.notes')}</label>
         <textarea className={textareaClass} rows={3} {...register('notes')} />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Record' : 'Save Record'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.healthRecords')}` : `${t('common.save')} ${t('caseManagement.healthRecords')}`}
         </Button>
       </div>
     </form>

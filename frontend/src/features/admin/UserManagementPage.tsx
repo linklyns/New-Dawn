@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, ChevronDown, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { Card } from '../../components/ui/Card';
@@ -34,6 +35,7 @@ const roleBadgeVariant: Record<string, 'danger' | 'info' | 'success'> = {
 type SortKey = 'name' | 'email' | 'role';
 
 export function UserManagementPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export function UserManagementPage() {
       <div className="mb-6 flex items-center gap-3">
         <ShieldCheck size={24} className="text-slate-navy dark:text-white" />
         <h1 className="font-heading text-2xl font-bold text-slate-navy dark:text-white">
-          User Management
+          {t('userManagement.title')}
         </h1>
       </div>
 
@@ -129,7 +131,7 @@ export function UserManagementPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. ti br.)"
+              placeholder={t('userManagement.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -139,19 +141,19 @@ export function UserManagementPage() {
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
           >
-            <option value="">All Roles</option>
-            <option value="Admin">Admin</option>
-            <option value="Staff">Staff</option>
-            <option value="Donor">Donor</option>
+            <option value="">{t('userManagement.allRoles')}</option>
+            <option value="Admin">{t('userManagement.admin')}</option>
+            <option value="Staff">{t('userManagement.staff')}</option>
+            <option value="Donor">{t('userManagement.donor')}</option>
           </select>
           <select
             className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
             value={mfaFilter}
             onChange={(e) => setMfaFilter(e.target.value)}
           >
-            <option value="">All 2FA</option>
-            <option value="on">2FA Enabled</option>
-            <option value="off">2FA Off</option>
+            <option value="">{t('userManagement.all2fa')}</option>
+            <option value="on">{t('userManagement.twoFaEnabled')}</option>
+            <option value="off">{t('userManagement.twoFaOff')}</option>
           </select>
         </div>
 
@@ -160,16 +162,16 @@ export function UserManagementPage() {
             <thead>
               <tr className="border-b border-slate-navy/10 dark:border-white/10">
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">
-                  <span className="flex items-center">Name <SortBtn col="name" /></span>
+                  <span className="flex items-center">{t('common.name')} <SortBtn col="name" /></span>
                 </th>
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">
-                  <span className="flex items-center">Email <SortBtn col="email" /></span>
+                  <span className="flex items-center">{t('common.email')} <SortBtn col="email" /></span>
                 </th>
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">
-                  <span className="flex items-center">Role <SortBtn col="role" /></span>
+                  <span className="flex items-center">{t('partners.role')} <SortBtn col="role" /></span>
                 </th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">2FA</th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">Actions</th>
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white">{t('userManagement.twoFa')}</th>
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -187,21 +189,27 @@ export function UserManagementPage() {
                           autoFocus
                           className="appearance-none rounded-lg border border-slate-navy/20 bg-white py-1 pl-3 pr-8 text-sm dark:border-white/20 dark:bg-dark-surface dark:text-white"
                         >
-                          <option value="Admin">Admin</option>
-                          <option value="Staff">Staff</option>
-                          <option value="Donor">Donor</option>
+                          <option value="Admin">{t('userManagement.admin')}</option>
+                          <option value="Staff">{t('userManagement.staff')}</option>
+                          <option value="Donor">{t('userManagement.donor')}</option>
                         </select>
                         <ChevronDown size={14} className="pointer-events-none absolute right-2 top-2 text-warm-gray" />
                       </div>
                     ) : (
                       <Badge variant={roleBadgeVariant[user.role] ?? 'neutral'}>
-                        {user.role}
+                        {user.role === 'Admin'
+                          ? t('userManagement.admin')
+                          : user.role === 'Staff'
+                            ? t('userManagement.staff')
+                            : user.role === 'Donor'
+                              ? t('userManagement.donor')
+                              : user.role}
                       </Badge>
                     )}
                   </td>
                   <td className="py-3">
                     <Badge variant={user.has2fa ? 'success' : 'neutral'}>
-                      {user.has2fa ? 'Enabled' : 'Off'}
+                      {user.has2fa ? t('userManagement.twoFaEnabled') : t('userManagement.twoFaOff')}
                     </Badge>
                   </td>
                   <td className="py-3">
@@ -210,7 +218,7 @@ export function UserManagementPage() {
                         onClick={() => setEditingUserId(user.id)}
                         className="text-sm font-medium text-sky-blue-text hover:underline dark:text-sky-blue"
                       >
-                        Change Role
+                        {t('common.edit')}
                       </button>
                     )}
                   </td>

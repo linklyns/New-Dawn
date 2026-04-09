@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
@@ -27,6 +28,7 @@ type MfaForm = z.infer<typeof mfaSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const login = useAuthStore((s) => s.login);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,11 +49,13 @@ export function LoginPage() {
           displayName: res.displayName,
           role: res.role,
           has2fa: false,
+          preferredLanguage: res.preferredLanguage,
+          preferredCurrency: res.preferredCurrency,
         });
         navigate('/admin');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed');
+      setError(err instanceof Error ? err.message : t('auth.googleFailed'));
     } finally {
       setLoading(false);
     }
@@ -89,11 +93,13 @@ export function LoginPage() {
           displayName: res.displayName,
           role: res.role,
           has2fa: false,
+          preferredLanguage: res.preferredLanguage,
+          preferredCurrency: res.preferredCurrency,
         });
         navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -112,10 +118,12 @@ export function LoginPage() {
         displayName: res.displayName,
         role: res.role,
         has2fa: true,
+        preferredLanguage: res.preferredLanguage,
+        preferredCurrency: res.preferredCurrency,
       });
       navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+      setError(err instanceof Error ? err.message : t('auth.verifyFailed'));
     } finally {
       setLoading(false);
     }
@@ -125,13 +133,13 @@ export function LoginPage() {
     <div className="flex min-h-[80vh] items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
-          <img src={logo} alt="New Dawn - A Path to Healing and Hope" className="h-16" />
+          <img src={logo} alt={t('brand.logoAlt')} className="h-16" />
         </div>
 
         {!mfaRequired ? (
           <form onSubmit={handleSubmit(onLogin)} className="flex flex-col gap-4">
             <h2 className="text-center font-heading text-xl font-bold text-slate-navy dark:text-white">
-              Sign In
+              {t('auth.signIn')}
             </h2>
 
             {error && (
@@ -141,23 +149,23 @@ export function LoginPage() {
             )}
 
             <Input
-              label="Email"
+              label={t('auth.email')}
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
               error={errors.email?.message}
               {...register('email')}
             />
 
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
-              placeholder="Enter your password"
+              placeholder={t('auth.passwordPlaceholder')}
               error={errors.password?.message}
               {...register('password')}
             />
 
             <Button type="submit" loading={loading} className="w-full">
-              Sign In
+              {t('auth.signIn')}
             </Button>
 
             <div className="relative my-2">
@@ -166,7 +174,7 @@ export function LoginPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-2 text-warm-gray dark:bg-slate-navy">
-                  Or continue with
+                  {t('auth.orContinueWith')}
                 </span>
               </div>
             </div>
@@ -174,22 +182,22 @@ export function LoginPage() {
             <div id="google-signin-btn" className="flex justify-center" />
 
             <p className="text-center text-sm text-warm-gray">
-              Don&apos;t have an account?{' '}
+              {t('auth.noAccount')}{' '}
               <Link
                 to="/register"
                 className="font-medium text-sky-blue-text dark:text-sky-blue hover:underline"
               >
-                Register
+                {t('auth.register')}
               </Link>
             </p>
           </form>
         ) : (
           <form onSubmit={handleMfaSubmit(onMfaVerify)} className="flex flex-col gap-4">
             <h2 className="text-center font-heading text-xl font-bold text-slate-navy dark:text-white">
-              Two-Factor Authentication
+              {t('auth.twoFactorAuth')}
             </h2>
             <p className="text-center text-sm text-warm-gray">
-              Enter the 6-digit code from your authenticator app.
+              {t('auth.twoFactorInstructions')}
             </p>
 
             {error && (
@@ -199,9 +207,9 @@ export function LoginPage() {
             )}
 
             <Input
-              label="Code"
+              label={t('auth.code')}
               type="text"
-              placeholder="000000"
+              placeholder={t('auth.codePlaceholder')}
               maxLength={6}
               autoComplete="one-time-code"
               autoFocus
@@ -210,7 +218,7 @@ export function LoginPage() {
             />
 
             <Button type="submit" loading={loading} className="w-full">
-              Verify
+              {t('auth.verify')}
             </Button>
           </form>
         )}

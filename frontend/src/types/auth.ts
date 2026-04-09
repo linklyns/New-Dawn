@@ -7,6 +7,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   displayName: string;
+  preferredLanguage: string;
+  preferredCurrency: string;
 }
 
 export interface AuthResponse {
@@ -15,6 +17,8 @@ export interface AuthResponse {
   displayName: string;
   role: string;
   requiresMfa: boolean;
+  preferredLanguage: string;
+  preferredCurrency: string;
 }
 
 export interface User {
@@ -22,4 +26,6 @@ export interface User {
   displayName: string;
   role: string;
   has2fa: boolean;
+  preferredLanguage: string;
+  preferredCurrency: string;
 }

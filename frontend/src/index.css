@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-white: #FFFFFF;
@@ -18,51 +19,34 @@
 }
 
 @layer base {
+  :root {
+    background:
+      radial-gradient(circle at top left, color-mix(in srgb, var(--color-coral-pink) 75%, white) 0%, transparent 28%),
+      radial-gradient(circle at top right, color-mix(in srgb, var(--color-sky-blue) 72%, white) 0%, transparent 34%),
+      linear-gradient(180deg, #fffdf8 0%, #fff7f0 45%, #f4fbff 100%);
+  }
+
+  html {
+    background: transparent;
+  }
+
   body {
     font-family: var(--font-body);
     color: var(--color-slate-navy);
-    background-color: var(--color-white);
+    background:
+      radial-gradient(circle at top left, color-mix(in srgb, var(--color-coral-pink) 78%, white) 0%, transparent 24%),
+      radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--color-sky-blue) 75%, white) 0%, transparent 30%),
+      linear-gradient(180deg, #fffdf8 0%, #fff8f2 42%, #f4fbff 100%);
     min-height: 100vh;
     margin: 0;
+    background-attachment: fixed;
   }
 
   .dark body {
-    background-color: var(--color-dark-navy);
+    background:
+      radial-gradient(circle at top left, rgba(117, 162, 194, 0.08) 0%, transparent 22%),
+      linear-gradient(180deg, #111a23 0%, #17222d 44%, #1b2732 100%);
     color: var(--color-white);
-  }
-
-  .dark .bg-white,
-  .dark .bg-white\/5,
-  .dark .bg-white\/10,
-  .dark .bg-white\/20,
-  .dark .bg-white\/30,
-  .dark .bg-white\/40,
-  .dark .bg-white\/50 {
-    background-color: var(--color-dark-surface) !important;
-  }
-
-  .dark .bg-slate-navy\/5,
-  .dark .bg-slate-navy\/10,
-  .dark .bg-slate-navy\/20,
-  .dark .bg-slate-navy\/30,
-  .dark .bg-slate-navy\/40,
-  .dark .bg-slate-navy\/50,
-  .dark .bg-slate-navy\/\[0\.02\] {
-    background-color: rgba(255,255,255,0.06) !important;
-  }
-
-  .dark .bg-sky-blue\/5,
-  .dark .bg-sage-green\/5,
-  .dark .bg-golden-honey\/5 {
-    background-color: rgba(255,255,255,0.08) !important;
-  }
-
-  .dark .border-slate-navy\/10,
-  .dark .border-slate-navy\/20,
-  .dark .border-slate-navy\/30,
-  .dark .border-slate-navy\/40,
-  .dark .border-slate-navy\/50 {
-    border-color: rgba(255,255,255,0.10) !important;
   }
 
   .dark {
@@ -76,54 +60,12 @@
     --color-white: #f8f8f8;
   }
 
-  .dark .text-slate-navy,
-  .dark .text-slate-navy\/80,
-  .dark .text-slate-navy\/90 {
-    color: var(--color-white) !important;
-  }
-
-  .dark .text-warm-gray,
-  .dark .text-warm-gray\/60,
-  .dark .text-warm-gray\/70,
-  .dark .text-warm-gray\/80 {
-    color: rgba(255,255,255,0.78) !important;
-  }
-
-  .dark .text-slate-navy\/40,
-  .dark .text-slate-navy\/50 {
-    color: rgba(255,255,255,0.85) !important;
-  }
-
-  .dark .bg-golden-honey\/20 {
-    background-color: rgba(209, 166, 42, 0.16) !important;
-  }
-
-  .dark .bg-coral-pink\/20 {
-    background-color: rgba(236, 154, 143, 0.16) !important;
-  }
-
-  .dark .bg-coral-pink\/10 {
-    background-color: rgba(236, 154, 143, 0.08) !important;
-  }
-
-  .dark .bg-sky-blue\/20 {
-    background-color: rgba(117, 162, 194, 0.16) !important;
-  }
-
-  .dark .bg-sky-blue\/10 {
-    background-color: rgba(117, 162, 194, 0.08) !important;
-  }
-
-  .dark .bg-sage-green\/20 {
-    background-color: rgba(132, 169, 134, 0.14) !important;
-  }
-
-  .dark .shadow-sm {
-    box-shadow: 0 1px 2px rgba(255,255,255,0.08);
-  }
-
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+  }
+
+  #root {
+    min-height: 100vh;
   }
 }
 

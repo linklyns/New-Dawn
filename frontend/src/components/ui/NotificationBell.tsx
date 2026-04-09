@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Check, CheckCheck, ExternalLink, Shield, Users, TrendingDown, Share2, DollarSign, PieChart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, useUnreadCount, useMarkRead, useMarkAllRead } from '../../hooks/useNotifications';
 import type { Notification } from '../../types';
@@ -26,6 +27,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -76,7 +78,7 @@ export function NotificationBell() {
         ref={buttonRef}
         onClick={() => setOpen(!open)}
         className="relative rounded-lg p-2 text-slate-navy transition-colors hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10"
-        aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ''}`}
+        aria-label={count > 0 ? t('notifications.unreadOfTotal', { unread: count, total: count }) : t('notifications.title')}
       >
         <Bell size={18} />
         {count > 0 && (
@@ -91,12 +93,12 @@ export function NotificationBell() {
           ref={panelRef}
           className="absolute right-0 top-full mt-2 w-96 max-h-[28rem] overflow-hidden rounded-xl border border-slate-navy/10 bg-white shadow-xl dark:border-white/10 dark:bg-dark-surface"
           role="dialog"
-          aria-label="Notifications"
+          aria-label={t('notifications.title')}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-navy/10 px-4 py-3 dark:border-white/10">
             <h3 className="text-sm font-semibold text-slate-navy dark:text-white">
-              Notifications
+              {t('notifications.title')}
             </h3>
             {count > 0 && (
               <button
@@ -104,7 +106,7 @@ export function NotificationBell() {
                 className="flex items-center gap-1 text-xs font-medium text-sky-blue transition-colors hover:text-sky-blue/80"
               >
                 <CheckCheck size={14} />
-                Mark all read
+                {t('notifications.markAllRead')}
               </button>
             )}
           </div>
@@ -119,7 +121,7 @@ export function NotificationBell() {
               <div className="py-10 text-center">
                 <Bell size={24} className="mx-auto mb-2 text-slate-navy/30 dark:text-white/30" />
                 <p className="text-sm text-slate-navy/50 dark:text-white/50">
-                  No notifications yet
+                  {t('notifications.noNotifications')}
                 </p>
               </div>
             ) : (
@@ -165,7 +167,7 @@ export function NotificationBell() {
                           markRead.mutate(n.notificationId);
                         }}
                         className="shrink-0 rounded p-1 text-slate-navy/40 transition-colors hover:bg-slate-navy/10 hover:text-slate-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-                        aria-label="Mark as read"
+                        aria-label={t('notifications.markAsRead')}
                       >
                         <Check size={12} />
                       </button>
@@ -186,7 +188,7 @@ export function NotificationBell() {
                 }}
                 className="w-full text-center text-xs font-medium text-sky-blue transition-colors hover:text-sky-blue/80"
               >
-                View all notifications
+                {t('notifications.viewAll')}
               </button>
             </div>
           )}

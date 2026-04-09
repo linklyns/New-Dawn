@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface SpinnerProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -10,6 +12,8 @@ const sizeMap = {
 };
 
 export function Spinner({ className = '', size = 'md' }: SpinnerProps) {
+  const { t } = useTranslation();
+
   return (
     <svg
       className={`animate-spin text-golden-honey ${sizeMap[size]} ${className}`}
@@ -17,7 +21,7 @@ export function Spinner({ className = '', size = 'md' }: SpinnerProps) {
       fill="none"
       viewBox="0 0 24 24"
       role="status"
-      aria-label="Loading"
+      aria-label={t('common.loading')}
     >
       <circle
         className="opacity-25"

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Plus, Pencil, Trash2, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -52,6 +53,7 @@ const emptyPartner: Omit<Partner, 'partnerId'> = {
 type SortKey = 'name' | 'type' | 'status' | 'date';
 
 export function PartnersList() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -143,29 +145,43 @@ export function PartnersList() {
   const columns = [
     {
       key: 'partnerName',
-      header: <span className="flex items-center">Partner Name <SortBtn col="name" /></span>,
+      header: <span className="flex items-center">{t('partners.partnerName')} <SortBtn col="name" /></span>,
     },
     {
       key: 'partnerType',
-      header: <span className="flex items-center">Type <SortBtn col="type" /></span>,
+      header: <span className="flex items-center">{t('common.type')} <SortBtn col="type" /></span>,
       render: (row: Record<string, unknown>) => (
-        <Badge variant={typeVariant(row.partnerType as string)}>{row.partnerType as string}</Badge>
+        <Badge variant={typeVariant(row.partnerType as string)}>
+          {row.partnerType === 'Organization'
+            ? t('partners.organizationType')
+            : row.partnerType === 'Individual'
+              ? t('partners.individualType')
+              : (row.partnerType as string)}
+        </Badge>
       ),
     },
-    { key: 'roleType', header: 'Role' },
-    { key: 'contactName', header: 'Contact' },
-    { key: 'email', header: 'Email' },
-    { key: 'region', header: 'Region' },
+    { key: 'roleType', header: t('partners.role') },
+    { key: 'contactName', header: t('partners.contact') },
+    { key: 'email', header: t('common.email') },
+    { key: 'region', header: t('partners.region') },
     {
       key: 'status',
-      header: <span className="flex items-center">Status <SortBtn col="status" /></span>,
+      header: <span className="flex items-center">{t('common.status')} <SortBtn col="status" /></span>,
       render: (row: Record<string, unknown>) => (
-        <Badge variant={statusVariant(row.status as string)}>{row.status as string}</Badge>
+        <Badge variant={statusVariant(row.status as string)}>
+          {row.status === 'Active'
+            ? t('common.active')
+            : row.status === 'Inactive'
+              ? t('common.inactive')
+              : row.status === 'Suspended'
+                ? t('partners.suspended')
+                : (row.status as string)}
+        </Badge>
       ),
     },
     {
       key: 'startDate',
-      header: <span className="flex items-center">Start Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('partners.startDate')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.startDate as string),
     },
     {
@@ -190,9 +206,9 @@ export function PartnersList() {
   return (
     <div>
       <PageHeader
-        title="Partners"
-        subtitle="Manage organizational partnerships"
-        action={<Button onClick={openCreate} className="gap-2"><Plus size={16} /> Add Partner</Button>}
+        title={t('partners.title')}
+        subtitle={t('partners.subtitle')}
+        action={<Button onClick={openCreate} className="gap-2"><Plus size={16} /> {t('partners.addPartner')}</Button>}
       />
 
       <Card>
@@ -201,15 +217,15 @@ export function PartnersList() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. name, region, role)"
+              placeholder={t('partners.searchPartners')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
           <select className={selectClass} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
+            <option value="">{t('safehouses.allStatuses')}</option>
+            <option value="Active">{t('common.active')}</option>
+            <option value="Inactive">{t('common.inactive')}</option>
           </select>
         </div>
 
@@ -236,14 +252,14 @@ export function PartnersList() {
             <input className={inputClass} value={form.partnerName} onChange={(e) => setForm({ ...form, partnerName: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Type</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.type')}</label>
             <select className={selectClass + ' w-full'} value={form.partnerType} onChange={(e) => setForm({ ...form, partnerType: e.target.value })}>
-              <option value="Organization">Organization</option>
-              <option value="Individual">Individual</option>
+              <option value="Organization">{t('partners.organizationType')}</option>
+              <option value="Individual">{t('partners.individualType')}</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Role</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('partners.role')}</label>
             <select className={selectClass + ' w-full'} value={form.roleType} onChange={(e) => setForm({ ...form, roleType: e.target.value })}>
               <option value="SafehouseOps">Safehouse Ops</option>
               <option value="Education">Education</option>
@@ -259,7 +275,7 @@ export function PartnersList() {
             <input className={inputClass} value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Email</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.email')}</label>
             <input className={inputClass} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div>
@@ -267,18 +283,18 @@ export function PartnersList() {
             <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Region</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('partners.region')}</label>
             <input className={inputClass} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Status</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.status')}</label>
             <select className={selectClass + ' w-full'} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Active">{t('common.active')}</option>
+              <option value="Inactive">{t('common.inactive')}</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Start Date</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('partners.startDate')}</label>
             <input className={inputClass} type="date" value={form.startDate?.slice(0, 10) ?? ''} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
@@ -287,8 +303,8 @@ export function PartnersList() {
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-          <Button onClick={handleSave} disabled={save.isPending}>{editing ? 'Save Changes' : 'Create Partner'}</Button>
+          <Button variant="ghost" onClick={closeModal}>{t('common.cancel')}</Button>
+          <Button onClick={handleSave} disabled={save.isPending}>{editing ? t('common.save') : t('partners.addPartner')}</Button>
         </div>
       </Modal>
 
@@ -297,7 +313,7 @@ export function PartnersList() {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         title="Delete Partner"
-        confirmText="Delete"
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && remove.mutate(deleteTarget.partnerId)}
       >

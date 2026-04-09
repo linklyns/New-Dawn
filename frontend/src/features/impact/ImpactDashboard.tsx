@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
   Area,
@@ -18,6 +19,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
 import { api } from '../../lib/api';
+import { formatLocalizedCurrency, formatLocalizedPercent, resolveUserPreferences } from '../../lib/locale';
 
 interface DashboardData {
   residentsOverTime: { year: string; count: number }[];
@@ -27,25 +29,26 @@ interface DashboardData {
 
 const PIE_COLORS = ['#A2C9E1', '#91B191', '#FFCC66', '#2D3A4A', '#E85D75'];
 
-// Static outcomes data (not directly queryable from DB aggregates)
-const outcomesData = [
-  { name: 'Education Completion', value: 78 },
-  { name: 'Health Improvement', value: 85 },
-  { name: 'Successful Reintegration', value: 34 },
-  { name: 'Counseling Sessions', value: 100 },
-];
-
 export function ImpactDashboard() {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences();
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['impact-dashboard'],
     queryFn: () => api.get('/api/public-impact/dashboard'),
   });
 
+  const outcomesData = [
+    { name: t('impact.educationCompletion'), value: 78 },
+    { name: t('impact.healthImprovement'), value: 85 },
+    { name: t('impact.successfulReintegration'), value: 34 },
+    { name: t('impact.counselingSessions'), value: 100 },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <PageHeader
-        title="Our Impact"
-        subtitle="See how your support makes a difference"
+        title={t('impact.title')}
+        subtitle={t('impact.subtitle')}
       />
 
       {isLoading ? (
@@ -55,7 +58,7 @@ export function ImpactDashboard() {
           {/* Residents Served Over Time */}
           <Card className="mb-8">
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-              Residents Served Over Time
+              {t('impact.residentsServed')}
             </h2>
             <div className="h-72 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -76,7 +79,7 @@ export function ImpactDashboard() {
                   <Area
                     type="monotone"
                     dataKey="count"
-                    name="Girls Served"
+                    name={t('impact.girlsServed')}
                     stroke="#A2C9E1"
                     fill="#A2C9E1"
                     fillOpacity={0.3}
@@ -92,7 +95,7 @@ export function ImpactDashboard() {
             {/* Program Outcomes */}
             <Card>
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-                Program Outcomes
+                {t('impact.programOutcomes')}
               </h2>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -106,7 +109,7 @@ export function ImpactDashboard() {
                       type="number"
                       domain={[0, 100]}
                       tick={{ fill: '#2D3A4A', fontSize: 12 }}
-                      tickFormatter={(v) => `${v}%`}
+                      tickFormatter={(v) => formatLocalizedPercent(Number(v), preferences)}
                     />
                     <YAxis
                       type="category"
@@ -115,7 +118,7 @@ export function ImpactDashboard() {
                       width={150}
                     />
                     <Tooltip
-                      formatter={(v) => `${v}%`}
+                      formatter={(v) => formatLocalizedPercent(Number(v), preferences)}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #91B191',
@@ -124,7 +127,7 @@ export function ImpactDashboard() {
                     />
                     <Bar
                       dataKey="value"
-                      name="Percentage"
+                      name={t('impact.percentage')}
                       fill="#91B191"
                       radius={[0, 4, 4, 0]}
                       barSize={24}
@@ -133,14 +136,14 @@ export function ImpactDashboard() {
                 </ResponsiveContainer>
               </div>
               <p className="mt-3 text-xs text-warm-gray">
-                * Counseling Sessions normalized to 100% of target
+                {t('impact.counselingNote')}
               </p>
             </Card>
 
             {/* Donation Impact */}
             <Card>
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-                Donation Impact by Program
+                {t('impact.donationImpact')}
               </h2>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -166,7 +169,7 @@ export function ImpactDashboard() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(v) => `$${Number(v).toLocaleString()}`}
+                      formatter={(v) => formatLocalizedCurrency(Number(v), preferences, { maximumFractionDigits: 0 })}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #FFCC66',
@@ -182,7 +185,7 @@ export function ImpactDashboard() {
 
           {/* Safehouse Network */}
           <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-            Safehouse Network
+            {t('impact.safehouseNetwork')}
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {(data?.safehouseRegions ?? []).map((r) => (
@@ -195,9 +198,9 @@ export function ImpactDashboard() {
                 </p>
                 <div className="mt-4">
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-warm-gray dark:text-white/70">Occupancy</span>
+                    <span className="text-warm-gray dark:text-white/70">{t('impact.occupancy')}</span>
                     <span className="font-medium text-slate-navy dark:text-white">
-                      {Math.round(r.occupancy)}%
+                      {formatLocalizedPercent(Math.round(r.occupancy), preferences)}
                     </span>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-navy/10 dark:bg-white/10">

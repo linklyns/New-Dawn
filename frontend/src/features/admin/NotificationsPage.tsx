@@ -1,24 +1,26 @@
 import { useState } from 'react';
 import { Bell, Check, CheckCheck, Shield, Users, TrendingDown, Share2, DollarSign, PieChart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, useMarkRead, useMarkAllRead } from '../../hooks/useNotifications';
 import type { Notification } from '../../types';
 
-const typeConfig: Record<string, { icon: typeof Bell; label: string; color: string }> = {
-  MfaReminder: { icon: Shield, label: 'MFA Reminder', color: 'bg-golden-honey/10 text-golden-honey' },
-  LowLikelihoodDonors: { icon: TrendingDown, label: 'Low Likelihood', color: 'bg-coral-pink/10 text-coral-pink' },
-  ForgottenParticipants: { icon: Users, label: 'Needs Attention', color: 'bg-red-100 text-red-500' },
-  SocialMediaReminder: { icon: Share2, label: 'Social Media', color: 'bg-sky-blue/10 text-sky-blue' },
-  DonationMilestone: { icon: DollarSign, label: 'Milestone', color: 'bg-sage-green/10 text-sage-green' },
-  AllocationBenchmark: { icon: PieChart, label: 'Benchmark', color: 'bg-sage-green/10 text-sage-green' },
-};
-
 export function NotificationsPage() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const { data, isLoading } = useNotifications(page, 20);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
   const navigate = useNavigate();
+
+  const typeConfig: Record<string, { icon: typeof Bell; label: string; color: string }> = {
+    MfaReminder: { icon: Shield, label: t('notifications.mfaReminder'), color: 'bg-golden-honey/10 text-golden-honey' },
+    LowLikelihoodDonors: { icon: TrendingDown, label: t('notifications.lowLikelihood'), color: 'bg-coral-pink/10 text-coral-pink' },
+    ForgottenParticipants: { icon: Users, label: t('notifications.needsAttention'), color: 'bg-red-100 text-red-500' },
+    SocialMediaReminder: { icon: Share2, label: t('notifications.socialMedia'), color: 'bg-sky-blue/10 text-sky-blue' },
+    DonationMilestone: { icon: DollarSign, label: t('notifications.milestone'), color: 'bg-sage-green/10 text-sage-green' },
+    AllocationBenchmark: { icon: PieChart, label: t('notifications.benchmark'), color: 'bg-sage-green/10 text-sage-green' },
+  };
 
   const notifications = data?.items ?? [];
 
@@ -31,10 +33,10 @@ export function NotificationsPage() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-navy dark:text-white">Notifications</h1>
+          <h1 className="text-2xl font-semibold text-slate-navy dark:text-white">{t('notifications.title')}</h1>
           {data && (
             <p className="mt-1 text-sm text-slate-navy/60 dark:text-white/60">
-              {data.unreadCount} unread of {data.totalCount} total
+              {t('notifications.unreadOfTotal', { unread: data.unreadCount, total: data.totalCount })}
             </p>
           )}
         </div>
@@ -44,7 +46,7 @@ export function NotificationsPage() {
             className="flex items-center gap-1.5 rounded-lg bg-sky-blue/10 px-3 py-2 text-sm font-medium text-sky-blue transition-colors hover:bg-sky-blue/20"
           >
             <CheckCheck size={16} />
-            Mark all as read
+            {t('notifications.markAllRead')}
           </button>
         )}
       </div>
@@ -56,7 +58,7 @@ export function NotificationsPage() {
       ) : notifications.length === 0 ? (
         <div className="rounded-xl border border-slate-navy/10 bg-white py-16 text-center dark:border-white/10 dark:bg-dark-surface">
           <Bell size={32} className="mx-auto mb-3 text-slate-navy/20 dark:text-white/20" />
-          <p className="text-slate-navy/50 dark:text-white/50">No notifications</p>
+          <p className="text-slate-navy/50 dark:text-white/50">{t('notifications.noNotifications')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-navy/10 bg-white dark:border-white/10 dark:bg-dark-surface">
@@ -98,7 +100,7 @@ export function NotificationsPage() {
                       markRead.mutate(n.notificationId);
                     }}
                     className="mt-1 shrink-0 rounded-lg p-1.5 text-slate-navy/40 transition-colors hover:bg-slate-navy/10 hover:text-slate-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-                    aria-label="Mark as read"
+                    aria-label={t('notifications.markAllRead')}
                   >
                     <Check size={14} />
                   </button>
@@ -117,17 +119,17 @@ export function NotificationsPage() {
             disabled={page === 1}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-navy transition-colors hover:bg-slate-navy/5 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
           >
-            Previous
+            {t('common.previous')}
           </button>
           <span className="text-sm text-slate-navy/60 dark:text-white/60">
-            Page {page} of {data.totalPages}
+            {t('common.pageOf', { page, pages: data.totalPages })}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
             disabled={page === data.totalPages}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-navy transition-colors hover:bg-slate-navy/5 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
           >
-            Next
+            {t('common.next')}
           </button>
         </div>
       )}
