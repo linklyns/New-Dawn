@@ -4,7 +4,6 @@ import { Heart, Sparkles, GraduationCap } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { api } from '../../lib/api';
-import logo from '../../assets/logo.png';
 
 interface PublicStats {
   girlsServed: number;
