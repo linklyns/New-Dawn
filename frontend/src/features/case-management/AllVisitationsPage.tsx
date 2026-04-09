@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -33,12 +34,23 @@ function outcomeVariant(o: string): 'success' | 'warning' | 'info' | 'neutral' |
   }
 }
 
+function translateOutcome(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Favorable': return t('caseManagement.favorable');
+    case 'Inconclusive': return t('caseManagement.inconclusive');
+    case 'Needs Improvement': return t('caseManagement.needsImprovement');
+    case 'Unfavorable': return t('caseManagement.unfavorable');
+    default: return value;
+  }
+}
+
 const selectClass = 'rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white';
 
 type SortKey = 'date' | 'worker' | 'outcome';
 
 export function AllVisitationsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -103,7 +115,7 @@ export function AllVisitationsPage() {
   const columns = [
     {
       key: 'residentId',
-      header: 'Resident',
+      header: t('caseManagement.resident'),
       render: (row: Record<string, unknown>) => {
         const residentId = Number(row.residentId ?? 0);
         const resident = residentMap.get(residentId);
@@ -117,38 +129,38 @@ export function AllVisitationsPage() {
     },
     {
       key: 'visitDate',
-      header: <span className="flex items-center">Visit Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.visitDate')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.visitDate as string),
     },
     {
       key: 'socialWorker',
-      header: <span className="flex items-center">Social Worker <SortBtn col="worker" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.socialWorker')} <SortBtn col="worker" /></span>,
     },
-    { key: 'visitType', header: 'Type' },
-    { key: 'locationVisited', header: 'Location' },
-    { key: 'familyCooperationLevel', header: 'Cooperation' },
+    { key: 'visitType', header: t('common.type') },
+    { key: 'locationVisited', header: t('caseManagement.location') },
+    { key: 'familyCooperationLevel', header: t('caseManagement.familyCooperation') },
     {
       key: 'visitOutcome',
-      header: <span className="flex items-center">Outcome <SortBtn col="outcome" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.outcome')} <SortBtn col="outcome" /></span>,
       render: (row: Record<string, unknown>) => (
         <Badge variant={outcomeVariant(row.visitOutcome as string)}>
-          {row.visitOutcome as string}
+          {translateOutcome(t, row.visitOutcome as string)}
         </Badge>
       ),
     },
     {
       key: 'safetyConcernsNoted',
-      header: 'Safety Concerns',
+      header: t('caseManagement.safetyConcerns'),
       render: (row: Record<string, unknown>) =>
-        row.safetyConcernsNoted ? <Badge variant="danger">Yes</Badge> : <span className="text-warm-gray">No</span>,
+        row.safetyConcernsNoted ? <Badge variant="danger">{t('common.yes')}</Badge> : <span className="text-warm-gray">{t('common.no')}</span>,
     },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Home Visitations"
-        subtitle="All home visits across residents"
+        title={t('caseManagement.allVisitations')}
+        subtitle={t('caseManagement.homeVisitations')}
       />
 
       <Card>
@@ -157,17 +169,17 @@ export function AllVisitationsPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. LS-0001, Positive)"
+                placeholder={t('common.search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
           <select className={selectClass} value={outcomeFilter} onChange={(e) => { setOutcomeFilter(e.target.value); setPage(1); }}>
-            <option value="">All Outcomes</option>
-            <option value="Favorable">Favorable</option>
-            <option value="Inconclusive">Inconclusive</option>
-            <option value="Needs Improvement">Needs Improvement</option>
-            <option value="Unfavorable">Unfavorable</option>
+              <option value="">{t('common.all')} {t('caseManagement.outcome').toLowerCase()}</option>
+              <option value="Favorable">{t('caseManagement.favorable')}</option>
+              <option value="Inconclusive">{t('caseManagement.inconclusive')}</option>
+              <option value="Needs Improvement">{t('caseManagement.needsImprovement')}</option>
+              <option value="Unfavorable">{t('caseManagement.unfavorable')}</option>
           </select>
         </div>
 
@@ -175,7 +187,7 @@ export function AllVisitationsPage() {
           columns={columns}
           data={processed.slice((page - 1) * pageSize, page * pageSize) as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No home visitations found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={Math.max(1, Math.ceil(processed.length / pageSize))}

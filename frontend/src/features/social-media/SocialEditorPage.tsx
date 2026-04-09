@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +13,9 @@ import { Modal } from '../../components/ui/Modal';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { Spinner } from '../../components/ui/Spinner';
 import { api } from '../../lib/api';
+import { useAuthStore } from '../../stores/authStore';
+import { formatLocalizedCurrency, formatLocalizedDateTime, formatLocalizedNumber, formatLocalizedPercent, resolveUserPreferences } from '../../lib/locale';
+import { scrollPageToTop } from '../../lib/scroll';
 import { normalizeRichTextHtml, richTextToPlainText } from '../../lib/richText';
 import type { PagedResult } from '../../types/api';
 import type { BestPostingTime, MlSocialPostPrediction } from '../../types/predictions';
@@ -86,10 +90,10 @@ const briefSchema = z.object({
 
 type BriefValues = z.infer<typeof briefSchema>;
 
-function createEmptyDraft(): SocialMediaDraft {
+function createEmptyDraft(title = 'Untitled draft'): SocialMediaDraft {
   return {
     draftId: 0,
-    title: 'Untitled draft',
+    title,
     stage: 'brief',
     status: 'draft',
     platform: 'Instagram',
@@ -208,12 +212,7 @@ function toDraftSummary(draft: SocialMediaDraft): SocialMediaDraftSummary {
 }
 
 function formatUpdatedAt(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatLocalizedDateTime(value);
 }
 
 function formatHour(hour: number): string {
@@ -226,23 +225,20 @@ function needsVisualMedia(mediaType: string): boolean {
   return mediaType === 'Photo' || mediaType === 'Video' || mediaType === 'Carousel' || mediaType === 'Reel';
 }
 
-function describeDraft(draft: Pick<SocialMediaDraft, 'platform' | 'mediaType' | 'contentTopic'>) {
-  const platformLabel = PLATFORM_LABELS[draft.platform] ?? draft.platform;
-  return `${platformLabel} ${draft.mediaType.toLowerCase()} for ${draft.contentTopic.toLowerCase()}`;
-}
-
 function SelectField({
   label,
   value,
   options,
   onChange,
   helper,
+  getOptionLabel,
 }: {
   label: string;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
   helper?: string;
+  getOptionLabel?: (value: string) => string;
 }) {
   return (
     <label className="flex flex-col gap-2">
@@ -253,7 +249,7 @@ function SelectField({
         className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
       >
         {options.map((option) => (
-          <option key={option} value={option}>{OPTION_LABELS[option] ?? option}</option>
+          <option key={option} value={option}>{getOptionLabel ? getOptionLabel(option) : OPTION_LABELS[option] ?? option}</option>
         ))}
       </select>
       {helper && <span className="text-xs text-warm-gray">{helper}</span>}
@@ -270,9 +266,11 @@ function StagePill({ active, children }: { active: boolean; children: React.Reac
 }
 
 export function SocialEditorPage() {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
   const queryClient = useQueryClient();
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
-  const [activeDraft, setActiveDraft] = useState<SocialMediaDraft>(createEmptyDraft);
+  const [activeDraft, setActiveDraft] = useState<SocialMediaDraft>(() => createEmptyDraft(t('social.untitledDraft', { defaultValue: 'Untitled draft' })));
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [persistedPreviewUrls, setPersistedPreviewUrls] = useState<Record<number, string>>({});
   const [prediction, setPrediction] = useState<MlSocialPostPrediction | null>(null);
@@ -287,7 +285,116 @@ export function SocialEditorPage() {
   const [performanceLoading, setPerformanceLoading] = useState(false);
   const [timesLoading, setTimesLoading] = useState(false);
   const autoSaveSkipRef = useRef(true);
+  const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  const getPlatformLabel = useCallback((platform: string) => {
+    const key = {
+      Facebook: 'social.facebook',
+      Instagram: 'social.instagram',
+      Twitter: 'social.twitter',
+      X: 'social.xTwitter',
+      YouTube: 'social.youtube',
+      TikTok: 'social.tiktok',
+      LinkedIn: 'social.linkedin',
+      WhatsApp: 'social.whatsapp',
+    }[platform];
+
+    return key ? t(key, { defaultValue: PLATFORM_LABELS[platform] ?? platform }) : PLATFORM_LABELS[platform] ?? platform;
+  }, [t]);
+
+  const getPostTypeLabel = useCallback((postType: string) => {
+    const key = {
+      FundraisingAppeal: 'social.fundraisingAppeal',
+      EducationalContent: 'social.educationalContent',
+      EventPromotion: 'social.eventPromotion',
+      ThankYou: 'social.thankYou',
+      StoryHighlight: 'social.storyHighlight',
+    }[postType];
+
+    return key ? t(key, { defaultValue: postType }) : postType;
+  }, [t]);
+
+  const getMediaTypeLabel = useCallback((mediaType: string) => {
+    const key = {
+      Photo: 'social.photo',
+      Video: 'social.video',
+      Carousel: 'social.carousel',
+      Text: 'social.text',
+      Reel: 'social.reel',
+    }[mediaType];
+
+    return key ? t(key, { defaultValue: mediaType }) : mediaType;
+  }, [t]);
+
+  const getCallToActionLabel = useCallback((value: string) => {
+    const key = {
+      '': 'social.noCta',
+      DonateNow: 'social.donateNow',
+      LearnMore: 'social.learnMore',
+      ShareStory: 'social.shareStory',
+      SignUp: 'social.signUp',
+    }[value];
+
+    return key ? t(key, { defaultValue: OPTION_LABELS[value] ?? value }) : OPTION_LABELS[value] ?? value;
+  }, [t]);
+
+  const getContentTopicLabel = useCallback((value: string) => {
+    const key = {
+      Education: 'social.topicEducation',
+      Health: 'social.topicHealth',
+      Reintegration: 'social.topicReintegration',
+      CampaignLaunch: 'social.topicCampaignLaunch',
+      Gratitude: 'social.topicGratitude',
+      SafehouseLife: 'social.topicSafehouseLife',
+      AwarenessRaising: 'social.topicAwareness',
+      DonorImpact: 'social.topicDonorImpact',
+      EventRecap: 'social.topicEventRecap',
+    }[value];
+
+    return key ? t(key, { defaultValue: value }) : value;
+  }, [t]);
+
+  const getSentimentLabel = useCallback((value: string) => {
+    const key = {
+      Grateful: 'social.grateful',
+      Celebratory: 'social.celebratory',
+      Emotional: 'social.emotional',
+      Urgent: 'social.urgent',
+      Hopeful: 'social.hopeful',
+      Informative: 'social.informative',
+    }[value];
+
+    return key ? t(key, { defaultValue: value }) : value;
+  }, [t]);
+
+  const getOptionLabel = useCallback((value: string) => {
+    if (PLATFORMS.includes(value as typeof PLATFORMS[number])) {
+      return getPlatformLabel(value);
+    }
+
+    if (POST_TYPES.includes(value as typeof POST_TYPES[number])) {
+      return getPostTypeLabel(value);
+    }
+
+    if (MEDIA_TYPES.includes(value as typeof MEDIA_TYPES[number])) {
+      return getMediaTypeLabel(value);
+    }
+
+    if (CTA_TYPES.includes(value as typeof CTA_TYPES[number])) {
+      return getCallToActionLabel(value);
+    }
+
+    if (CONTENT_TOPICS.includes(value as typeof CONTENT_TOPICS[number])) {
+      return getContentTopicLabel(value);
+    }
+
+    if (SENTIMENT_TONES.includes(value as typeof SENTIMENT_TONES[number])) {
+      return getSentimentLabel(value);
+    }
+
+    return OPTION_LABELS[value] ?? value;
+  }, [getCallToActionLabel, getContentTopicLabel, getMediaTypeLabel, getPlatformLabel, getPostTypeLabel, getSentimentLabel]);
 
   const form = useForm<BriefValues>({
     resolver: zodResolver(briefSchema),
@@ -355,7 +462,21 @@ export function SocialEditorPage() {
   }, [statusMessage]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    const chatContainer = chatScrollContainerRef.current;
+    if (!chatContainer) {
+      return;
+    }
+
+    const behavior: ScrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth';
+
+    window.requestAnimationFrame(() => {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior,
+      });
+    });
   }, [activeDraft.chatHistory, chatIsThinking]);
 
   useEffect(() => {
@@ -474,11 +595,11 @@ export function SocialEditorPage() {
     }
 
     if (!options.silent) {
-      setStatusMessage('Draft saved.');
+      setStatusMessage(t('social.draftSaved', { defaultValue: 'Draft saved.' }));
     }
 
     return finalDraft;
-  }, [createDraftMutation, form, pendingUploads, queryClient, updateDraftMutation]);
+  }, [createDraftMutation, form, pendingUploads, queryClient, t, updateDraftMutation]);
 
   useEffect(() => {
     if (autoSaveSkipRef.current) {
@@ -527,10 +648,16 @@ export function SocialEditorPage() {
     setStatusMessage(null);
     clearPendingUploads();
     autoSaveSkipRef.current = true;
-    const nextDraft = createEmptyDraft();
+    const nextDraft = createEmptyDraft(t('social.untitledDraft', { defaultValue: 'Untitled draft' }));
     setActiveDraft(nextDraft);
     form.reset(toBriefValues(nextDraft));
-  }, [clearPendingUploads, form]);
+    scrollPageToTop();
+  }, [clearPendingUploads, form, t]);
+
+  const openDraft = useCallback((draftId: number) => {
+    setSelectedDraftId(draftId);
+    scrollPageToTop();
+  }, []);
 
   const handleGenerate = form.handleSubmit(async (values) => {
     const stageOneDraft: SocialMediaDraft = {
@@ -556,13 +683,13 @@ export function SocialEditorPage() {
 
       autoSaveSkipRef.current = true;
       setActiveDraft(generatedDraft);
-      setStatusMessage('AI generated a new post draft.');
+      setStatusMessage(t('social.aiGeneratedDraft', { defaultValue: 'AI generated a new post draft.' }));
       setPrediction(null);
       setBestTimes([]);
       setPerformanceError(null);
       setTimesError(null);
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Unable to generate a draft right now.');
+      setStatusMessage(error instanceof Error ? error.message : t('social.unableToGenerateDraft', { defaultValue: 'Unable to generate a draft right now.' }));
     }
   });
 
@@ -615,7 +742,7 @@ export function SocialEditorPage() {
 
     queryClient.removeQueries({ queryKey: ['social-media-drafts', activeDraft.draftId] });
     startNewPost();
-    setStatusMessage('Draft deleted.');
+    setStatusMessage(t('social.draftDeleted', { defaultValue: 'Draft deleted.' }));
   };
 
   const handleUploadSelection = async (files: FileList | null) => {
@@ -631,7 +758,7 @@ export function SocialEditorPage() {
     }));
 
     setPendingUploads((prev) => [...prev, ...nextItems]);
-    setStatusMessage('Media added locally. Save the draft to persist it.');
+    setStatusMessage(t('social.mediaAddedLocally', { defaultValue: 'Media added locally. Save the draft to persist it.' }));
   };
 
   const buildLookupPayload = () => ({
@@ -654,7 +781,7 @@ export function SocialEditorPage() {
       );
       setPrediction(resp.items?.[0] ?? null);
     } catch (error) {
-      setPerformanceError(error instanceof Error ? error.message : 'Unable to load performance predictions.');
+      setPerformanceError(error instanceof Error ? error.message : t('social.unableToLoadPerformancePredictions', { defaultValue: 'Unable to load performance predictions.' }));
     } finally {
       setPerformanceLoading(false);
     }
@@ -680,7 +807,7 @@ export function SocialEditorPage() {
         }));
       }
     } catch (error) {
-      setTimesError(error instanceof Error ? error.message : 'Unable to load suggested times.');
+      setTimesError(error instanceof Error ? error.message : t('social.unableToLoadSuggestedTimes', { defaultValue: 'Unable to load suggested times.' }));
     } finally {
       setTimesLoading(false);
     }
@@ -712,9 +839,9 @@ export function SocialEditorPage() {
         ...mergeAiIntoDraft(prev, response.draft),
         chatHistory: [...nextHistory, assistantMessage],
       }));
-      setStatusMessage('AI applied a new revision.');
+      setStatusMessage(t('social.aiAppliedRevision', { defaultValue: 'AI applied a new revision.' }));
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Unable to refine the draft right now.');
+      setStatusMessage(error instanceof Error ? error.message : t('social.unableToRefineDraft', { defaultValue: 'Unable to refine the draft right now.' }));
     } finally {
       setChatIsThinking(false);
     }
@@ -749,57 +876,57 @@ export function SocialEditorPage() {
     );
     const isTimeAdjusted = selectedSlot != null;
     const estimatedValue = isTimeAdjusted
-      ? `PHP ${Math.round(selectedSlot.predictedEstimatedDonationValuePhp).toLocaleString()}`
+      ? formatLocalizedCurrency(Math.round(selectedSlot.predictedEstimatedDonationValuePhp), preferences, { maximumFractionDigits: 0 })
       : prediction
-        ? `PHP ${Math.round(prediction.predictedEstimatedDonationValuePhp).toLocaleString()}`
+        ? formatLocalizedCurrency(Math.round(prediction.predictedEstimatedDonationValuePhp), preferences, { maximumFractionDigits: 0 })
         : '--';
 
     return [
       {
-        label: 'Predicted Referrals',
-        value: prediction ? prediction.predictedDonationReferrals.toFixed(1) : '--',
+        label: t('social.predictedReferrals', { defaultValue: 'Predicted Referrals' }),
+        value: prediction ? formatLocalizedNumber(prediction.predictedDonationReferrals, preferences, { maximumFractionDigits: 1 }) : '--',
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedDonationReferrals,
         timeAdjusted: false,
       },
       {
-        label: 'Estimated Value',
+        label: t('social.estimatedValue', { defaultValue: 'Estimated Value' }),
         value: estimatedValue,
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEstimatedDonationValuePhp,
         timeAdjusted: isTimeAdjusted,
       },
       {
-        label: 'Engagement',
-        value: prediction ? `${prediction.predictedEngagementRate.toFixed(2)}%` : '--',
+        label: t('social.engagement', { defaultValue: 'Engagement' }),
+        value: prediction ? formatLocalizedPercent(prediction.predictedEngagementRate, preferences, { maximumFractionDigits: 2 }) : '--',
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEngagementRate,
         timeAdjusted: false,
       },
       {
-        label: 'Forwards',
-        value: prediction ? prediction.predictedForwards.toFixed(1) : '--',
+        label: t('social.forwards', { defaultValue: 'Forwards' }),
+        value: prediction ? formatLocalizedNumber(prediction.predictedForwards, preferences, { maximumFractionDigits: 1 }) : '--',
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedForwards,
         timeAdjusted: false,
       },
       {
-        label: 'Profile Visits',
-        value: prediction ? prediction.predictedProfileVisits.toFixed(1) : '--',
+        label: t('social.profileVisits', { defaultValue: 'Profile Visits' }),
+        value: prediction ? formatLocalizedNumber(prediction.predictedProfileVisits, preferences, { maximumFractionDigits: 1 }) : '--',
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedProfileVisits,
         timeAdjusted: false,
       },
       {
-        label: 'Impressions',
-        value: prediction ? prediction.predictedImpressions.toFixed(1) : '--',
+        label: t('social.impressions'),
+        value: prediction ? formatLocalizedNumber(prediction.predictedImpressions, preferences, { maximumFractionDigits: 1 }) : '--',
         description: PREDICTION_FEATURE_DESCRIPTIONS.predictedImpressions,
         timeAdjusted: false,
       },
     ];
-  }, [activeDraft.scheduledDay, activeDraft.scheduledHour, bestTimes, prediction]);
+  }, [activeDraft.scheduledDay, activeDraft.scheduledHour, bestTimes, prediction, preferences, t]);
 
   const savedPostsCard = (
     <Card className="flex h-full self-stretch flex-col space-y-4 p-0">
       <div className="border-b border-slate-navy/10 px-5 py-5 dark:border-white/10">
         <div className="min-w-0">
-          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Saved Posts</p>
-          <p className="mt-1 text-sm text-warm-gray">Resume any saved draft and keep working with AI.</p>
+          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('social.savedPosts', { defaultValue: 'Saved Posts' })}</p>
+          <p className="mt-1 text-sm text-warm-gray">{t('social.savedPostsHelper', { defaultValue: 'Resume any saved draft and keep working with AI.' })}</p>
         </div>
       </div>
 
@@ -810,8 +937,8 @@ export function SocialEditorPage() {
           className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedDraftId === null ? 'border-golden-honey bg-golden-honey/10' : 'border-slate-navy/10 bg-sky-blue/8 hover:border-golden-honey/40 hover:bg-sky-blue/12 dark:border-white/10 dark:bg-sky-blue/10 dark:hover:bg-sky-blue/15'}`}
         >
           <div className="min-w-0">
-            <p className="font-heading text-sm font-semibold text-slate-navy dark:text-white">New post</p>
-            <p className="mt-1 text-xs text-warm-gray">Start from a fresh brief</p>
+            <p className="font-heading text-sm font-semibold text-slate-navy dark:text-white">{t('social.newPost', { defaultValue: 'New post' })}</p>
+            <p className="mt-1 text-xs text-warm-gray">{t('social.startFromFreshBrief', { defaultValue: 'Start from a fresh brief' })}</p>
           </div>
         </button>
 
@@ -819,22 +946,27 @@ export function SocialEditorPage() {
           <div className="flex items-center justify-center py-10"><Spinner size="lg" /></div>
         ) : draftList.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-navy/15 px-4 py-8 text-center text-sm text-warm-gray dark:border-white/10 dark:text-white/60">
-            No saved drafts yet.
+            {t('social.noSavedDrafts', { defaultValue: 'No saved drafts yet.' })}
           </div>
         ) : draftList.map((draft) => (
           <button
             type="button"
             key={draft.draftId}
-            onClick={() => setSelectedDraftId(draft.draftId)}
+            onClick={() => openDraft(draft.draftId)}
             className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedDraftId === draft.draftId ? draft.stage === 'brief' ? 'border-golden-honey bg-[linear-gradient(135deg,rgba(162,201,225,0.18),rgba(255,204,102,0.14))]' : 'border-golden-honey bg-golden-honey/10' : draft.stage === 'brief' ? 'border-sky-blue/40 bg-sky-blue/10 hover:border-sky-blue/60 hover:bg-sky-blue/14 dark:border-sky-blue/30 dark:bg-sky-blue/10 dark:hover:bg-sky-blue/14' : 'border-slate-navy/10 hover:border-golden-honey/40 hover:bg-slate-navy/5 dark:border-white/10 dark:hover:bg-white/5'}`}
           >
             <div className="min-w-0">
               <p className="truncate font-heading text-sm font-semibold text-slate-navy dark:text-white">{draft.title}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-warm-gray">{describeDraft({ platform: draft.platform, mediaType: draft.mediaType, contentTopic: draft.contentTopic })}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-warm-gray">{t('social.savedDraftDescription', {
+                defaultValue: '{{platform}} {{mediaType}} for {{contentTopic}}',
+                platform: getPlatformLabel(draft.platform),
+                mediaType: getMediaTypeLabel(draft.mediaType).toLowerCase(),
+                contentTopic: getContentTopicLabel(draft.contentTopic).toLowerCase(),
+              })}</p>
             </div>
             <div className="mt-3 flex items-center justify-between gap-3 text-xs text-warm-gray">
-              <span className="truncate">Updated {formatUpdatedAt(draft.updatedAt)}</span>
-              <span className="shrink-0">{draft.mediaCount} media</span>
+              <span className="truncate">{t('social.updatedAtLabel', { defaultValue: 'Updated {{value}}', value: formatUpdatedAt(draft.updatedAt) })}</span>
+              <span className="shrink-0">{t('social.mediaCountLabel', { defaultValue: '{{count}} media', count: draft.mediaCount })}</span>
             </div>
           </button>
         ))}
@@ -845,8 +977,8 @@ export function SocialEditorPage() {
   return (
     <div>
       <PageHeader
-        title="AI Post Builder"
-        subtitle="Build a draft brief, generate a post, then keep refining it with AI or direct edits."
+        title={t('social.aiPostBuilderTitle', { defaultValue: 'AI Post Builder' })}
+        subtitle={t('social.aiPostBuilderSubtitle', { defaultValue: 'Build a draft brief, generate a post, then keep refining it with AI or direct edits.' })}
         action={
           <div className="flex items-center gap-2">
             {currentStage === 'compose' && activeDraft.draftId > 0 && (
@@ -857,12 +989,12 @@ export function SocialEditorPage() {
                 className="border border-slate-navy/10 text-warm-gray hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-white/10 dark:text-white/70 dark:hover:border-red-400/30 dark:hover:bg-red-500/10 dark:hover:text-red-300"
               >
                 <Trash2 size={16} />
-                Delete Draft
+                {t('social.deleteDraft', { defaultValue: 'Delete Draft' })}
               </Button>
             )}
             <Button size="sm" onClick={() => void handleExplicitSave()} loading={createDraftMutation.isPending || updateDraftMutation.isPending || uploading}>
               <Save size={16} />
-              Save Draft
+              {t('social.saveDraft')}
             </Button>
           </div>
         }
@@ -882,17 +1014,17 @@ export function SocialEditorPage() {
           <Card className="space-y-4 bg-gradient-to-r from-sky-blue/12 via-white to-golden-honey/12 dark:from-sky-blue/10 dark:via-slate-navy/70 dark:to-golden-honey/10">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Performance & Timing</p>
-                <p className="mt-1 text-sm text-warm-gray">Predict content performance, or let AI suggest optimal posting times. Select a time slot to see a time-adjusted value estimate.</p>
+                <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('social.performanceAndTiming', { defaultValue: 'Performance & Timing' })}</p>
+                <p className="mt-1 text-sm text-warm-gray">{t('social.performanceTimingHelper', { defaultValue: 'Predict content performance, or let AI suggest optimal posting times. Select a time slot to see a time-adjusted value estimate.' })}</p>
               </div>
               <div className="flex shrink-0 gap-2 self-start lg:self-auto">
                 <Button variant="ghost" onClick={() => void fetchPerformance()} loading={performanceLoading} className="border border-slate-navy/15 dark:border-white/15">
                   <BarChart2 size={16} />
-                  Predict Performance
+                  {t('social.predictPerformance', { defaultValue: 'Predict Performance' })}
                 </Button>
                 <Button onClick={() => void fetchBestTimes()} loading={timesLoading}>
                   <WandSparkles size={16} />
-                  Suggest Times
+                  {t('social.suggestTimes', { defaultValue: 'Suggest Times' })}
                 </Button>
               </div>
             </div>
@@ -908,7 +1040,7 @@ export function SocialEditorPage() {
                       <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
                       {metric.timeAdjusted && (
                         <span className="shrink-0 rounded-full bg-sky-blue/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-navy dark:bg-sky-blue/25 dark:text-sky-blue">
-                          time-adjusted
+                          {t('social.timeAdjusted', { defaultValue: 'time-adjusted' })}
                         </span>
                       )}
                     </div>
@@ -920,11 +1052,11 @@ export function SocialEditorPage() {
               <div className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-navy dark:text-white">
                   <CalendarClock size={16} />
-                  Suggested Times
+                  {t('social.suggestedTimes', { defaultValue: 'Suggested Times' })}
                 </div>
                 <div className="mt-3 space-y-2">
                   {bestTimes.length === 0 ? (
-                    <p className="text-sm text-warm-gray">Run the insight refresh once you like the generated post.</p>
+                    <p className="text-sm text-warm-gray">{t('social.runInsightsHint', { defaultValue: 'Run the insight refresh once you like the generated post.' })}</p>
                   ) : bestTimes.map((slot) => (
                     <button
                       type="button"
@@ -932,8 +1064,8 @@ export function SocialEditorPage() {
                       onClick={() => setActiveDraft((prev) => ({ ...prev, scheduledDay: slot.dayOfWeek, scheduledHour: slot.postHour }))}
                       className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors ${activeDraft.scheduledDay === slot.dayOfWeek && activeDraft.scheduledHour === slot.postHour ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-slate-navy hover:bg-slate-navy/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'}`}
                     >
-                      <span>{slot.dayOfWeek} {formatHour(slot.postHour)}</span>
-                      <span className="text-xs">#{slot.rank}</span>
+                      <span>{t('social.suggestedTimeSlot', { defaultValue: '{{day}} {{time}}', day: slot.dayOfWeek, time: formatHour(slot.postHour) })}</span>
+                      <span className="text-xs">{t('social.rankLabel', { defaultValue: '#{{rank}}', rank: slot.rank })}</span>
                     </button>
                   ))}
                 </div>
@@ -949,38 +1081,38 @@ export function SocialEditorPage() {
                     <Card className="space-y-6">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">Stage 2: Refine the Post</p>
-                          <p className="mt-1 text-sm text-warm-gray">Edit the generated content directly or use chat to revise it.</p>
+                          <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">{t('social.stageTwoTitle', { defaultValue: 'Stage 2: Refine the Post' })}</p>
+                          <p className="mt-1 text-sm text-warm-gray">{t('social.stageTwoHelper', { defaultValue: 'Edit the generated content directly or use chat to revise it.' })}</p>
                         </div>
-                        <StagePill active>Stage 2</StagePill>
+                        <StagePill active>{t('social.stageTwo', { defaultValue: 'Stage 2' })}</StagePill>
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <Input label="Draft title" value={activeDraft.title} onChange={(event) => setActiveDraft((prev) => ({ ...prev, title: event.target.value }))} />
-                        <Input label="Headline" value={activeDraft.headline} onChange={(event) => setActiveDraft((prev) => ({ ...prev, headline: event.target.value }))} />
-                        <SelectField label="Platform" value={activeDraft.platform} options={PLATFORMS} onChange={(value) => setActiveDraft((prev) => ({ ...prev, platform: value }))} />
-                        <SelectField label="Media type" value={activeDraft.mediaType} options={MEDIA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, mediaType: value }))} />
-                        <SelectField label="Post type" value={activeDraft.postType} options={POST_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, postType: value }))} />
-                        <SelectField label="Call to action" value={activeDraft.callToActionType} options={CTA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, callToActionType: value }))} />
+                        <Input label={t('social.draftTitle')} value={activeDraft.title} onChange={(event) => setActiveDraft((prev) => ({ ...prev, title: event.target.value }))} />
+                        <Input label={t('social.headline')} value={activeDraft.headline} onChange={(event) => setActiveDraft((prev) => ({ ...prev, headline: event.target.value }))} />
+                        <SelectField label={t('social.platform')} value={activeDraft.platform} options={PLATFORMS} onChange={(value) => setActiveDraft((prev) => ({ ...prev, platform: value }))} getOptionLabel={getOptionLabel} />
+                        <SelectField label={t('social.mediaType')} value={activeDraft.mediaType} options={MEDIA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, mediaType: value }))} getOptionLabel={getOptionLabel} />
+                        <SelectField label={t('social.postType')} value={activeDraft.postType} options={POST_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, postType: value }))} getOptionLabel={getOptionLabel} />
+                        <SelectField label={t('social.callToAction')} value={activeDraft.callToActionType} options={CTA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, callToActionType: value }))} getOptionLabel={getOptionLabel} />
                       </div>
 
                       <RichTextEditor
-                        label="Post body"
+                        label={t('social.postBody', { defaultValue: 'Post body' })}
                         value={activeDraft.body}
                         onChange={(value) => setActiveDraft((prev) => ({ ...prev, body: normalizeRichTextHtml(value) }))}
-                        placeholder="Write the main body of the post..."
+                        placeholder={t('social.postBodyPlaceholder', { defaultValue: 'Write the main body of the post...' })}
                       />
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <Input label="Hashtags" value={activeDraft.hashtags} onChange={(event) => setActiveDraft((prev) => ({ ...prev, hashtags: event.target.value }))} />
-                        <Input label="CTA text" value={activeDraft.ctaText} onChange={(event) => setActiveDraft((prev) => ({ ...prev, ctaText: event.target.value }))} />
-                        <Input label="Website link" value={activeDraft.websiteUrl} onChange={(event) => setActiveDraft((prev) => ({ ...prev, websiteUrl: event.target.value }))} />
-                        <Input label="Audience" value={activeDraft.audience} onChange={(event) => setActiveDraft((prev) => ({ ...prev, audience: event.target.value }))} />
-                        <Input label="Campaign name" value={activeDraft.campaignName} onChange={(event) => setActiveDraft((prev) => ({ ...prev, campaignName: event.target.value }))} />
+                        <Input label={t('social.hashtags')} value={activeDraft.hashtags} onChange={(event) => setActiveDraft((prev) => ({ ...prev, hashtags: event.target.value }))} />
+                        <Input label={t('social.ctaText')} value={activeDraft.ctaText} onChange={(event) => setActiveDraft((prev) => ({ ...prev, ctaText: event.target.value }))} />
+                        <Input label={t('social.websiteUrl')} value={activeDraft.websiteUrl} onChange={(event) => setActiveDraft((prev) => ({ ...prev, websiteUrl: event.target.value }))} />
+                        <Input label={t('social.audienceDescription')} value={activeDraft.audience} onChange={(event) => setActiveDraft((prev) => ({ ...prev, audience: event.target.value }))} />
+                        <Input label={t('social.campaignNameField')} value={activeDraft.campaignName} onChange={(event) => setActiveDraft((prev) => ({ ...prev, campaignName: event.target.value }))} />
                       </div>
 
                       <label className="flex flex-col gap-2">
-                        <span className="text-sm font-medium text-slate-navy dark:text-white">Additional notes</span>
+                        <span className="text-sm font-medium text-slate-navy dark:text-white">{t('social.additionalNotes', { defaultValue: 'Additional notes' })}</span>
                         <textarea
                           rows={4}
                           value={activeDraft.additionalInstructions}
@@ -1018,14 +1150,14 @@ export function SocialEditorPage() {
                     <Card className="space-y-5 bg-gradient-to-br from-white via-coral-pink/12 to-sky-blue/14 dark:from-slate-navy/70 dark:via-coral-pink/10 dark:to-sky-blue/10">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Platform Preview</p>
-                          <p className="mt-1 text-sm text-warm-gray">Styled to feel native to the selected platform, but every field stays editable.</p>
+                          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('common.preview')}</p>
+                          <p className="mt-1 text-sm text-warm-gray">{t('social.platformPreviewHelper', { defaultValue: 'Styled to feel native to the selected platform, but every field stays editable.' })}</p>
                         </div>
                         <div className="text-right text-xs text-warm-gray">
                           {activeDraft.scheduledDay && activeDraft.scheduledHour !== null ? (
-                            <span>Suggested slot: {activeDraft.scheduledDay} {formatHour(activeDraft.scheduledHour)}</span>
+                            <span>{t('social.suggestedSlotLabel', { defaultValue: 'Suggested slot: {{day}} {{time}}', day: activeDraft.scheduledDay, time: formatHour(activeDraft.scheduledHour) })}</span>
                           ) : (
-                            <span>Choose a time after refreshing insights.</span>
+                            <span>{t('social.chooseTimeAfterRefresh', { defaultValue: 'Choose a time after refreshing insights.' })}</span>
                           )}
                         </div>
                       </div>
@@ -1035,15 +1167,15 @@ export function SocialEditorPage() {
                     <Card className="space-y-3">
                       <div className="flex items-center gap-2 text-slate-navy dark:text-white">
                         <RefreshCcw size={17} />
-                        <p className="font-heading text-base font-semibold">Draft status</p>
+                        <p className="font-heading text-base font-semibold">{t('social.draftStatus', { defaultValue: 'Draft status' })}</p>
                       </div>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="rounded-2xl bg-slate-navy/5 p-4 text-sm text-slate-navy dark:bg-white/5 dark:text-white/80">
-                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">Saved</p>
-                          <p className="mt-2 font-medium">{activeDraft.draftId > 0 ? 'Persisted draft' : 'Not saved yet'}</p>
+                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">{t('social.savedStateLabel', { defaultValue: 'Saved' })}</p>
+                          <p className="mt-2 font-medium">{activeDraft.draftId > 0 ? t('social.persistedDraft', { defaultValue: 'Persisted draft' }) : t('social.notSavedYet', { defaultValue: 'Not saved yet' })}</p>
                         </div>
                         <div className="rounded-2xl bg-slate-navy/5 p-4 text-sm text-slate-navy dark:bg-white/5 dark:text-white/80">
-                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">Last updated</p>
+                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">{t('social.lastUpdated', { defaultValue: 'Last updated' })}</p>
                           <p className="mt-2 font-medium">{formatUpdatedAt(activeDraft.updatedAt)}</p>
                         </div>
                       </div>
@@ -1059,26 +1191,26 @@ export function SocialEditorPage() {
                           <MessageSquareText size={18} />
                         </div>
                         <div>
-                          <p className="font-heading text-lg font-semibold">AI Refine Chat</p>
-                          <p className="text-sm text-warm-gray">Ask for rewrites, tone shifts, CTA changes, or platform-specific edits.</p>
+                          <p className="font-heading text-lg font-semibold">{t('social.aiRefineChat', { defaultValue: 'AI Refine Chat' })}</p>
+                          <p className="text-sm text-warm-gray">{t('social.aiRefineChatHelper', { defaultValue: 'Ask for rewrites, tone shifts, CTA changes, or platform-specific edits.' })}</p>
                         </div>
                       </div>
-                      <p className="text-xs text-warm-gray">Press Enter to send. Shift+Enter for a new line.</p>
+                      <p className="text-xs text-warm-gray">{t('social.chatKeyboardHint', { defaultValue: 'Press Enter to send. Shift+Enter for a new line.' })}</p>
                     </div>
                   </div>
 
-                  <div className="max-h-[34rem] min-h-[24rem] space-y-4 overflow-y-auto bg-white/70 px-6 py-6 dark:bg-slate-navy/40">
+                  <div ref={chatScrollContainerRef} className="max-h-[34rem] min-h-[24rem] space-y-4 overflow-y-auto bg-white/70 px-6 py-6 dark:bg-slate-navy/40">
                     {activeDraft.chatHistory.length === 0 && !chatIsThinking ? (
                       <div className="rounded-3xl border border-dashed border-slate-navy/15 bg-white/80 px-5 py-8 text-sm text-warm-gray dark:border-white/10 dark:bg-white/5 dark:text-white/60">
-                        Ask AI to tighten the caption, shift the tone, rewrite the CTA, adapt this into a Reel hook, or make it sound more donor-facing.
+                        {t('social.emptyChatHint', { defaultValue: 'Ask AI to tighten the caption, shift the tone, rewrite the CTA, adapt this into a Reel hook, or make it sound more donor-facing.' })}
                       </div>
                     ) : (
                       <>
                         {activeDraft.chatHistory.map((message, index) => (
                           <div key={`${message.role}-${index}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
                             <div className={`max-w-[min(85%,56rem)] rounded-[1.75rem] px-5 py-4 text-sm leading-7 shadow-sm ${message.role === 'assistant' ? 'border border-slate-navy/10 bg-white text-slate-navy dark:border-white/10 dark:bg-slate-navy dark:text-white' : 'bg-golden-honey text-slate-navy'}`}>
-                              {message.role === 'assistant' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">AI Assistant</p>}
-                              {message.role === 'user' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-navy/60">You</p>}
+                              {message.role === 'assistant' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">{t('social.aiAssistant', { defaultValue: 'AI Assistant' })}</p>}
+                              {message.role === 'user' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-navy/60">{t('social.you', { defaultValue: 'You' })}</p>}
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
                             </div>
                           </div>
@@ -1087,14 +1219,14 @@ export function SocialEditorPage() {
                         {chatIsThinking && (
                           <div className="flex justify-start">
                             <div className="max-w-[min(85%,56rem)] rounded-[1.75rem] border border-slate-navy/10 bg-white px-5 py-4 text-sm text-slate-navy shadow-sm dark:border-white/10 dark:bg-slate-navy dark:text-white">
-                              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">AI Assistant</p>
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">{t('social.aiAssistant', { defaultValue: 'AI Assistant' })}</p>
                               <div className="flex items-center gap-3">
                                 <div className="flex gap-1.5">
                                   <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey [animation-delay:-0.2s]" />
                                   <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey [animation-delay:-0.1s]" />
                                   <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey" />
                                 </div>
-                                <span className="text-warm-gray dark:text-white/70">Editing your draft and applying changes...</span>
+                                <span className="text-warm-gray dark:text-white/70">{t('social.aiEditingDraft', { defaultValue: 'Editing your draft and applying changes...' })}</span>
                               </div>
                             </div>
                           </div>
@@ -1110,16 +1242,16 @@ export function SocialEditorPage() {
                         value={chatInput}
                         onChange={(event) => setChatInput(event.target.value)}
                         onKeyDown={handleChatInputKeyDown}
-                        placeholder="Tell AI how to revise this draft..."
+                        placeholder={t('social.chatInputPlaceholder', { defaultValue: 'Tell AI how to revise this draft...' })}
                         rows={1}
                         disabled={chatIsThinking}
                         className="max-h-40 min-h-[5.5rem] w-full resize-y border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-navy placeholder:text-warm-gray/60 focus:outline-none dark:text-white"
                       />
                       <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-navy/10 px-2 pt-3 dark:border-white/10">
-                        <p className="text-xs text-warm-gray">Examples: “Make it more donor-focused”, “Shorten this for X”, “Write a stronger hook”.</p>
+                        <p className="text-xs text-warm-gray">{t('social.chatExamples', { defaultValue: 'Examples: “Make it more donor-focused”, “Shorten this for X”, “Write a stronger hook”.' })}</p>
                         <Button onClick={() => void handleChatSend()} disabled={!chatInput.trim()} loading={chatIsThinking}>
                           <Sparkles size={16} />
-                          Send
+                          {t('social.send', { defaultValue: 'Send' })}
                         </Button>
                       </div>
                     </div>
@@ -1130,32 +1262,32 @@ export function SocialEditorPage() {
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">Stage 1: Build the Brief</p>
-                    <p className="mt-1 text-sm text-warm-gray">Answer the questions AI needs before it drafts a post.</p>
+                    <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">{t('social.stageOneTitle', { defaultValue: 'Stage 1: Build the Brief' })}</p>
+                    <p className="mt-1 text-sm text-warm-gray">{t('social.stageOneHelper', { defaultValue: 'Answer the questions AI needs before it drafts a post.' })}</p>
                   </div>
-                  <StagePill active>Stage 1</StagePill>
+                  <StagePill active>{t('social.stageOne', { defaultValue: 'Stage 1' })}</StagePill>
                 </div>
                 <Card className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Input label="Draft title" error={form.formState.errors.title?.message} {...form.register('title')} />
-                    <Input label="Audience" error={form.formState.errors.audience?.message} {...form.register('audience')} />
-                    <SelectField label="Platform" value={form.watch('platform')} options={PLATFORMS} onChange={(value) => form.setValue('platform', value as BriefValues['platform'], { shouldValidate: true })} />
-                    <SelectField label="Post type" value={form.watch('postType')} options={POST_TYPES} onChange={(value) => form.setValue('postType', value as BriefValues['postType'], { shouldValidate: true })} />
-                    <SelectField label="Media type" value={form.watch('mediaType')} options={MEDIA_TYPES} onChange={(value) => form.setValue('mediaType', value as BriefValues['mediaType'], { shouldValidate: true })} helper="Choose the format you want the generated composer to mimic." />
-                    <SelectField label="Sentiment" value={form.watch('sentimentTone')} options={SENTIMENT_TONES} onChange={(value) => form.setValue('sentimentTone', value as BriefValues['sentimentTone'], { shouldValidate: true })} />
-                    <SelectField label="Call to action" value={form.watch('callToActionType')} options={CTA_TYPES} onChange={(value) => form.setValue('callToActionType', value as BriefValues['callToActionType'], { shouldValidate: true })} />
-                    <SelectField label="Content topic" value={form.watch('contentTopic')} options={CONTENT_TOPICS} onChange={(value) => form.setValue('contentTopic', value as BriefValues['contentTopic'], { shouldValidate: true })} />
-                    <Input label="Campaign name" {...form.register('campaignName')} />
-                    <Input label="Hashtags wanted (optional)" {...form.register('hashtags')} />
+                    <Input label={t('social.draftTitle')} error={form.formState.errors.title?.message} {...form.register('title')} />
+                    <Input label={t('social.audienceDescription')} error={form.formState.errors.audience?.message} {...form.register('audience')} />
+                    <SelectField label={t('social.platform')} value={form.watch('platform')} options={PLATFORMS} onChange={(value) => form.setValue('platform', value as BriefValues['platform'], { shouldValidate: true })} getOptionLabel={getOptionLabel} />
+                    <SelectField label={t('social.postType')} value={form.watch('postType')} options={POST_TYPES} onChange={(value) => form.setValue('postType', value as BriefValues['postType'], { shouldValidate: true })} getOptionLabel={getOptionLabel} />
+                    <SelectField label={t('social.mediaType')} value={form.watch('mediaType')} options={MEDIA_TYPES} onChange={(value) => form.setValue('mediaType', value as BriefValues['mediaType'], { shouldValidate: true })} helper={t('social.mediaTypeHelper', { defaultValue: 'Choose the format you want the generated composer to mimic.' })} getOptionLabel={getOptionLabel} />
+                    <SelectField label={t('social.sentimentTone')} value={form.watch('sentimentTone')} options={SENTIMENT_TONES} onChange={(value) => form.setValue('sentimentTone', value as BriefValues['sentimentTone'], { shouldValidate: true })} getOptionLabel={getOptionLabel} />
+                    <SelectField label={t('social.callToAction')} value={form.watch('callToActionType')} options={CTA_TYPES} onChange={(value) => form.setValue('callToActionType', value as BriefValues['callToActionType'], { shouldValidate: true })} getOptionLabel={getOptionLabel} />
+                    <SelectField label={t('social.contentTopic')} value={form.watch('contentTopic')} options={CONTENT_TOPICS} onChange={(value) => form.setValue('contentTopic', value as BriefValues['contentTopic'], { shouldValidate: true })} getOptionLabel={getOptionLabel} />
+                    <Input label={t('social.campaignNameField')} {...form.register('campaignName')} />
+                    <Input label={t('social.hashtagsWantedOptional', { defaultValue: 'Hashtags wanted (optional)' })} {...form.register('hashtags')} />
                   </div>
 
                   <label className="flex flex-col gap-2">
-                    <span className="text-sm font-medium text-slate-navy dark:text-white">Additional instructions</span>
+                    <span className="text-sm font-medium text-slate-navy dark:text-white">{t('social.additionalInstructions')}</span>
                     <textarea
                       rows={5}
                       {...form.register('additionalInstructions')}
                       className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
-                      placeholder="What should the AI emphasize, avoid, or include?"
+                      placeholder={t('social.additionalInstructionsPlaceholder', { defaultValue: 'What should the AI emphasize, avoid, or include?' })}
                     />
                   </label>
 
@@ -1163,9 +1295,9 @@ export function SocialEditorPage() {
                     <div className="space-y-3 rounded-[1.5rem] border border-dashed border-slate-navy/15 bg-slate-navy/5 p-5 dark:border-white/10 dark:bg-white/5">
                       <div className="flex items-center gap-2 text-slate-navy dark:text-white">
                         <ImagePlus size={18} />
-                        <p className="font-heading text-base font-semibold">Add media</p>
+                        <p className="font-heading text-base font-semibold">{t('common.addMedia')}</p>
                       </div>
-                      <p className="text-sm text-warm-gray">Upload the image or video you want attached to this post. It will stay local until you save the draft.</p>
+                      <p className="text-sm text-warm-gray">{t('social.addMediaHelper', { defaultValue: 'Upload the image or video you want attached to this post. It will stay local until you save the draft.' })}</p>
                       <input
                         type="file"
                         accept={form.watch('mediaType') === 'Video' || form.watch('mediaType') === 'Reel' ? 'video/*' : 'image/*,video/*'}
@@ -1219,32 +1351,32 @@ export function SocialEditorPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={() => void handleGenerate()}>
                       <Sparkles size={16} />
-                      Generate Post
+                      {t('social.generatePost', { defaultValue: 'Generate Post' })}
                     </Button>
                     <Button variant="ghost" onClick={() => void handleExplicitSave()} loading={createDraftMutation.isPending || updateDraftMutation.isPending || uploading}>
                       <Save size={16} />
-                      Save Draft First
+                      {t('social.saveDraftFirst', { defaultValue: 'Save Draft First' })}
                     </Button>
                   </div>
                 </Card>
 
                 <Card className="space-y-4 bg-gradient-to-br from-sky-blue/15 via-white to-coral-pink/20 dark:from-sky-blue/10 dark:via-slate-navy/60 dark:to-coral-pink/10">
                   <div>
-                    <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">What happens next</p>
-                    <p className="mt-1 text-sm text-warm-gray">AI uses your answers to build a first draft that still stays editable.</p>
+                    <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('social.whatHappensNext', { defaultValue: 'What happens next' })}</p>
+                    <p className="mt-1 text-sm text-warm-gray">{t('social.whatHappensNextHelper', { defaultValue: 'AI uses your answers to build a first draft that still stays editable.' })}</p>
                   </div>
                   <div className="space-y-3 text-sm text-slate-navy dark:text-white/90">
                     <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
-                      <p className="font-medium">1. AI drafts the post</p>
-                      <p className="mt-1 text-warm-gray">Headline, caption, CTA, and hashtags are generated from your brief.</p>
+                      <p className="font-medium">{t('social.nextStepOneTitle', { defaultValue: '1. AI drafts the post' })}</p>
+                      <p className="mt-1 text-warm-gray">{t('social.nextStepOneHelper', { defaultValue: 'Headline, caption, CTA, and hashtags are generated from your brief.' })}</p>
                     </div>
                     <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
-                      <p className="font-medium">2. You edit everything directly</p>
-                      <p className="mt-1 text-warm-gray">The generated layout behaves like a platform-specific composer, not a locked preview.</p>
+                      <p className="font-medium">{t('social.nextStepTwoTitle', { defaultValue: '2. You edit everything directly' })}</p>
+                      <p className="mt-1 text-warm-gray">{t('social.nextStepTwoHelper', { defaultValue: 'The generated layout behaves like a platform-specific composer, not a locked preview.' })}</p>
                     </div>
                     <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
-                      <p className="font-medium">3. AI keeps collaborating</p>
-                      <p className="mt-1 text-warm-gray">Use the chat in stage 2 to tighten wording, change tone, or try a different angle.</p>
+                      <p className="font-medium">{t('social.nextStepThreeTitle', { defaultValue: '3. AI keeps collaborating' })}</p>
+                      <p className="mt-1 text-warm-gray">{t('social.nextStepThreeHelper', { defaultValue: 'Use the chat in stage 2 to tighten wording, change tone, or try a different angle.' })}</p>
                     </div>
                   </div>
                 </Card>
@@ -1260,14 +1392,14 @@ export function SocialEditorPage() {
             setIsDeleteModalOpen(false);
           }
         }}
-        title="Delete Draft"
+        title={t('social.deleteDraft', { defaultValue: 'Delete Draft' })}
         onConfirm={() => void handleDeleteDraft()}
-        confirmText={deleteDraftMutation.isPending ? 'Deleting...' : 'Delete Draft'}
+        confirmText={deleteDraftMutation.isPending ? t('social.deletingDraft', { defaultValue: 'Deleting...' }) : t('social.deleteDraft', { defaultValue: 'Delete Draft' })}
         confirmVariant="danger"
       >
         <div className="space-y-3 text-sm text-slate-navy dark:text-white/85">
-          <p>Delete this saved draft?</p>
-          <p className="text-warm-gray dark:text-white/65">This will remove the draft and any uploaded media attached to it. This action cannot be undone.</p>
+          <p>{t('social.deleteSavedDraftPrompt', { defaultValue: 'Delete this saved draft?' })}</p>
+          <p className="text-warm-gray dark:text-white/65">{t('social.deleteSavedDraftWarning', { defaultValue: 'This will remove the draft and any uploaded media attached to it. This action cannot be undone.' })}</p>
         </div>
       </Modal>
     </div>

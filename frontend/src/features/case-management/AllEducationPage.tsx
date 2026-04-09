@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -33,12 +34,22 @@ function statusVariant(s: string): 'success' | 'warning' | 'info' | 'neutral' {
   }
 }
 
+function translateCompletionStatus(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Completed': return t('caseManagement.completed');
+    case 'InProgress': return t('caseManagement.inProgress');
+    case 'NotStarted': return t('caseManagement.notStarted');
+    default: return value;
+  }
+}
+
 const selectClass = 'rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white';
 
 type SortKey = 'date' | 'attendance' | 'progress';
 
 export function AllEducationPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -103,7 +114,7 @@ export function AllEducationPage() {
   const columns = [
     {
       key: 'residentId',
-      header: 'Resident',
+      header: t('caseManagement.resident'),
       render: (row: Record<string, unknown>) => {
         const residentId = Number(row.residentId ?? 0);
         const resident = residentMap.get(residentId);
@@ -117,28 +128,28 @@ export function AllEducationPage() {
     },
     {
       key: 'recordDate',
-      header: <span className="flex items-center">Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('common.date')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.recordDate as string),
     },
-    { key: 'educationLevel', header: 'Level' },
-    { key: 'schoolName', header: 'School' },
-    { key: 'enrollmentStatus', header: 'Enrollment' },
+    { key: 'educationLevel', header: t('caseManagement.educationLevel') },
+    { key: 'schoolName', header: t('caseManagement.schoolName') },
+    { key: 'enrollmentStatus', header: t('caseManagement.enrollmentStatus') },
     {
       key: 'attendanceRate',
-      header: <span className="flex items-center">Attendance <SortBtn col="attendance" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.attendancePercent')} <SortBtn col="attendance" /></span>,
       render: (row: Record<string, unknown>) => `${row.attendanceRate}%`,
     },
     {
       key: 'progressPercent',
-      header: <span className="flex items-center">Progress <SortBtn col="progress" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.progressPercent')} <SortBtn col="progress" /></span>,
       render: (row: Record<string, unknown>) => `${row.progressPercent}%`,
     },
     {
       key: 'completionStatus',
-      header: 'Status',
+      header: t('common.status'),
       render: (row: Record<string, unknown>) => (
         <Badge variant={statusVariant(row.completionStatus as string)}>
-          {row.completionStatus as string}
+          {translateCompletionStatus(t, row.completionStatus as string)}
         </Badge>
       ),
     },
@@ -147,8 +158,8 @@ export function AllEducationPage() {
   return (
     <div>
       <PageHeader
-        title="Education Records"
-        subtitle="All education records across residents"
+        title={t('caseManagement.allEducation')}
+        subtitle={t('caseManagement.educationRecords')}
       />
 
       <Card>
@@ -157,16 +168,16 @@ export function AllEducationPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. LS-0001, Elementary)"
+                placeholder={t('common.search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
           <select className={selectClass} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            <option value="Completed">Completed</option>
-            <option value="InProgress">In Progress</option>
-            <option value="NotStarted">Not Started</option>
+              <option value="">{t('common.all')} {t('common.status').toLowerCase()}</option>
+              <option value="Completed">{t('caseManagement.completed')}</option>
+              <option value="InProgress">{t('caseManagement.inProgress')}</option>
+              <option value="NotStarted">{t('caseManagement.notStarted')}</option>
             <option value="Dropped">Dropped</option>
           </select>
         </div>
@@ -175,7 +186,7 @@ export function AllEducationPage() {
           columns={columns}
           data={processed.slice((page - 1) * pageSize, page * pageSize) as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No education records found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={Math.max(1, Math.ceil(processed.length / pageSize))}

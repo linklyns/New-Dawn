@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
@@ -12,49 +13,84 @@ import { Check, X } from 'lucide-react';
 import { useGoogleLogin } from '../../hooks/useGoogleLogin';
 import type { AuthResponse } from '../../types/auth';
 import logoSymbol from '../../assets/favicon.png';
+import {
+  CURRENCY_OPTIONS,
+  getStoredUserPreferences,
+  LANGUAGE_OPTIONS,
+  SUPPORTED_CURRENCIES,
+  SUPPORTED_LANGUAGES,
+} from '../../lib/userPreferences';
 
-const registerSchema = z
+const createRegisterSchema = (t: (key: string) => string) => z
   .object({
-    email: z.string().email('Please enter a valid email'),
-    displayName: z.string().min(2, 'Display name must be at least 2 characters'),
+    email: z.string().email(t('auth.emailInvalid')),
+    displayName: z.string().min(2, t('auth.displayNameMin')),
+    preferredLanguage: z.enum(SUPPORTED_LANGUAGES),
+    preferredCurrency: z.enum(SUPPORTED_CURRENCIES),
     password: z
       .string()
-      .min(16, 'Password must be at least 16 characters'),
+      .min(16, t('auth.passwordMin')),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
-    message: 'Passwords do not match',
+    message: t('auth.passwordsMismatch'),
     path: ['confirmPassword'],
   });
 
-type RegisterForm = z.infer<typeof registerSchema>;
-
-const requirements = [
-  { label: 'At least 16 characters', test: (v: string) => v.length >= 16 },
-];
+type RegisterForm = z.infer<ReturnType<typeof createRegisterSchema>>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
   const login = useAuthStore((s) => s.login);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const storedPreferences = getStoredUserPreferences();
+  const selectClass = 'rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
+  const registerSchema = createRegisterSchema(t);
+  const requirements = [
+    { label: t('auth.passwordLength'), test: (v: string) => v.length >= 16 },
+  ];
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      preferredLanguage: storedPreferences.preferredLanguage as RegisterForm['preferredLanguage'],
+      preferredCurrency: storedPreferences.preferredCurrency as RegisterForm['preferredCurrency'],
+    },
+  });
+
+  const passwordValue = watch('password', '');
+  const preferredLanguage = watch('preferredLanguage');
+  const preferredCurrency = watch('preferredCurrency');
 
   const handleGoogleCredential = async (credential: string) => {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/api/auth/google', { credential });
+      const res = await api.post<AuthResponse>('/api/auth/google', {
+        credential,
+        preferredLanguage,
+        preferredCurrency,
+      });
       login(res.token, {
         email: res.email,
         displayName: res.displayName,
         role: res.role,
         has2fa: false,
+        preferredLanguage: res.preferredLanguage,
+        preferredCurrency: res.preferredCurrency,
       });
       navigate(redirectTo || '/admin');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-up failed');
+      setError(err instanceof Error ? err.message : t('auth.googleSignUpFailed'));
     } finally {
       setLoading(false);
     }
@@ -66,15 +102,6 @@ export function RegisterPage() {
     buttonText: 'signup_with',
   });
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
-
-  const passwordValue = watch('password', '');
-
   const onRegister = async (data: RegisterForm) => {
     setError('');
     setLoading(true);
@@ -83,16 +110,20 @@ export function RegisterPage() {
         email: data.email,
         password: data.password,
         displayName: data.displayName,
+        preferredLanguage: data.preferredLanguage,
+        preferredCurrency: data.preferredCurrency,
       });
       login(res.token, {
         email: res.email,
         displayName: res.displayName,
         role: res.role,
         has2fa: false,
+        preferredLanguage: res.preferredLanguage,
+        preferredCurrency: res.preferredCurrency,
       });
       navigate(redirectTo || '/admin');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(err instanceof Error ? err.message : t('auth.registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -102,12 +133,12 @@ export function RegisterPage() {
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
-          <img src={logoSymbol} alt="New Dawn" className="h-14 w-14" />
+          <img src={logoSymbol} alt={t('brand.newDawn')} className="h-14 w-14" />
         </div>
 
         <form onSubmit={handleSubmit(onRegister)} className="flex flex-col gap-4">
           <h2 className="text-center font-heading text-xl font-bold text-slate-navy dark:text-white">
-            Create Account
+            {t('auth.createAccount')}
           </h2>
 
           {error && (
@@ -117,25 +148,51 @@ export function RegisterPage() {
           )}
 
           <Input
-            label="Email"
+            label={t('auth.email')}
             type="email"
-            placeholder="you@example.com"
+            placeholder={t('auth.emailPlaceholder')}
             error={errors.email?.message}
             {...register('email')}
           />
 
           <Input
-            label="Display Name"
+            label={t('auth.displayName')}
             type="text"
-            placeholder="Your name"
+            placeholder={t('auth.displayNamePlaceholder')}
             error={errors.displayName?.message}
             {...register('displayName')}
           />
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="preferredLanguage" className="text-sm font-medium text-slate-navy dark:text-white">
+                {t('auth.language')}
+              </label>
+              <select id="preferredLanguage" className={selectClass} {...register('preferredLanguage')}>
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {errors.preferredLanguage && <p className="text-xs text-red-600">{errors.preferredLanguage.message}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="preferredCurrency" className="text-sm font-medium text-slate-navy dark:text-white">
+                {t('auth.currency')}
+              </label>
+              <select id="preferredCurrency" className={selectClass} {...register('preferredCurrency')}>
+                {CURRENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {errors.preferredCurrency && <p className="text-xs text-red-600">{errors.preferredCurrency.message}</p>}
+            </div>
+          </div>
+
           <Input
-            label="Password"
+            label={t('auth.password')}
             type="password"
-            placeholder="Create a password"
+            placeholder={t('auth.createPassword')}
             error={errors.password?.message}
             {...register('password')}
           />
@@ -143,7 +200,7 @@ export function RegisterPage() {
           {/* Password requirements */}
           <div className="rounded-lg bg-slate-navy/5 p-3 dark:bg-white/5">
             <p className="mb-2 text-xs font-medium text-warm-gray">
-              Password Requirements
+              {t('auth.passwordRequirements')}
             </p>
             <ul className="space-y-1">
               {requirements.map((req) => {
@@ -162,15 +219,15 @@ export function RegisterPage() {
           </div>
 
           <Input
-            label="Confirm Password"
+            label={t('auth.confirmPassword')}
             type="password"
-            placeholder="Confirm your password"
+            placeholder={t('auth.confirmPasswordPlaceholder')}
             error={errors.confirmPassword?.message}
             {...register('confirmPassword')}
           />
 
           <Button type="submit" loading={loading} className="w-full">
-            Create Account
+            {t('auth.createAccount')}
           </Button>
 
           <div className="relative my-2">
@@ -179,7 +236,7 @@ export function RegisterPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white px-2 text-warm-gray dark:bg-slate-navy">
-                Or sign up with
+                {t('auth.orSignUpWith')}
               </span>
             </div>
           </div>
@@ -187,12 +244,12 @@ export function RegisterPage() {
           <div id="google-signup-btn" className="flex justify-center" />
 
           <p className="text-center text-sm text-warm-gray">
-            Already have an account?{' '}
+            {t('auth.hasAccount')}{' '}
             <Link
               to="/login"
               className="font-medium text-sky-blue-text dark:text-sky-blue hover:underline"
             >
-              Sign In
+              {t('auth.signIn')}
             </Link>
           </p>
         </form>

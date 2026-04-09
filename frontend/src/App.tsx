@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useThemeStore } from './stores/themeStore';
 import MfaPromptModal from './components/ui/MfaPromptModal';
@@ -13,6 +14,7 @@ import { ImpactDashboard } from './features/impact/ImpactDashboard';
 import { PrivacyPolicyPage } from './features/privacy/PrivacyPolicyPage';
 import { CookieConsentBanner } from './features/privacy/CookieConsentBanner';
 import { DonatePage } from './features/donate/DonatePage';
+import { resolvePreferredLanguage } from './lib/locale';
 
 const AdminDashboard = lazy(async () => ({ default: (await import('./features/dashboard/AdminDashboard')).AdminDashboard }));
 const ResidentsList = lazy(async () => ({ default: (await import('./features/residents/ResidentsList')).ResidentsList }));
@@ -72,6 +74,7 @@ function AppContent() {
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
   const [mfaPromptShown, setMfaPromptShown] = useState(false);
   const applyTheme = useThemeStore((s) => s.applyTheme);
+  const { i18n } = useTranslation();
 
   useEffect(() => {
     initialize().finally(() => setReady(true));
@@ -80,6 +83,12 @@ function AppContent() {
   useEffect(() => {
     applyTheme();
   }, [applyTheme]);
+
+  useEffect(() => {
+    const lang = resolvePreferredLanguage(user?.preferredLanguage);
+    document.documentElement.lang = lang;
+    i18n.changeLanguage(lang);
+  }, [user?.preferredLanguage, i18n]);
 
   useEffect(() => {
     if (!ready || !user || user.has2fa || mfaPromptShown) return;

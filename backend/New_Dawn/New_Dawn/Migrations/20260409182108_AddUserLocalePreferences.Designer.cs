@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using New_Dawn.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace New_Dawn.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260409182108_AddUserLocalePreferences")]
+    partial class AddUserLocalePreferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -789,18 +792,10 @@ namespace New_Dawn.Migrations
                         .HasColumnType("text")
                         .HasColumnName("link");
 
-                    b.Property<string>("ListData")
-                        .HasColumnType("text")
-                        .HasColumnName("list_data");
-
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("message");
-
-                    b.Property<string>("TargetRole")
-                        .HasColumnType("text")
-                        .HasColumnName("target_role");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -812,21 +807,13 @@ namespace New_Dawn.Migrations
                         .HasColumnType("text")
                         .HasColumnName("type");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("text")
-                        .HasColumnName("user_id");
-
                     b.HasKey("NotificationId");
 
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("IsRead");
 
-                    b.HasIndex("TargetRole");
-
                     b.HasIndex("Type");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("notifications", "public");
                 });

@@ -1,4 +1,5 @@
 import { Shield, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button';
 
 interface MfaPromptModalProps {
@@ -8,6 +9,8 @@ interface MfaPromptModalProps {
 }
 
 export default function MfaPromptModal({ isOpen, onSetupNow, onRemindLater }: MfaPromptModalProps) {
+  const { t } = useTranslation();
+
   if (!isOpen) return null;
 
   return (
@@ -20,7 +23,7 @@ export default function MfaPromptModal({ isOpen, onSetupNow, onRemindLater }: Mf
         <button
           onClick={onRemindLater}
           className="absolute right-4 top-4 rounded-full p-1 text-warm-gray hover:bg-slate-navy/10 dark:text-white/50 dark:hover:bg-white/10"
-          aria-label="Dismiss"
+          aria-label={t('mfa.dismiss')}
         >
           <X size={18} />
         </button>
@@ -32,19 +35,18 @@ export default function MfaPromptModal({ isOpen, onSetupNow, onRemindLater }: Mf
 
           <div>
             <h2 className="text-lg font-semibold text-slate-navy dark:text-white">
-              Protect Your Account
+              {t('mfa.protectAccount')}
             </h2>
             <p className="mt-2 text-sm text-warm-gray dark:text-white/60 leading-relaxed">
-              Enable two-factor authentication to keep resident data and donor information secure.
-              It only takes about a minute to set up.
+              {t('mfa.enableDescription')}
             </p>
           </div>
 
           <ul className="w-full space-y-2 text-left">
             {[
-              'Blocks unauthorized logins even if your password is stolen',
-              'Protects sensitive case and resident records',
-              'Takes less than 2 minutes to enable',
+              t('mfa.benefitBlock'),
+              t('mfa.benefitProtect'),
+              t('mfa.benefitTime'),
             ].map((point) => (
               <li key={point} className="flex items-start gap-2 text-sm text-slate-navy/80 dark:text-white/70">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sage-green/20 text-sage-green">
@@ -57,13 +59,13 @@ export default function MfaPromptModal({ isOpen, onSetupNow, onRemindLater }: Mf
 
           <div className="flex w-full flex-col gap-2 pt-1">
             <Button variant="primary" className="w-full justify-center" onClick={onSetupNow}>
-              Set Up Two-Factor Authentication
+              {t('mfa.setup')}
             </Button>
             <button
               onClick={onRemindLater}
               className="text-sm text-warm-gray hover:text-slate-navy dark:text-white/50 dark:hover:text-white py-1"
             >
-              Remind me in 6 months
+              {t('mfa.remindLater')}
             </button>
           </div>
         </div>

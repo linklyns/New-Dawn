@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, ArrowUpDown, Plus, Pencil, Search, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { InterventionPlan } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -46,6 +48,17 @@ function statusVariant(s: string): 'info' | 'warning' | 'success' | 'neutral' | 
   }
 }
 
+function translatePlanStatus(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Open': return t('common.open');
+    case 'In Progress': return t('caseManagement.inProgress');
+    case 'Achieved': return t('caseManagement.achieved');
+    case 'On Hold': return t('caseManagement.onHold');
+    case 'Closed': return t('common.closed');
+    default: return value;
+  }
+}
+
 const planSchema = z.object({
   planCategory: z.string().min(1, 'Required'),
   planDescription: z.string().min(1, 'Required'),
@@ -62,6 +75,7 @@ export function InterventionPlansPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [search, setSearch] = useState('');
@@ -123,11 +137,13 @@ export function InterventionPlansPage() {
   function openCreate() {
     setEditingPlan(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(plan: InterventionPlan) {
     setEditingPlan(plan);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: PlanFormData) {
@@ -141,12 +157,12 @@ export function InterventionPlansPage() {
   return (
     <div>
       <PageHeader
-        title="Intervention Plans"
-        subtitle="Manage intervention plans and services"
+        title={t('caseManagement.interventionPlans')}
+        subtitle={t('caseManagement.servicesProvided')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Plan
+            {t('caseManagement.addPlan')}
           </Button>
         }
       />
@@ -154,13 +170,13 @@ export function InterventionPlansPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-48 flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray" />
           <input
             type="text"
-            placeholder="Search plans..."
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
@@ -172,7 +188,7 @@ export function InterventionPlansPage() {
           className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
         >
           {filterOptions.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>{opt === 'All' ? t('common.all') : translatePlanStatus(t, opt)}</option>
           ))}
         </select>
         <Button
@@ -182,14 +198,14 @@ export function InterventionPlansPage() {
           title={`Sort by target date (${sortDir === 'desc' ? 'newest first' : 'oldest first'})`}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'desc' ? '↓' : '↑'}
+          {t('common.date')} {sortDir === 'desc' ? '↓' : '↑'}
         </Button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingPlan ? 'Edit Plan' : 'New Plan'}
+            {editingPlan ? `${t('common.edit')} ${t('caseManagement.interventionPlans')}` : t('caseManagement.addPlan')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -214,7 +230,7 @@ export function InterventionPlansPage() {
         </div>
       ) : plans.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-warm-gray">
-          No intervention plans found.
+          {t('common.noData')}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -223,7 +239,7 @@ export function InterventionPlansPage() {
               <div className="mb-3 flex items-start justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="info">{plan.planCategory}</Badge>
-                  <Badge variant={statusVariant(plan.status)}>{plan.status}</Badge>
+                  <Badge variant={statusVariant(plan.status)}>{translatePlanStatus(t, plan.status)}</Badge>
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(plan)}>
@@ -237,13 +253,13 @@ export function InterventionPlansPage() {
               <p className="mb-2 text-sm text-slate-navy dark:text-white">{plan.planDescription}</p>
               {plan.servicesProvided && (
                 <p className="mb-2 text-xs text-warm-gray">
-                  <span className="font-medium">Services:</span> {plan.servicesProvided}
+                  <span className="font-medium">{t('caseManagement.servicesProvided')}:</span> {plan.servicesProvided}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-2 text-xs text-warm-gray">
-                <span>Target: {plan.targetValue}</span>
-                <span>Target Date: {formatDate(plan.targetDate)}</span>
-                <span>Conference: {formatDate(plan.caseConferenceDate)}</span>
+                <span>{t('caseManagement.targetValue')}: {plan.targetValue}</span>
+                <span>{t('caseManagement.targetDate')}: {formatDate(plan.targetDate)}</span>
+                <span>{t('caseManagement.caseConferenceDate')}: {formatDate(plan.caseConferenceDate)}</span>
               </div>
             </Card>
           ))}
@@ -253,13 +269,13 @@ export function InterventionPlansPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Plan"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.interventionPlans')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.planId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this intervention plan? This action cannot be undone.
+          {t('common.delete')} {t('caseManagement.interventionPlans').toLowerCase()}? This action cannot be undone.
         </p>
       </Modal>
     </div>
@@ -279,6 +295,7 @@ function PlanForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -301,28 +318,28 @@ function PlanForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Plan Category"
+          label={t('caseManagement.planCategory')}
           error={errors.planCategory?.message}
           {...register('planCategory')}
         />
         <Input
-          label="Target Value"
+          label={t('caseManagement.targetValue')}
           type="number"
           step="any"
           error={errors.targetValue?.message}
           {...register('targetValue')}
         />
         <Input
-          label="Target Date"
+          label={t('caseManagement.targetDate')}
           type="date"
           error={errors.targetDate?.message}
           {...register('targetDate')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Status</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.status')}</label>
           <select className={selectClass} {...register('status')}>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>{s}</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>{translatePlanStatus(t, status)}</option>
             ))}
           </select>
           {errors.status?.message && (
@@ -330,7 +347,7 @@ function PlanForm({
           )}
         </div>
         <Input
-          label="Case Conference Date"
+          label={t('caseManagement.caseConferenceDate')}
           type="date"
           error={errors.caseConferenceDate?.message}
           {...register('caseConferenceDate')}
@@ -338,7 +355,7 @@ function PlanForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Plan Description</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.planDescription')}</label>
         <textarea className={textareaClass} rows={3} {...register('planDescription')} />
         {errors.planDescription?.message && (
           <p className="text-xs text-red-600">{errors.planDescription.message}</p>
@@ -346,16 +363,16 @@ function PlanForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Services Provided</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.servicesProvided')}</label>
         <textarea className={textareaClass} rows={2} {...register('servicesProvided')} />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Plan' : 'Save Plan'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.interventionPlans')}` : `${t('common.save')} ${t('caseManagement.interventionPlans')}`}
         </Button>
       </div>
     </form>

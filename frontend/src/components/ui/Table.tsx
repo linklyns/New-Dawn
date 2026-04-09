@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from './Spinner';
 import { Button } from './Button';
 
@@ -28,7 +29,7 @@ export function Table<T extends Record<string, unknown>>({
   data,
   onRowClick,
   loading = false,
-  emptyMessage = 'No data found.',
+  emptyMessage,
   page,
   pageSize,
   totalPages,
@@ -37,6 +38,8 @@ export function Table<T extends Record<string, unknown>>({
   onPageSizeChange,
   pageSizeOptions = [10, 20, 50, 100],
 }: TableProps<T>) {
+  const { t } = useTranslation();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -48,7 +51,7 @@ export function Table<T extends Record<string, unknown>>({
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-warm-gray">
-        {emptyMessage}
+        {emptyMessage ?? t('common.noData')}
       </div>
     );
   }
@@ -90,13 +93,15 @@ export function Table<T extends Record<string, unknown>>({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <span className="text-sm text-warm-gray">
               {totalPages === 1 && pageSize && totalCount && pageSize >= totalCount ? (
-                <>Showing all {totalCount} {totalCount === 1 ? 'record' : 'records'}</>
+                <>
+                  {t('common.showingAll', { count: totalCount })} {t(totalCount === 1 ? 'common.record' : 'common.records')}
+                </>
               ) : (
                 <>
-                  Page {page} of {totalPages}
+                  {t('common.pageOf', { page, pages: totalPages })}
                   {totalCount !== undefined && (
                     <span className="ml-2">
-                      ({totalCount} total {totalCount === 1 ? 'record' : 'records'})
+                      ({totalCount} {t('common.total')} {t(totalCount === 1 ? 'common.record' : 'common.records')})
                     </span>
                   )}
                 </>
@@ -106,7 +111,7 @@ export function Table<T extends Record<string, unknown>>({
             {onPageSizeChange && pageSizeOptions && (
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-slate-navy dark:text-white">
-                  Records per page:
+                  {t('common.recordsPerPage')}
                 </label>
                 <select
                   className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
@@ -121,7 +126,7 @@ export function Table<T extends Record<string, unknown>>({
                       </option>
                     ))}
                   {totalCount !== undefined && totalCount <= 1000 && (
-                    <option value={totalCount}>All ({totalCount})</option>
+                    <option value={totalCount}>{t('common.all')} ({totalCount})</option>
                   )}
                 </select>
               </div>
@@ -136,7 +141,7 @@ export function Table<T extends Record<string, unknown>>({
                 disabled={page <= 1}
                 onClick={() => onPageChange(page - 1)}
               >
-                ← Previous
+                ← {t('common.previous')}
               </Button>
 
               {totalPages <= 10 ? (
@@ -157,7 +162,7 @@ export function Table<T extends Record<string, unknown>>({
               ) : (
                 // Show page selector for many pages
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-warm-gray">Go to page:</span>
+                  <span className="text-sm text-warm-gray">{t('common.goToPage')}</span>
                   <select
                     className="rounded-lg border border-slate-navy/20 bg-white px-2 py-1 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
                     value={page}
@@ -178,7 +183,7 @@ export function Table<T extends Record<string, unknown>>({
                 disabled={page >= totalPages}
                 onClick={() => onPageChange(page + 1)}
               >
-                Next →
+                {t('common.next')} →
               </Button>
             </div>
           )}

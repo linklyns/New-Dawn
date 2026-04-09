@@ -27,7 +27,7 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   const crumbs = buildBreadcrumbs(location.pathname);
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 rounded-[1.75rem] border border-white/70 bg-linear-to-r from-white via-coral-pink/25 to-sky-blue/12 px-5 py-5 shadow-[0_14px_38px_rgba(45,58,74,0.07)] backdrop-blur-sm dark:border-white/10 dark:bg-dark-surface dark:bg-none dark:shadow-sm">
       {/* Breadcrumb */}
       {crumbs.length > 1 && (
         <nav className="mb-2 flex items-center gap-1 text-sm text-warm-gray">
@@ -51,7 +51,7 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
           <h1 className="font-heading text-2xl font-bold text-slate-navy dark:text-white">
             {title}
           </h1>
-          {subtitle && <p className="mt-1 text-sm text-warm-gray">{subtitle}</p>}
+          {subtitle && <p className="mt-1 max-w-2xl text-sm text-warm-gray">{subtitle}</p>}
         </div>
         {action && <div>{action}</div>}
       </div>

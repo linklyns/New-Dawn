@@ -11,6 +11,8 @@ public class RegisterRequest
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    public string PreferredLanguage { get; set; } = "en";
+    public string PreferredCurrency { get; set; } = "PHP";
 }
 
 public class AuthResponse
@@ -20,6 +22,8 @@ public class AuthResponse
     public string DisplayName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public bool RequiresMfa { get; set; }
+    public string PreferredLanguage { get; set; } = "en";
+    public string PreferredCurrency { get; set; } = "PHP";
 }
 
 public class MfaVerifyRequest
@@ -43,4 +47,12 @@ public class ChangePasswordRequest
 public class GoogleLoginRequest
 {
     public string Credential { get; set; } = string.Empty;
+    public string PreferredLanguage { get; set; } = "en";
+    public string PreferredCurrency { get; set; } = "PHP";
+}
+
+public class UpdatePreferencesRequest
+{
+    public string PreferredLanguage { get; set; } = string.Empty;
+    public string PreferredCurrency { get; set; } = string.Empty;
 }

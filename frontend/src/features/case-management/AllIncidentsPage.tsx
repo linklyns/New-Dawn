@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -40,8 +41,19 @@ const severityOrder: Record<string, number> = { Critical: 4, High: 3, Medium: 2,
 
 type SortKey = 'date' | 'severity';
 
+function translateSeverity(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Critical': return t('caseManagement.critical');
+    case 'High': return t('caseManagement.high');
+    case 'Medium': return t('caseManagement.medium');
+    case 'Low': return t('caseManagement.low');
+    default: return value;
+  }
+}
+
 export function AllIncidentsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -104,7 +116,7 @@ export function AllIncidentsPage() {
   const columns = [
     {
       key: 'residentId',
-      header: 'Resident',
+      header: t('caseManagement.resident'),
       render: (row: Record<string, unknown>) => {
         const residentId = Number(row.residentId ?? 0);
         const resident = residentMap.get(residentId);
@@ -118,39 +130,39 @@ export function AllIncidentsPage() {
     },
     {
       key: 'incidentDate',
-      header: <span className="flex items-center">Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('common.date')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.incidentDate as string),
     },
-    { key: 'incidentType', header: 'Type' },
+    { key: 'incidentType', header: t('common.type') },
     {
       key: 'severity',
-      header: <span className="flex items-center">Severity <SortBtn col="severity" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.severity')} <SortBtn col="severity" /></span>,
       render: (row: Record<string, unknown>) => (
         <Badge variant={severityVariant(row.severity as string)}>
-          {row.severity as string}
+          {translateSeverity(t, row.severity as string)}
         </Badge>
       ),
     },
-    { key: 'reportedBy', header: 'Reported By' },
+    { key: 'reportedBy', header: t('caseManagement.reportedBy') },
     {
       key: 'resolved',
-      header: 'Resolved',
+      header: t('caseManagement.resolved'),
       render: (row: Record<string, unknown>) =>
-        row.resolved ? <Badge variant="success">Yes</Badge> : <Badge variant="warning">No</Badge>,
+        row.resolved ? <Badge variant="success">{t('common.yes')}</Badge> : <Badge variant="warning">{t('common.no')}</Badge>,
     },
     {
       key: 'followUpRequired',
-      header: 'Follow-Up',
+      header: t('caseManagement.followUpRequired'),
       render: (row: Record<string, unknown>) =>
-        row.followUpRequired ? <Badge variant="info">Required</Badge> : <span className="text-warm-gray">--</span>,
+        row.followUpRequired ? <Badge variant="info">{t('common.required')}</Badge> : <span className="text-warm-gray">--</span>,
     },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Incident Reports"
-        subtitle="All incident reports across residents"
+        title={t('caseManagement.allIncidents')}
+        subtitle={t('caseManagement.incidentReports')}
         action={
           <Button
             variant="ghost"
@@ -159,7 +171,7 @@ export function AllIncidentsPage() {
             className="gap-2"
           >
             <ArrowLeft size={16} />
-            Back
+            {t('common.back')}
           </Button>
         }
       />
@@ -170,17 +182,17 @@ export function AllIncidentsPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. LS-0001, Critical)"
+                placeholder={t('common.search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
           <select className={selectClass} value={severityFilter} onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}>
-            <option value="">All Severities</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
+              <option value="">{t('common.all')} {t('caseManagement.severity').toLowerCase()}</option>
+              <option value="Critical">{t('caseManagement.critical')}</option>
+              <option value="High">{t('caseManagement.high')}</option>
+              <option value="Medium">{t('caseManagement.medium')}</option>
+              <option value="Low">{t('caseManagement.low')}</option>
           </select>
         </div>
 
@@ -188,7 +200,7 @@ export function AllIncidentsPage() {
           columns={columns}
           data={processed.slice((page - 1) * pageSize, page * pageSize) as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No incident reports found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={Math.max(1, Math.ceil(processed.length / pageSize))}

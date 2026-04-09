@@ -1,4 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import QRCodeLib from 'react-qr-code';
 // react-qr-code CJS build exports the component as .QRCode, not as the default
 const QRCode = (QRCodeLib as any).QRCode ?? QRCodeLib;
@@ -8,6 +12,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { User, Shield, Mail, KeyRound, Smartphone, ScanLine, CheckCircle2, KeySquare } from 'lucide-react';
 import { api } from '../../lib/api';
+import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS, SUPPORTED_CURRENCIES, SUPPORTED_LANGUAGES } from '../../lib/userPreferences';
 
 /* ── Brand SVG logos (20×20) ────────────────────────────────── */
 const GoogleLogo = () => (
@@ -126,7 +131,15 @@ const appInstructions: Record<Exclude<AuthApp, null>, { name: string; logo: Reac
   },
 };
 
+const preferencesSchema = z.object({
+  preferredLanguage: z.enum(SUPPORTED_LANGUAGES),
+  preferredCurrency: z.enum(SUPPORTED_CURRENCIES),
+});
+
+type PreferencesForm = z.infer<typeof preferencesSchema>;
+
 export function ProfilePage() {
+  const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
   const { mode, setMode } = useThemeStore();
   const [mfaSetup, setMfaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
@@ -135,6 +148,33 @@ export function ProfilePage() {
   const [mfaLoading, setMfaLoading] = useState(false);
   const [disabling, setDisabling] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AuthApp>(null);
+  const [preferencesError, setPreferencesError] = useState('');
+  const [preferencesSuccess, setPreferencesSuccess] = useState('');
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isDirty },
+  } = useForm<PreferencesForm>({
+    resolver: zodResolver(preferencesSchema),
+    defaultValues: {
+      preferredLanguage: (user?.preferredLanguage ?? LANGUAGE_OPTIONS[0].value) as PreferencesForm['preferredLanguage'],
+      preferredCurrency: (user?.preferredCurrency ?? CURRENCY_OPTIONS[0].value) as PreferencesForm['preferredCurrency'],
+    },
+  });
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    reset({
+      preferredLanguage: user.preferredLanguage as PreferencesForm['preferredLanguage'],
+      preferredCurrency: user.preferredCurrency as PreferencesForm['preferredCurrency'],
+    });
+  }, [reset, user]);
 
   const handleSetupMfa = async () => {
     setMfaLoading(true);
@@ -181,6 +221,30 @@ export function ProfilePage() {
     }
   };
 
+  const handleSavePreferences = handleSubmit(async (values) => {
+    if (!user) {
+      return;
+    }
+
+    setPreferencesSaving(true);
+    setPreferencesError('');
+    setPreferencesSuccess('');
+
+    try {
+      const response = await api.put<{ data: PreferencesForm }>('/api/auth/preferences', values);
+      setUser({
+        ...user,
+        preferredLanguage: response.data.preferredLanguage,
+        preferredCurrency: response.data.preferredCurrency,
+      });
+      setPreferencesSuccess('Preferences updated.');
+    } catch (error) {
+      setPreferencesError(error instanceof Error ? error.message : 'Unable to update preferences.');
+    } finally {
+      setPreferencesSaving(false);
+    }
+  });
+
   if (!user) return null;
 
   return (
@@ -216,7 +280,7 @@ export function ProfilePage() {
         <div className="flex items-center gap-3 mb-4">
           <KeyRound size={20} className="text-slate-navy dark:text-white" />
           <h2 className="text-lg font-semibold text-slate-navy dark:text-white">
-            Theme Mode
+            {t('profile.theme')}
           </h2>
         </div>
         <div className="space-y-3">
@@ -230,12 +294,70 @@ export function ProfilePage() {
               value={mode}
               onChange={(e) => setMode(e.target.value as ThemeMode)}
             >
-              <option value="auto">Auto</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="auto">{t('profile.system')}</option>
+              <option value="light">{t('profile.light')}</option>
+              <option value="dark">{t('profile.dark')}</option>
             </select>
           </div>
         </div>
+      </Card>
+
+      <Card>
+        <form className="space-y-4" onSubmit={handleSavePreferences}>
+          <div className="flex items-center gap-3">
+            <User size={20} className="text-slate-navy dark:text-white" />
+            <h2 className="text-lg font-semibold text-slate-navy dark:text-white">
+              {t('profile.preferences')}
+            </h2>
+          </div>
+
+          <p className="text-sm text-warm-gray dark:text-white/60">
+            These preferences are saved to your account and mirrored into browser cookies so the frontend can apply them immediately.
+          </p>
+
+          {preferencesError && <p className="text-sm text-red-600">{preferencesError}</p>}
+          {preferencesSuccess && <p className="text-sm text-sage-green-text dark:text-sage-green">{preferencesSuccess}</p>}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="profile-preferred-language" className="text-sm font-medium text-slate-navy dark:text-white">
+                {t('profile.language')}
+              </label>
+              <select
+                id="profile-preferred-language"
+                className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
+                {...register('preferredLanguage')}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {errors.preferredLanguage && <p className="text-xs text-red-600">{errors.preferredLanguage.message}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="profile-preferred-currency" className="text-sm font-medium text-slate-navy dark:text-white">
+                {t('profile.currency')}
+              </label>
+              <select
+                id="profile-preferred-currency"
+                className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
+                {...register('preferredCurrency')}
+              >
+                {CURRENCY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {errors.preferredCurrency && <p className="text-xs text-red-600">{errors.preferredCurrency.message}</p>}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={!isDirty || preferencesSaving}>
+              {preferencesSaving ? 'Saving...' : t('profile.savePreferences')}
+            </Button>
+          </div>
+        </form>
       </Card>
 
       {/* MFA Section */}
@@ -243,7 +365,7 @@ export function ProfilePage() {
         <div className="flex items-center gap-3 mb-4">
           <KeyRound size={20} className="text-slate-navy dark:text-white" />
           <h2 className="text-lg font-semibold text-slate-navy dark:text-white">
-            Multi-Factor Authentication
+            {t('profile.twoFactorAuth')}
           </h2>
         </div>
 
@@ -384,7 +506,7 @@ export function ProfilePage() {
                 {mfaLoading ? 'Verifying...' : 'Verify & Enable'}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => { setMfaSetup(null); setMfaCode(''); setMfaError(''); setSelectedApp(null); }}>
-                Cancel
+                {t('common.cancel')}
               </Button>
             </div>
           </div>
@@ -396,13 +518,13 @@ export function ProfilePage() {
               </span>
             </div>
             <p className="text-sm text-warm-gray dark:text-white/60 mb-4">
-              Add an extra layer of security to your account with authenticator-based MFA.
+              {t('profile.enableTwoFactor')}
             </p>
             {mfaError && (
               <p className="mb-3 text-sm text-red-600">{mfaError}</p>
             )}
             <Button variant="primary" size="sm" onClick={handleSetupMfa} disabled={mfaLoading}>
-              {mfaLoading ? 'Setting up...' : 'Enable MFA'}
+              {mfaLoading ? 'Setting up...' : t('profile.setupTwoFactor')}
             </Button>
           </div>
         )}

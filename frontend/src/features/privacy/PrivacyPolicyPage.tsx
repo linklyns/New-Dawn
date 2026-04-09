@@ -1,29 +1,32 @@
 import { PageHeader } from '../../components/layout/PageHeader';
+import { useTranslation } from 'react-i18next';
 
-const sections = [
-  { id: 'introduction', label: 'Introduction' },
-  { id: 'information-we-collect', label: 'Information We Collect' },
-  { id: 'how-we-use', label: 'How We Use Your Information' },
-  { id: 'cookies', label: 'Cookie Policy' },
-  { id: 'data-sharing', label: 'Data Sharing' },
-  { id: 'data-security', label: 'Data Security' },
-  { id: 'your-rights', label: 'Your Rights (GDPR)' },
-  { id: 'data-retention', label: 'Data Retention' },
-  { id: 'childrens-privacy', label: "Children's Privacy" },
-  { id: 'contact', label: 'Contact Us' },
-  { id: 'updates', label: 'Updates' },
+const sections: Array<{ id: string; labelKey: string }> = [
+  { id: 'introduction', labelKey: 'privacy.introduction' },
+  { id: 'information-we-collect', labelKey: 'privacy.infoCollected' },
+  { id: 'how-we-use', labelKey: 'privacy.howWeUse' },
+  { id: 'cookies', labelKey: 'privacy.cookiePolicy' },
+  { id: 'data-sharing', labelKey: 'privacy.dataSharing' },
+  { id: 'data-security', labelKey: 'privacy.dataSecurity' },
+  { id: 'your-rights', labelKey: 'privacy.yourRights' },
+  { id: 'data-retention', labelKey: 'privacy.dataRetention' },
+  { id: 'childrens-privacy', labelKey: 'privacy.childrenPrivacy' },
+  { id: 'contact', labelKey: 'privacy.contactUs' },
+  { id: 'updates', labelKey: 'privacy.updates' },
 ];
 
 export function PrivacyPolicyPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <PageHeader title="Privacy Policy" subtitle="Last updated: April 2026" />
+      <PageHeader title={t('privacy.title')} subtitle={t('privacy.lastUpdated')} />
 
       <div className="mx-auto max-w-4xl">
         {/* Table of Contents */}
         <nav className="mb-10 rounded-xl border border-slate-navy/10 bg-sage-green/5 p-6 dark:border-white/10 dark:bg-sage-green/5">
           <h2 className="mb-3 font-heading text-lg font-semibold text-slate-navy dark:text-white">
-            Table of Contents
+            {t('privacy.tableOfContents')}
           </h2>
           <ol className="grid gap-1 sm:grid-cols-2">
             {sections.map((s, i) => (
@@ -32,7 +35,7 @@ export function PrivacyPolicyPage() {
                   href={`#${s.id}`}
                   className="text-sm text-warm-gray transition-colors hover:text-golden-honey dark:text-white/70 dark:hover:text-golden-honey"
                 >
-                  {i + 1}. {s.label}
+                  {i + 1}. {t(s.labelKey)}
                 </a>
               </li>
             ))}
@@ -44,7 +47,7 @@ export function PrivacyPolicyPage() {
           {/* 1. Introduction */}
           <section id="introduction">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              1. Introduction
+              1. {t('privacy.introduction')}
             </h2>
             <p>
               New Dawn is committed to protecting your privacy and ensuring the
@@ -63,11 +66,11 @@ export function PrivacyPolicyPage() {
           {/* 2. Information We Collect */}
           <section id="information-we-collect">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              2. Information We Collect
+              2. {t('privacy.infoCollected')}
             </h2>
 
             <h3 className="mb-2 mt-4 font-heading text-lg font-medium text-slate-navy dark:text-white">
-              Personal Information (Donors and Supporters)
+              {t('privacy.personalInfo')}
             </h3>
             <p>
               When you make a donation or register as a supporter, we may collect
@@ -77,7 +80,7 @@ export function PrivacyPolicyPage() {
             </p>
 
             <h3 className="mb-2 mt-4 font-heading text-lg font-medium text-slate-navy dark:text-white">
-              Case Data (Residents)
+              {t('privacy.caseData')}
             </h3>
             <p>
               For the girls in our care, we collect information necessary for
@@ -89,7 +92,7 @@ export function PrivacyPolicyPage() {
             </p>
 
             <h3 className="mb-2 mt-4 font-heading text-lg font-medium text-slate-navy dark:text-white">
-              Website Usage Data
+              {t('privacy.websiteUsage')}
             </h3>
             <p>
               We may collect anonymized usage data such as pages visited, time
@@ -102,7 +105,7 @@ export function PrivacyPolicyPage() {
           {/* 3. How We Use Your Information */}
           <section id="how-we-use">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              3. How We Use Your Information
+              3. {t('privacy.howWeUse')}
             </h2>
             <ul className="ml-5 list-disc space-y-2">
               <li>
@@ -126,12 +129,12 @@ export function PrivacyPolicyPage() {
           {/* 4. Cookie Policy */}
           <section id="cookies">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              4. Cookie Policy
+              4. {t('privacy.cookiePolicy')}
             </h2>
             <p>Our website uses a limited number of cookies:</p>
 
             <h3 className="mb-2 mt-4 font-heading text-lg font-medium text-slate-navy dark:text-white">
-              Functional Cookies
+              {t('privacy.functionalCookies')}
             </h3>
             <p>
               These cookies are necessary for core website functionality, such as
@@ -140,7 +143,7 @@ export function PrivacyPolicyPage() {
             </p>
 
             <h3 className="mb-2 mt-4 font-heading text-lg font-medium text-slate-navy dark:text-white">
-              Analytics Cookies (Consent Required)
+              {t('privacy.analyticsCookies')}
             </h3>
             <p>
               With your explicit consent, we may use analytics cookies to gather
@@ -152,7 +155,7 @@ export function PrivacyPolicyPage() {
           {/* 5. Data Sharing */}
           <section id="data-sharing">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              5. Data Sharing
+              5. {t('privacy.dataSharing')}
             </h2>
             <p>
               We never sell personal data. We do not share individual donor or
@@ -168,7 +171,7 @@ export function PrivacyPolicyPage() {
           {/* 6. Data Security */}
           <section id="data-security">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              6. Data Security
+              6. {t('privacy.dataSecurity')}
             </h2>
             <p>We take data security seriously and employ multiple safeguards:</p>
             <ul className="ml-5 mt-3 list-disc space-y-2">
@@ -197,7 +200,7 @@ export function PrivacyPolicyPage() {
           {/* 7. Your Rights (GDPR) */}
           <section id="your-rights">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              7. Your Rights (GDPR)
+              7. {t('privacy.yourRights')}
             </h2>
             <p>
               Under the General Data Protection Regulation (GDPR) and the
@@ -242,7 +245,7 @@ export function PrivacyPolicyPage() {
           {/* 8. Data Retention */}
           <section id="data-retention">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              8. Data Retention
+              8. {t('privacy.dataRetention')}
             </h2>
             <ul className="ml-5 list-disc space-y-2">
               <li>
@@ -266,7 +269,7 @@ export function PrivacyPolicyPage() {
           {/* 9. Children's Privacy */}
           <section id="childrens-privacy">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              9. Children&apos;s Privacy
+              9. {t('privacy.childrenPrivacy')}
             </h2>
             <p>
               Given the nature of our mission, we handle data relating to minors
@@ -282,7 +285,7 @@ export function PrivacyPolicyPage() {
           {/* 10. Contact Us */}
           <section id="contact">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              10. Contact Us
+              10. {t('privacy.contactUs')}
             </h2>
             <p>
               If you have questions about this Privacy Policy or wish to exercise
@@ -310,7 +313,7 @@ export function PrivacyPolicyPage() {
           {/* 11. Updates */}
           <section id="updates">
             <h2 className="mb-3 font-heading text-2xl font-semibold text-slate-navy dark:text-white">
-              11. Updates
+              11. {t('privacy.updates')}
             </h2>
             <p>
               We may update this Privacy Policy from time to time to reflect
@@ -319,7 +322,7 @@ export function PrivacyPolicyPage() {
               website. We encourage you to review this page periodically.
             </p>
             <p className="mt-3 font-medium text-slate-navy dark:text-white">
-              Last updated: April 2026
+              {t('privacy.lastUpdated')}
             </p>
           </section>
         </div>

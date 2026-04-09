@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, CheckCheck, Circle, ExternalLink, Shield, TrendingDown, Share2, DollarSign, PieChart, AlertTriangle } from 'lucide-react';
+import { Bell, Check, CheckCheck, ExternalLink, Shield, Users, TrendingDown, Share2, DollarSign, PieChart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, useUnreadCount, useMarkRead, useMarkAllRead, useSnoozeNotification } from '../../hooks/useNotifications';
 import { MfaSnoozeModal } from './MfaSnoozeModal';
@@ -32,6 +34,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [snoozeNotification, setSnoozeNotification] = useState<Notification | null>(null);
   const [listModal, setListModal] = useState<Notification | null>(null);
@@ -181,6 +184,101 @@ export function NotificationBell() {
                         onClick={(e) => handleMarkRead(e, n)}
                         className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sky-blue transition-colors hover:bg-sky-blue/10 hover:text-sky-blue/80"
                         title="Mark as read (removes from bell)"
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen(!open)}
+        className="relative rounded-lg p-2 text-slate-navy transition-colors hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10"
+        aria-label={count > 0 ? t('notifications.unreadOfTotal', { unread: count, total: count }) : t('notifications.title')}
+      >
+        <Bell size={18} />
+        {count > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-pink px-1 text-[10px] font-bold text-white">
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          className="absolute right-0 top-full mt-2 w-96 max-h-[28rem] overflow-hidden rounded-xl border border-slate-navy/10 bg-white shadow-xl dark:border-white/10 dark:bg-dark-surface"
+          role="dialog"
+          aria-label={t('notifications.title')}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-navy/10 px-4 py-3 dark:border-white/10">
+            <h3 className="text-sm font-semibold text-slate-navy dark:text-white">
+              {t('notifications.title')}
+            </h3>
+            {count > 0 && (
+              <button
+                onClick={() => markAllRead.mutate()}
+                className="flex items-center gap-1 text-xs font-medium text-sky-blue transition-colors hover:text-sky-blue/80"
+              >
+                <CheckCheck size={14} />
+                {t('notifications.markAllRead')}
+              </button>
+            )}
+          </div>
+
+          {/* List */}
+          <div className="max-h-[22rem] overflow-y-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-blue border-t-transparent" />
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="py-10 text-center">
+                <Bell size={24} className="mx-auto mb-2 text-slate-navy/30 dark:text-white/30" />
+                <p className="text-sm text-slate-navy/50 dark:text-white/50">
+                  {t('notifications.noNotifications')}
+                </p>
+              </div>
+            ) : (
+              notifications.map((n) => {
+                const cfg = typeConfig[n.type] ?? { icon: Bell, color: 'text-slate-navy dark:text-white' };
+                const Icon = cfg.icon;
+                return (
+                  <button
+                    key={n.notificationId}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-navy/5 dark:hover:bg-white/5 ${
+                      !n.isRead ? 'bg-sky-blue/5 dark:bg-sky-blue/10' : ''
+                    }`}
+                  >
+                    <span className={`mt-0.5 shrink-0 ${cfg.color}`}>
+                      <Icon size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${!n.isRead ? 'text-slate-navy dark:text-white' : 'text-slate-navy/70 dark:text-white/70'}`}>
+                          {n.title}
+                        </span>
+                        {!n.isRead && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-sky-blue" />
+                        )}
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-navy/60 dark:text-white/60">
+                        {n.message}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[10px] text-slate-navy/40 dark:text-white/40">
+                          {timeAgo(n.createdAt)}
+                        </span>
+                        {n.link && (
+                          <ExternalLink size={10} className="text-slate-navy/30 dark:text-white/30" />
+                        )}
+                      </div>
+                    </div>
+                    {!n.isRead && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead.mutate(n.notificationId);
+                        }}
+                        className="shrink-0 rounded p-1 text-slate-navy/40 transition-colors hover:bg-slate-navy/10 hover:text-slate-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+                        aria-label={t('notifications.markAsRead')}
                       >
                         <Circle size={18} strokeWidth={2} />
                       </button>
@@ -226,7 +324,7 @@ export function NotificationBell() {
                 }}
                 className="w-full text-center text-sm font-medium text-sky-blue transition-colors hover:text-sky-blue/80"
               >
-                View all notifications
+                {t('notifications.viewAll')}
               </button>
             </div>
           </div>

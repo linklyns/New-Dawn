@@ -20,6 +20,41 @@ public class AuthController(
     IPasswordHasher<ApplicationUser> passwordHasher) : ControllerBase
 {
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+    private static readonly HashSet<string> SupportedLanguages = new(StringComparer.OrdinalIgnoreCase) { "en", "fil", "ceb" };
+    private static readonly HashSet<string> SupportedCurrencies = new(StringComparer.OrdinalIgnoreCase) { "PHP", "USD", "EUR", "GBP" };
+
+    private static string NormalizeLanguageOrDefault(string? value)
+    {
+        var candidate = value?.Trim().ToLowerInvariant();
+        return candidate is not null && SupportedLanguages.Contains(candidate) ? candidate : "en";
+    }
+
+    private static string NormalizeCurrencyOrDefault(string? value)
+    {
+        var candidate = value?.Trim().ToUpperInvariant();
+        return candidate is not null && SupportedCurrencies.Contains(candidate) ? candidate : "PHP";
+    }
+
+    private static bool TryNormalizePreferences(string? language, string? currency, out string normalizedLanguage, out string normalizedCurrency)
+    {
+        normalizedLanguage = language?.Trim().ToLowerInvariant() ?? string.Empty;
+        normalizedCurrency = currency?.Trim().ToUpperInvariant() ?? string.Empty;
+        return SupportedLanguages.Contains(normalizedLanguage) && SupportedCurrencies.Contains(normalizedCurrency);
+    }
+
+    private AuthResponse BuildAuthResponse(ApplicationUser user, string role, bool requiresMfa = false, string? token = null)
+    {
+        return new AuthResponse
+        {
+            Token = token ?? string.Empty,
+            Email = user.Email ?? string.Empty,
+            DisplayName = user.DisplayName,
+            Role = role,
+            RequiresMfa = requiresMfa,
+            PreferredLanguage = user.PreferredLanguage,
+            PreferredCurrency = user.PreferredCurrency,
+        };
+    }
 
     private async Task<string> ResolveRoleForUserAsync(ApplicationUser user)
     {
@@ -49,7 +84,9 @@ public class AuthController(
         {
             UserName = request.Email,
             Email = request.Email,
-            DisplayName = request.DisplayName
+            DisplayName = request.DisplayName,
+            PreferredLanguage = NormalizeLanguageOrDefault(request.PreferredLanguage),
+            PreferredCurrency = NormalizeCurrencyOrDefault(request.PreferredCurrency)
         };
 
         var result = await userManager.CreateAsync(user, request.Password);
@@ -67,14 +104,7 @@ public class AuthController(
         await userManager.AddToRoleAsync(user, "Donor");
 
         var token = await GenerateJwtToken(user, new[] { "Donor" });
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = "Donor",
-            RequiresMfa = false
-        });
+        return Ok(BuildAuthResponse(user, "Donor", token: token));
     }
 
     [HttpPost("login")]
@@ -94,23 +124,12 @@ public class AuthController(
 
         if (user.TwoFactorEnabled)
         {
-            return Ok(new AuthResponse
-            {
-                RequiresMfa = true,
-                Email = user.Email!
-            });
+            return Ok(BuildAuthResponse(user, string.Empty, requiresMfa: true));
         }
 
         var role = await ResolveRoleForUserAsync(user);
         var token = await GenerateJwtToken(user, new[] { role });
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = role,
-            RequiresMfa = false
-        });
+        return Ok(BuildAuthResponse(user, role, token: token));
     }
 
     [HttpPost("logout")]
@@ -140,7 +159,48 @@ public class AuthController(
             email = user.Email,
             displayName = user.DisplayName,
             role,
-            has2fa = user.TwoFactorEnabled
+            has2fa = user.TwoFactorEnabled,
+            preferredLanguage = user.PreferredLanguage,
+            preferredCurrency = user.PreferredCurrency
+        });
+    }
+
+    [HttpPut("preferences")]
+    [Authorize]
+    public async Task<IActionResult> UpdatePreferences([FromBody] UpdatePreferencesRequest request)
+    {
+        if (!TryNormalizePreferences(request.PreferredLanguage, request.PreferredCurrency, out var preferredLanguage, out var preferredCurrency))
+            return BadRequest(new { success = false, message = "Invalid language or currency preference." });
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = await userManager.FindByIdAsync(userId!);
+        if (user == null)
+            return NotFound(new { success = false, message = "User not found" });
+
+        user.PreferredLanguage = preferredLanguage;
+        user.PreferredCurrency = preferredCurrency;
+
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            var errors = result.Errors.Select(e => e.Description).ToArray();
+            return BadRequest(new
+            {
+                success = false,
+                message = errors.FirstOrDefault() ?? "Unable to update preferences",
+                errors
+            });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = "Preferences updated successfully",
+            data = new
+            {
+                preferredLanguage = user.PreferredLanguage,
+                preferredCurrency = user.PreferredCurrency
+            }
         });
     }
 
@@ -227,14 +287,7 @@ public class AuthController(
 
         var role = await ResolveRoleForUserAsync(user);
         var token = await GenerateJwtToken(user, new[] { role });
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = role,
-            RequiresMfa = false
-        });
+        return Ok(BuildAuthResponse(user, role, token: token));
     }
 
     [HttpPost("google")]
@@ -281,7 +334,9 @@ public class AuthController(
                 UserName = email,
                 Email = email,
                 DisplayName = name ?? email.Split('@')[0],
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                PreferredLanguage = NormalizeLanguageOrDefault(request.PreferredLanguage),
+                PreferredCurrency = NormalizeCurrencyOrDefault(request.PreferredCurrency)
             };
 
             var createResult = await userManager.CreateAsync(user);
@@ -306,23 +361,12 @@ public class AuthController(
 
         if (user.TwoFactorEnabled)
         {
-            return Ok(new AuthResponse
-            {
-                RequiresMfa = true,
-                Email = user.Email!
-            });
+            return Ok(BuildAuthResponse(user, string.Empty, requiresMfa: true));
         }
 
         var role = await ResolveRoleForUserAsync(user);
         var token = await GenerateJwtToken(user, new[] { role });
-        return Ok(new AuthResponse
-        {
-            Token = token,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = role,
-            RequiresMfa = false
-        });
+        return Ok(BuildAuthResponse(user, role, token: token));
     }
 
     [HttpPost("change-password")]

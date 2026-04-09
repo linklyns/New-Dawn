@@ -1,12 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
-
-interface User {
-  email: string;
-  displayName: string;
-  role: string;
-  has2fa: boolean;
-}
+import { syncUserPreferenceCookies } from '../lib/userPreferences';
+import type { User } from '../types/auth';
 
 interface AuthState {
   user: User | null;
@@ -24,13 +19,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !!localStorage.getItem('nd_token'),
   login: (token, user) => {
     localStorage.setItem('nd_token', token);
+    syncUserPreferenceCookies(user);
     set({ token, user, isAuthenticated: true });
   },
   logout: () => {
     localStorage.removeItem('nd_token');
     set({ token: null, user: null, isAuthenticated: false });
   },
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    syncUserPreferenceCookies(user);
+    set({ user });
+  },
   initialize: async () => {
     const token = localStorage.getItem('nd_token');
     if (!token) return;
@@ -39,6 +38,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const timeout = setTimeout(() => controller.abort(), 8000);
       const user = await api.get<User>('/api/auth/me', { signal: controller.signal });
       clearTimeout(timeout);
+      syncUserPreferenceCookies(user);
       set({ user, token, isAuthenticated: true });
     } catch {
       localStorage.removeItem('nd_token');

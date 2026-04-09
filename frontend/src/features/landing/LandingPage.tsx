@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Heart, Sparkles, GraduationCap } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -12,38 +13,36 @@ interface PublicStats {
   partners: number;
 }
 
-const pillars = [
-  {
-    icon: Heart,
-    title: 'Caring',
-    description:
-      'We provide 24/7 safe shelter, nutritious meals, and a loving community where girls can begin to feel safe again.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Healing',
-    description:
-      'Through professional counseling, health monitoring, and emotional support, we help survivors process trauma and rebuild confidence.',
-  },
-  {
-    icon: GraduationCap,
-    title: 'Teaching',
-    description:
-      'Education is the path forward. We provide schooling, vocational training, and life skills to prepare girls for independent futures.',
-  },
-];
-
 export function LandingPage() {
+  const { t } = useTranslation();
   const { data: liveStats } = useQuery<PublicStats>({
     queryKey: ['public-stats'],
     queryFn: () => api.get('/api/public-impact/stats'),
   });
 
+  const pillars = [
+    {
+      icon: Heart,
+      title: t('landing.caring'),
+      description: t('landing.caringDesc'),
+    },
+    {
+      icon: Sparkles,
+      title: t('landing.healing'),
+      description: t('landing.healingDesc'),
+    },
+    {
+      icon: GraduationCap,
+      title: t('landing.teaching'),
+      description: t('landing.teachingDesc'),
+    },
+  ];
+
   const stats = [
-    { value: liveStats ? `${liveStats.girlsServed}+` : '--', label: 'Girls Served' },
-    { value: liveStats ? `${liveStats.safehouses}` : '--', label: 'Safehouses' },
-    { value: liveStats ? `${liveStats.donations}+` : '--', label: 'Donations Received' },
-    { value: liveStats ? `${liveStats.partners}` : '--', label: 'Partner Organizations' },
+    { value: liveStats ? `${liveStats.girlsServed}+` : '--', label: t('landing.girlsServed') },
+    { value: liveStats ? `${liveStats.safehouses}` : '--', label: t('landing.safehouseStat') },
+    { value: liveStats ? `${liveStats.donations}+` : '--', label: t('landing.donationsReceived') },
+    { value: liveStats ? `${liveStats.partners}` : '--', label: t('landing.partnerOrgs') },
   ];
 
   return (
@@ -63,19 +62,18 @@ export function LandingPage() {
         <div className="absolute inset-0 bg-slate-900/60" />
         <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
           <h1 className="font-heading text-4xl font-bold text-white sm:text-5xl lg:text-6xl">
-            Every Girl Deserves a <span className="text-golden-honey">New Dawn</span>
+            {t('landing.heroTitle')} <span className="text-golden-honey">{t('landing.heroTitleBrand')}</span>
           </h1>
           <p className="mt-5 text-base leading-8 text-slate-100/90 sm:text-lg">
-            A path to healing and hope. We provide shelter, support, and hope for girls escaping abuse.
+            {t('landing.heroTagline')}
           </p>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-100/80 sm:text-lg">
-            We provide safe harbor for girls in crisis, guiding them from darkness toward the promise of a new dawn.
-            Through our network of safehouses across the Philippines, we offer shelter, healing, education, and the support needed to rebuild their lives.
+            {t('landing.heroDescription')}
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <Link to="/impact">
               <Button variant="primary" size="lg">
-                See Our Impact
+                {t('landing.seeImpact')}
               </Button>
             </Link>
             <Link to="/login">
@@ -84,7 +82,7 @@ export function LandingPage() {
                 size="lg"
                 className="border border-white/25 text-white hover:bg-white/10"
               >
-                Staff Login
+                {t('landing.staffLogin')}
               </Button>
             </Link>
           </div>
@@ -111,7 +109,7 @@ export function LandingPage() {
       <section className="px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <h2 className="mb-12 text-center font-heading text-3xl font-bold text-slate-navy dark:text-white sm:text-4xl">
-            What We Do
+            {t('landing.whatWeDo')}
           </h2>
           <div className="grid gap-8 md:grid-cols-3">
             {pillars.map((pillar) => (
@@ -135,14 +133,14 @@ export function LandingPage() {
       <section className="bg-coral-pink/20 px-4 py-20 dark:bg-coral-pink/10 sm:px-6">
         <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
           <h2 className="font-heading text-3xl font-bold text-slate-navy dark:text-white sm:text-4xl">
-            Join Our Mission
+            {t('landing.joinMission')}
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-warm-gray dark:text-white/70">
-            Every donation helps a girl take one step closer to her new dawn.
+            {t('landing.joinMissionDesc')}
           </p>
           <Link to="/donate" className="mt-8">
             <Button variant="primary" size="lg">
-              Donate Now
+              {t('landing.donateNow')}
             </Button>
           </Link>
         </div>

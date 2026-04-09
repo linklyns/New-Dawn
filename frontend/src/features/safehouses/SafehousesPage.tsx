@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Plus, Pencil, Trash2, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -42,6 +43,7 @@ const emptySafehouse: Omit<Safehouse, 'safehouseId'> = {
 type ShSortKey = 'name' | 'region' | 'status' | 'occupancy';
 
 function SafehousesTab() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -124,26 +126,36 @@ function SafehousesTab() {
   }
 
   const columns = [
-    { key: 'safehouseCode', header: 'Code' },
-    { key: 'name', header: <span className="flex items-center">Name <SortBtn col="name" /></span> },
-    { key: 'region', header: <span className="flex items-center">Region <SortBtn col="region" /></span> },
-    { key: 'city', header: 'City' },
-    { key: 'province', header: 'Province' },
+    { key: 'safehouseCode', header: t('safehouses.code') },
+    { key: 'name', header: <span className="flex items-center">{t('common.name')} <SortBtn col="name" /></span> },
+    { key: 'region', header: <span className="flex items-center">{t('safehouses.region')} <SortBtn col="region" /></span> },
+    { key: 'city', header: t('safehouses.city') },
+    { key: 'province', header: t('safehouses.province') },
     {
-      key: 'openDate', header: 'Open Date',
+      key: 'openDate', header: t('safehouses.openDate'),
       render: (row: Record<string, unknown>) => fmtDate(row.openDate as string),
     },
     {
       key: 'status',
-      header: <span className="flex items-center">Status <SortBtn col="status" /></span>,
-      render: (row: Record<string, unknown>) => <Badge variant={statusVariant(row.status as string)}>{row.status as string}</Badge>,
+      header: <span className="flex items-center">{t('common.status')} <SortBtn col="status" /></span>,
+      render: (row: Record<string, unknown>) => (
+        <Badge variant={statusVariant(row.status as string)}>
+          {row.status === 'Active'
+            ? t('common.active')
+            : row.status === 'Inactive'
+              ? t('common.inactive')
+              : row.status === 'Closed'
+                ? t('common.closed')
+                : (row.status as string)}
+        </Badge>
+      ),
     },
     {
       key: 'currentOccupancy',
-      header: <span className="flex items-center">Occupancy <SortBtn col="occupancy" /></span>,
+      header: <span className="flex items-center">{t('safehouses.occupancy')} <SortBtn col="occupancy" /></span>,
       render: (row: Record<string, unknown>) => `${row.currentOccupancy} / ${row.capacityGirls}`,
     },
-    { key: 'capacityStaff', header: 'Staff Cap.' },
+    { key: 'capacityStaff', header: t('safehouses.staffCap') },
     {
       key: '_actions', header: '',
       render: (row: Record<string, unknown>) => {
@@ -169,18 +181,18 @@ function SafehousesTab() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
           <input
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            placeholder="Smart search (e.g. SH-001, Cebu)"
+            placeholder={t('safehouses.searchSafehouses')}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
         <select className={selectClass} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-          <option value="">All Statuses</option>
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Closed">Closed</option>
+          <option value="">{t('safehouses.allStatuses')}</option>
+          <option value="Active">{t('common.active')}</option>
+          <option value="Inactive">{t('common.inactive')}</option>
+          <option value="Closed">{t('common.closed')}</option>
         </select>
-        <Button onClick={openCreate} className="gap-2"><Plus size={16} /> Add Safehouse</Button>
+        <Button onClick={openCreate} className="gap-2"><Plus size={16} /> {t('safehouses.addSafehouse')}</Button>
       </div>
 
       <Table
@@ -201,23 +213,23 @@ function SafehousesTab() {
       <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Edit Safehouse' : 'Add Safehouse'} size="lg" hideFooter>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Code *</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('safehouses.code')} *</label>
             <input className={inputClass} value={form.safehouseCode} onChange={(e) => setForm({ ...form, safehouseCode: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Name *</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.name')} *</label>
             <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Region</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('safehouses.region')}</label>
             <input className={inputClass} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">City</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('safehouses.city')}</label>
             <input className={inputClass} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Province</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('safehouses.province')}</label>
             <input className={inputClass} value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} />
           </div>
           <div>
@@ -225,15 +237,15 @@ function SafehousesTab() {
             <input className={inputClass} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Open Date</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('safehouses.openDate')}</label>
             <input className={inputClass} type="date" value={form.openDate?.slice(0, 10) ?? ''} onChange={(e) => setForm({ ...form, openDate: e.target.value })} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Status</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.status')}</label>
             <select className={selectClass + ' w-full'} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-              <option value="Closed">Closed</option>
+              <option value="Active">{t('common.active')}</option>
+              <option value="Inactive">{t('common.inactive')}</option>
+              <option value="Closed">{t('common.closed')}</option>
             </select>
           </div>
           <div>
@@ -254,12 +266,12 @@ function SafehousesTab() {
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-          <Button onClick={handleSave} disabled={save.isPending}>{editing ? 'Save Changes' : 'Create Safehouse'}</Button>
+          <Button variant="ghost" onClick={closeModal}>{t('common.cancel')}</Button>
+          <Button onClick={handleSave} disabled={save.isPending}>{editing ? t('common.save') : t('safehouses.addSafehouse')}</Button>
         </div>
       </Modal>
 
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Safehouse" confirmText="Delete" confirmVariant="danger" onConfirm={() => deleteTarget && remove.mutate(deleteTarget.safehouseId)}>
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Safehouse" confirmText={t('common.delete')} confirmVariant="danger" onConfirm={() => deleteTarget && remove.mutate(deleteTarget.safehouseId)}>
         <p className="text-sm text-slate-navy dark:text-white">Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.</p>
       </Modal>
     </>
@@ -277,6 +289,7 @@ const emptyMetric: Omit<SafehouseMonthlyMetric, 'metricId'> = {
 type MtSortKey = 'month' | 'residents' | 'incidents';
 
 function MetricsTab() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -369,7 +382,7 @@ function MetricsTab() {
 
   const columns = [
     {
-      key: 'safehouseId', header: 'Safehouse',
+      key: 'safehouseId', header: t('residents.safehouse'),
       render: (row: Record<string, unknown>) => shMap.get(Number(row.safehouseId)) ?? `#${row.safehouseId}`,
     },
     {
@@ -379,7 +392,7 @@ function MetricsTab() {
     },
     {
       key: 'activeResidents',
-      header: <span className="flex items-center">Residents <SortBtn col="residents" /></span>,
+      header: <span className="flex items-center">{t('nav.residents')} <SortBtn col="residents" /></span>,
     },
     {
       key: 'avgEducationProgress', header: 'Edu Prog',
@@ -389,8 +402,8 @@ function MetricsTab() {
       key: 'avgHealthScore', header: 'Health',
       render: (row: Record<string, unknown>) => row.avgHealthScore != null ? `${Number(row.avgHealthScore).toFixed(1)}/10` : '--',
     },
-    { key: 'processRecordingCount', header: 'Recordings' },
-    { key: 'homeVisitationCount', header: 'Visits' },
+    { key: 'processRecordingCount', header: t('caseManagement.processRecordings') },
+    { key: 'homeVisitationCount', header: t('caseManagement.homeVisitations') },
     {
       key: 'incidentCount',
       header: <span className="flex items-center">Incidents <SortBtn col="incidents" /></span>,
@@ -426,7 +439,7 @@ function MetricsTab() {
           />
         </div>
         <select className={selectClass} value={shFilter} onChange={(e) => { setShFilter(e.target.value); setPage(1); }}>
-          <option value="">All Safehouses</option>
+          <option value="">{t('nav.safehouses')}</option>
           {[...(shData?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
             <option key={s.safehouseId} value={s.safehouseId}>{s.safehouseCode} - {s.name}</option>
           ))}
@@ -451,7 +464,7 @@ function MetricsTab() {
       <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Edit Metric' : 'Add Metric'} size="lg" hideFooter>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Safehouse *</label>
+            <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('residents.safehouse')} *</label>
             <select className={selectClass + ' w-full'} value={form.safehouseId} onChange={(e) => setForm({ ...form, safehouseId: +e.target.value })}>
               <option value={0}>-- Select --</option>
               {[...(shData?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((s) => (
@@ -497,12 +510,12 @@ function MetricsTab() {
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+          <Button variant="ghost" onClick={closeModal}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={save.isPending}>{editing ? 'Save Changes' : 'Create Metric'}</Button>
         </div>
       </Modal>
 
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Metric" confirmText="Delete" confirmVariant="danger" onConfirm={() => deleteTarget && remove.mutate(deleteTarget.metricId)}>
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Metric" confirmText={t('common.delete')} confirmVariant="danger" onConfirm={() => deleteTarget && remove.mutate(deleteTarget.metricId)}>
         <p className="text-sm text-slate-navy dark:text-white">Are you sure you want to delete this metric record? This action cannot be undone.</p>
       </Modal>
     </>
@@ -512,6 +525,7 @@ function MetricsTab() {
 /* ───────── Main Page ───────── */
 
 export function SafehousesPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'safehouses' | 'metrics'>('safehouses');
 
   const tabClass = (t: string) =>
@@ -519,10 +533,10 @@ export function SafehousesPage() {
 
   return (
     <div>
-      <PageHeader title="Safehouses" subtitle="Manage safehouses and monthly performance metrics" />
+      <PageHeader title={t('safehouses.title')} subtitle={t('safehouses.subtitle')} />
 
       <div className="mb-0 flex gap-1 border-b border-slate-navy/10 dark:border-white/10">
-        <button className={tabClass('safehouses')} onClick={() => setTab('safehouses')}>Safehouses</button>
+        <button className={tabClass('safehouses')} onClick={() => setTab('safehouses')}>{t('safehouses.title')}</button>
         <button className={tabClass('metrics')} onClick={() => setTab('metrics')}>Monthly Metrics</button>
       </div>
 

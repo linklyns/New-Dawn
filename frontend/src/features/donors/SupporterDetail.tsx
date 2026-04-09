@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
+import { useAuthStore } from '../../stores/authStore';
+import {
+  formatLocalizedCurrency,
+  formatLocalizedDate,
+  formatLocalizedPercent,
+  resolvePreferredCurrency,
+  resolveUserPreferences,
+} from '../../lib/locale';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -23,16 +31,59 @@ const selectClass =
   'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
 
 function formatDate(d: string | null | undefined): string {
-  if (!d) return '--';
-  try {
-    return format(parseISO(d), 'MMM d, yyyy');
-  } catch {
-    return d;
-  }
+  return formatLocalizedDate(d);
 }
 
 const supporterTypes = ['MonetaryDonor', 'Volunteer', 'InKindDonor', 'SocialMediaAdvocate'] as const;
 const statusOptions = ['Active', 'Inactive', 'Lapsed'] as const;
+
+function getSupporterTypeLabel(type: string, t: (key: string) => string): string {
+  switch (type) {
+    case 'MonetaryDonor': return t('donors.monetaryDonor');
+    case 'Volunteer': return t('donors.volunteer');
+    case 'InKindDonor': return t('donors.inKindDonor');
+    case 'SocialMediaAdvocate': return t('donors.socialMediaAdvocate');
+    default: return type;
+  }
+}
+
+function getStatusLabel(status: string, t: (key: string) => string): string {
+  switch (status) {
+    case 'Active': return t('common.active');
+    case 'Inactive': return t('common.inactive');
+    case 'Lapsed': return t('donors.lapsed');
+    default: return status;
+  }
+}
+
+function getDonationTypeLabel(type: string, t: (key: string) => string): string {
+  switch (type) {
+    case 'Monetary': return t('donors.monetary');
+    case 'InKind': return t('donors.inKind');
+    case 'Time': return t('donors.time');
+    case 'Skills': return t('donors.skills');
+    case 'SocialMedia': return t('donors.socialMedia');
+    default: return type;
+  }
+}
+
+function createSupporterSchema(t: (key: string) => string) {
+  return z.object({
+    supporterType: z.string().min(1, t('common.required')),
+    displayName: z.string().min(1, t('common.required')),
+    organizationName: z.string().nullable().optional(),
+    firstName: z.string().min(1, t('common.required')),
+    lastName: z.string().min(1, t('common.required')),
+    relationshipType: z.string().optional().default(''),
+    region: z.string().optional().default(''),
+    country: z.string().optional().default(''),
+    email: z.string().email(t('auth.emailInvalid')),
+    phone: z.string().optional().default(''),
+    status: z.string().min(1, t('common.required')),
+    firstDonationDate: z.string().optional().default(''),
+    acquisitionChannel: z.string().optional().default(''),
+  });
+}
 
 function typeVariant(t: string): 'success' | 'info' | 'warning' | 'neutral' {
   switch (t) {
@@ -75,28 +126,14 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 type Tab = 'donations' | 'edit';
 
-const supporterSchema = z.object({
-  supporterType: z.string().min(1, 'Required'),
-  displayName: z.string().min(1, 'Required'),
-  organizationName: z.string().nullable().optional(),
-  firstName: z.string().min(1, 'Required'),
-  lastName: z.string().min(1, 'Required'),
-  relationshipType: z.string().optional().default(''),
-  region: z.string().optional().default(''),
-  country: z.string().optional().default(''),
-  email: z.string().email('Valid email required'),
-  phone: z.string().optional().default(''),
-  status: z.string().min(1, 'Required'),
-  firstDonationDate: z.string().optional().default(''),
-  acquisitionChannel: z.string().optional().default(''),
-});
-
-type SupporterFormData = z.infer<typeof supporterSchema>;
+type SupporterFormData = z.infer<ReturnType<typeof createSupporterSchema>>;
 
 export function SupporterDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
 
   const [activeTab, setActiveTab] = useState<Tab>('donations');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -152,13 +189,13 @@ export function SupporterDetail() {
   if (isError) {
     return (
       <div>
-        <PageHeader title="Supporter Detail" />
+        <PageHeader title={t('donors.supporterDetail')} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 p-12 dark:border-red-800 dark:bg-red-900/20">
           <p className="text-red-600 dark:text-red-400">
             Failed to load supporter: {(error as Error).message}
           </p>
           <Button variant="ghost" onClick={() => navigate(-1)}>
-            Back
+            {t('common.back')}
           </Button>
         </div>
       </div>
@@ -170,36 +207,52 @@ export function SupporterDetail() {
   const donationColumns = [
     {
       key: 'donationDate',
-      header: 'Date',
+      header: t('common.date'),
       render: (row: Record<string, unknown>) => formatDate(row.donationDate as string),
     },
     {
       key: 'donationType',
-      header: 'Type',
+      header: t('common.type'),
       render: (row: Record<string, unknown>) => (
         <Badge variant={donationTypeVariant(row.donationType as string)}>
-          {row.donationType as string}
+          {getDonationTypeLabel(row.donationType as string, t)}
         </Badge>
       ),
     },
     {
       key: 'amount',
-      header: 'Amount',
-      render: (row: Record<string, unknown>) =>
-        row.amount != null ? `${row.currencyCode ?? ''} ${Number(row.amount).toLocaleString()}` : '--',
+      header: t('donors.amount'),
+      render: (row: Record<string, unknown>) => {
+        if (row.amount == null) {
+          return '--';
+        }
+
+        const currencyCode = typeof row.currencyCode === 'string' && row.currencyCode.trim().length > 0
+          ? resolvePreferredCurrency(row.currencyCode)
+          : null;
+
+        return currencyCode
+          ? formatLocalizedCurrency(Number(row.amount), preferences, {
+            currency: currencyCode,
+            sourceCurrency: currencyCode,
+          })
+          : formatLocalizedCurrency(Number(row.amount), preferences, {
+            currency: preferences.preferredCurrency,
+          });
+      },
     },
-    { key: 'campaignName', header: 'Campaign' },
-    { key: 'channelSource', header: 'Channel' },
+    { key: 'campaignName', header: t('donors.campaign') },
+    { key: 'channelSource', header: t('donors.channel') },
     {
       key: 'isRecurring',
-      header: 'Recurring',
-      render: (row: Record<string, unknown>) => (row.isRecurring ? 'Yes' : 'No'),
+      header: t('donors.recurring'),
+      render: (row: Record<string, unknown>) => (row.isRecurring ? t('common.yes') : t('common.no')),
     },
   ];
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'donations', label: 'Donations' },
-    { key: 'edit', label: 'Info / Edit' },
+    { key: 'donations', label: t('donors.donationsTab') },
+    { key: 'edit', label: t('donors.infoEditTab') },
   ];
 
   return (
@@ -211,11 +264,11 @@ export function SupporterDetail() {
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('edit')}>
               <Pencil size={16} />
-              Edit
+              {t('common.edit')}
             </Button>
             <Button variant="danger" size="sm" onClick={() => setDeleteModalOpen(true)}>
               <Trash2 size={16} />
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         }
@@ -224,7 +277,7 @@ export function SupporterDetail() {
       <div className="mb-6">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
       </div>
 
@@ -232,23 +285,23 @@ export function SupporterDetail() {
       <Card className="mb-6">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <InfoRow
-            label="Type"
-            value={<Badge variant={typeVariant(s.supporterType)}>{s.supporterType}</Badge>}
+            label={t('common.type')}
+            value={<Badge variant={typeVariant(s.supporterType)}>{getSupporterTypeLabel(s.supporterType, t)}</Badge>}
           />
           <InfoRow
-            label="Status"
-            value={<Badge variant={statusVariant(s.status)}>{s.status}</Badge>}
+            label={t('common.status')}
+            value={<Badge variant={statusVariant(s.status)}>{getStatusLabel(s.status, t)}</Badge>}
           />
-          <InfoRow label="Email" value={s.email} />
+          <InfoRow label={t('common.email')} value={s.email} />
           <InfoRow label="Phone" value={s.phone || '--'} />
-          <InfoRow label="Organization" value={s.organizationName || '--'} />
-          <InfoRow label="Region" value={s.region || '--'} />
+          <InfoRow label={t('donors.organization')} value={s.organizationName || '--'} />
+          <InfoRow label={t('safehouses.region')} value={s.region || '--'} />
           <InfoRow label="Country" value={s.country || '--'} />
-          <InfoRow label="First Donation" value={formatDate(s.firstDonationDate)} />
-          <InfoRow label="Acquisition Channel" value={s.acquisitionChannel || '--'} />
+          <InfoRow label={t('donors.firstDonation')} value={formatDate(s.firstDonationDate)} />
+          <InfoRow label={t('donors.channel')} value={s.acquisitionChannel || '--'} />
           <InfoRow label="Relationship" value={s.relationshipType || '--'} />
           <InfoRow
-            label="Likelihood to Donate Again"
+            label={t('donors.likelihoodToDonate')}
             value={
               likelihood ? (
                 <Badge
@@ -258,7 +311,7 @@ export function SupporterDetail() {
                     : 'neutral'
                   }
                 >
-                  {likelihood.likelihoodCategory} ({(likelihood.likelihoodScore * 100).toFixed(0)}%)
+                  {likelihood.likelihoodCategory} ({formatLocalizedPercent(likelihood.likelihoodScore * 100, preferences)})
                 </Badge>
               ) : '--'
             }
@@ -292,13 +345,13 @@ export function SupporterDetail() {
       {activeTab === 'donations' && (
         <Card>
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Donation History
+            {t('donors.donationHistory')}
           </h3>
           <Table
             columns={donationColumns}
             data={donations as unknown as Record<string, unknown>[]}
             loading={donationsLoading}
-            emptyMessage="No donations found for this supporter."
+            emptyMessage={t('common.noData')}
           />
         </Card>
       )}
@@ -306,7 +359,7 @@ export function SupporterDetail() {
       {activeTab === 'edit' && (
         <Card>
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Edit Supporter
+            {t('donors.supporterInfo')}
           </h3>
           {updateMutation.isError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -325,8 +378,8 @@ export function SupporterDetail() {
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="Delete Supporter"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('donors.supporter')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteMutation.mutate()}
       >
@@ -351,6 +404,8 @@ function EditSupporterForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
+  const supporterSchema = useMemo(() => createSupporterSchema(t), [t]);
   const {
     register,
     handleSubmit,
@@ -380,43 +435,43 @@ function EditSupporterForm({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input label="First Name" error={errors.firstName?.message} {...register('firstName')} />
         <Input label="Last Name" error={errors.lastName?.message} {...register('lastName')} />
-        <Input label="Display Name" error={errors.displayName?.message} {...register('displayName')} />
-        <Input label="Email" type="email" error={errors.email?.message} {...register('email')} />
+        <Input label={t('donors.displayName')} error={errors.displayName?.message} {...register('displayName')} />
+        <Input label={t('common.email')} type="email" error={errors.email?.message} {...register('email')} />
         <Input label="Phone" {...register('phone')} />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Supporter Type</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('donors.supporterType')}</label>
           <select className={selectClass} {...register('supporterType')}>
             <option value="">Select...</option>
-            {supporterTypes.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            {supporterTypes.map((supporterType) => (
+              <option key={supporterType} value={supporterType}>{getSupporterTypeLabel(supporterType, t)}</option>
             ))}
           </select>
           {errors.supporterType?.message && (
             <p className="text-xs text-red-600">{errors.supporterType.message}</p>
           )}
         </div>
-        <Input label="Organization" {...register('organizationName')} />
+        <Input label={t('donors.organization')} {...register('organizationName')} />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Status</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.status')}</label>
           <select className={selectClass} {...register('status')}>
             {statusOptions.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{getStatusLabel(s, t)}</option>
             ))}
           </select>
         </div>
-        <Input label="Region" {...register('region')} />
+        <Input label={t('safehouses.region')} {...register('region')} />
         <Input label="Country" {...register('country')} />
         <Input label="Relationship Type" {...register('relationshipType')} />
-        <Input label="First Donation Date" type="date" {...register('firstDonationDate')} />
-        <Input label="Acquisition Channel" {...register('acquisitionChannel')} />
+        <Input label={t('donors.firstDonation')} type="date" {...register('firstDonationDate')} />
+        <Input label={t('donors.channel')} {...register('acquisitionChannel')} />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          Update Supporter
+          {t('common.save')}
         </Button>
       </div>
     </form>

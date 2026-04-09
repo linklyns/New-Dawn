@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
 import {
   BarChart,
   Bar,
@@ -16,6 +16,8 @@ import {
 import type { PagedResult } from '../../types/api';
 import type { SocialMediaPost } from '../../types/models';
 import { api } from '../../lib/api';
+import { useAuthStore } from '../../stores/authStore';
+import { formatLocalizedDate, formatLocalizedNumber, formatLocalizedPercent, resolveUserPreferences } from '../../lib/locale';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
@@ -71,9 +73,71 @@ const POST_TYPE_COLORS: Record<string, string> = {
 /* ── Component ───────────────────────────────────────────────── */
 
 export function SocialAnalyticsPage() {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
   const [platformFilter, setPlatformFilter] = useState('');
   const [tablePage, setTablePage] = useState(1);
   const TABLE_PAGE_SIZE = 10;
+
+  const translatePlatform = (platform: string) => {
+    const key = {
+      Facebook: 'social.facebook',
+      Instagram: 'social.instagram',
+      Twitter: 'social.twitter',
+      YouTube: 'social.youtube',
+      TikTok: 'social.tiktok',
+      LinkedIn: 'social.linkedin',
+      X: 'social.xTwitter',
+      WhatsApp: 'social.whatsapp',
+    }[platform];
+
+    return key ? t(key, { defaultValue: platform }) : platform;
+  };
+
+  const translatePostType = (postType: string) => {
+    const key = {
+      FundraisingAppeal: 'social.fundraisingAppeal',
+      EducationalContent: 'social.educationalContent',
+      EventPromotion: 'social.eventPromotion',
+      ThankYou: 'social.thankYou',
+      StoryHighlight: 'social.storyHighlight',
+    }[postType];
+
+    return key ? t(key, { defaultValue: postType }) : postType;
+  };
+
+  const translateMediaType = (mediaType: string) => {
+    const key = {
+      Photo: 'social.photo',
+      Video: 'social.video',
+      Carousel: 'social.carousel',
+      Text: 'social.text',
+      Reel: 'social.reel',
+    }[mediaType];
+
+    return key ? t(key, { defaultValue: mediaType }) : mediaType;
+  };
+
+  const translateDay = (day: string, fallback: string) => {
+    const key = {
+      Monday: 'social.monday',
+      Tuesday: 'social.tuesday',
+      Wednesday: 'social.wednesday',
+      Thursday: 'social.thursday',
+      Friday: 'social.friday',
+      Saturday: 'social.saturday',
+      Sunday: 'social.sunday',
+      Mon: 'social.mon',
+      Tue: 'social.tue',
+      Wed: 'social.wed',
+      Thu: 'social.thu',
+      Fri: 'social.fri',
+      Sat: 'social.sat',
+      Sun: 'social.sun',
+    }[day];
+
+    return key ? t(key, { defaultValue: fallback }) : fallback;
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['social-media-posts', 'all'],
@@ -175,11 +239,15 @@ export function SocialAnalyticsPage() {
         .sort((a, b) => b.donationReferrals - a.donationReferrals)
         .slice(0, 10)
         .map((p) => ({
-          label: `${p.platform} - ${p.postType}`,
+          label: t('social.postLabel', {
+            defaultValue: '{{platform}} - {{postType}}',
+            platform: translatePlatform(p.platform),
+            postType: translatePostType(p.postType),
+          }),
           donationReferrals: p.donationReferrals,
           postId: p.postId,
         })),
-    [allPosts],
+    [allPosts, t],
   );
 
   /* ── Campaign Effectiveness ────────────────────────────── */
@@ -190,7 +258,7 @@ export function SocialAnalyticsPage() {
       { posts: number; impressions: number; reach: number; referrals: number; engagementRates: number[] }
     >();
     for (const p of allPosts) {
-      const name = p.campaignName ?? 'Uncategorized';
+      const name = p.campaignName ?? t('social.uncategorizedCampaign', { defaultValue: 'Uncategorized' });
       const existing = grouped.get(name) ?? {
         posts: 0,
         impressions: 0,
@@ -224,73 +292,72 @@ export function SocialAnalyticsPage() {
   const postColumns = [
     {
       key: 'createdAt',
-      header: 'Date',
-      render: (row: Record<string, unknown>) =>
-        format(parseISO(row.createdAt as string), 'MMM d, yyyy'),
+      header: t('common.date'),
+      render: (row: Record<string, unknown>) => formatLocalizedDate(row.createdAt as string, preferences),
     },
     {
       key: 'platform',
-      header: 'Platform',
+      header: t('social.platform'),
       render: (row: Record<string, unknown>) => (
         <Badge variant={PLATFORM_BADGE_VARIANT[row.platform as string] ?? 'neutral'}>
-          {row.platform as string}
+          {translatePlatform(row.platform as string)}
         </Badge>
       ),
     },
-    { key: 'postType', header: 'Post Type' },
-    { key: 'mediaType', header: 'Media' },
+    {
+      key: 'postType',
+      header: t('social.postType'),
+      render: (row: Record<string, unknown>) => translatePostType(row.postType as string),
+    },
+    {
+      key: 'mediaType',
+      header: t('social.mediaType'),
+      render: (row: Record<string, unknown>) => translateMediaType(row.mediaType as string),
+    },
     {
       key: 'impressions',
-      header: 'Impressions',
-      render: (row: Record<string, unknown>) =>
-        (row.impressions as number).toLocaleString(),
+      header: t('social.impressions'),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.impressions as number, preferences),
     },
     {
       key: 'reach',
-      header: 'Reach',
-      render: (row: Record<string, unknown>) =>
-        (row.reach as number).toLocaleString(),
+      header: t('social.reach'),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.reach as number, preferences),
     },
     {
       key: 'engagementRate',
-      header: 'Engagement',
-      render: (row: Record<string, unknown>) =>
-        `${(row.engagementRate as number).toFixed(2)}%`,
+      header: t('social.engagement', { defaultValue: 'Engagement' }),
+      render: (row: Record<string, unknown>) => formatLocalizedPercent(row.engagementRate as number, preferences, { maximumFractionDigits: 2 }),
     },
     {
       key: 'donationReferrals',
-      header: 'Referrals',
-      render: (row: Record<string, unknown>) =>
-        (row.donationReferrals as number).toLocaleString(),
+      header: t('social.referrals', { defaultValue: 'Referrals' }),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.donationReferrals as number, preferences),
     },
   ];
 
   const campaignColumns = [
-    { key: 'campaignName', header: 'Campaign' },
-    { key: 'totalPosts', header: 'Posts' },
+    { key: 'campaignName', header: t('social.campaignName') },
+    { key: 'totalPosts', header: t('social.posts') },
     {
       key: 'totalImpressions',
-      header: 'Impressions',
-      render: (row: Record<string, unknown>) =>
-        (row.totalImpressions as number).toLocaleString(),
+      header: t('social.impressions'),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.totalImpressions as number, preferences),
     },
     {
       key: 'totalReach',
-      header: 'Reach',
-      render: (row: Record<string, unknown>) =>
-        (row.totalReach as number).toLocaleString(),
+      header: t('social.reach'),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.totalReach as number, preferences),
     },
     {
       key: 'totalReferrals',
-      header: 'Referrals',
-      render: (row: Record<string, unknown>) =>
-        (row.totalReferrals as number).toLocaleString(),
+      header: t('social.donationReferrals'),
+      render: (row: Record<string, unknown>) => formatLocalizedNumber(row.totalReferrals as number, preferences),
     },
     {
       key: 'avgEngagement',
-      header: 'Avg Engagement',
-      render: (row: Record<string, unknown>) =>
-        `${(row.avgEngagement as number).toFixed(2)}%`,
+      header: t('social.avgEngagement'),
+      render: (row: Record<string, unknown>) => formatLocalizedPercent(row.avgEngagement as number, preferences, { maximumFractionDigits: 2 }),
     },
   ];
 
@@ -300,8 +367,8 @@ export function SocialAnalyticsPage() {
     return (
       <div>
         <PageHeader
-          title="Social Media Analytics"
-          subtitle="Content performance and engagement insights"
+          title={t('social.analyticsTitle')}
+          subtitle={t('social.analyticsPageSubtitle', { defaultValue: 'Content performance and engagement insights' })}
         />
         <div className="flex items-center justify-center py-24">
           <Spinner size="lg" />
@@ -313,11 +380,11 @@ export function SocialAnalyticsPage() {
   return (
     <div>
       <PageHeader
-        title="Social Media Analytics"
-        subtitle="Content performance and engagement insights"
+        title={t('social.analyticsTitle')}
+        subtitle={t('social.analyticsPageSubtitle', { defaultValue: 'Content performance and engagement insights' })}
         action={
           <Link to="/admin/social/editor">
-            <Button variant="primary">Create Post</Button>
+            <Button variant="primary">{t('social.createPost', { defaultValue: 'Create Post' })}</Button>
           </Link>
         }
       />
@@ -327,14 +394,14 @@ export function SocialAnalyticsPage() {
         <Card>
           <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="font-heading text-xl font-semibold text-slate-navy dark:text-white">
-              Post Performance
+              {t('social.postPerformance', { defaultValue: 'Post Performance' })}
             </h2>
             <div className="flex items-center gap-2">
               <label
                 htmlFor="platform-filter"
                 className="text-sm font-medium text-warm-gray"
               >
-                Platform:
+                {t('social.platform')}:
               </label>
               <select
                 id="platform-filter"
@@ -345,10 +412,10 @@ export function SocialAnalyticsPage() {
                 }}
                 className="rounded-lg border border-slate-navy/20 bg-white px-3 py-1.5 text-sm text-slate-navy dark:border-white/20 dark:bg-slate-navy dark:text-white"
               >
-                <option value="">All Platforms</option>
+                <option value="">{t('social.allPlatforms', { defaultValue: 'All Platforms' })}</option>
                 {platforms.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {translatePlatform(p)}
                   </option>
                 ))}
               </select>
@@ -361,7 +428,7 @@ export function SocialAnalyticsPage() {
             pageSize={TABLE_PAGE_SIZE}
             totalPages={tablePageCount}
             onPageChange={setTablePage}
-            emptyMessage="No social media posts found."
+            emptyMessage={t('social.noPostsFound', { defaultValue: 'No social media posts found.' })}
           />
         </Card>
 
@@ -370,7 +437,7 @@ export function SocialAnalyticsPage() {
           {/* Platform Comparison */}
           <Card>
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-              Platform Comparison
+              {t('social.platformComparison')}
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -379,18 +446,19 @@ export function SocialAnalyticsPage() {
                   <XAxis
                     dataKey="platform"
                     tick={{ fill: '#2D3A4A', fontSize: 12 }}
+                    tickFormatter={(value: string) => translatePlatform(value)}
                   />
                   <YAxis
                     tick={{ fill: '#2D3A4A', fontSize: 12 }}
-                    tickFormatter={(v: number) => `${v}%`}
+                    tickFormatter={(v: number) => formatLocalizedPercent(v, preferences, { maximumFractionDigits: 2 })}
                   />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
-                    formatter={(v) => `${v}%`}
+                    formatter={(v) => formatLocalizedPercent(Number(v), preferences, { maximumFractionDigits: 2 })}
                   />
                   <Bar
                     dataKey="avgEngagement"
-                    name="Avg Engagement Rate"
+                    name={t('social.avgEngagementRate', { defaultValue: 'Avg Engagement Rate' })}
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   >
@@ -409,7 +477,7 @@ export function SocialAnalyticsPage() {
           {/* Content Type Performance */}
           <Card>
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-              Content Type Performance
+              {t('social.contentTypePerformance')}
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -418,21 +486,22 @@ export function SocialAnalyticsPage() {
                   <XAxis
                     dataKey="postType"
                     tick={{ fill: '#2D3A4A', fontSize: 11 }}
+                    tickFormatter={(value: string) => translatePostType(value)}
                     angle={-20}
                     textAnchor="end"
                     height={60}
                   />
                   <YAxis
                     tick={{ fill: '#2D3A4A', fontSize: 12 }}
-                    tickFormatter={(v: number) => `${v}%`}
+                    tickFormatter={(v: number) => formatLocalizedPercent(v, preferences, { maximumFractionDigits: 2 })}
                   />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
-                    formatter={(v) => `${v}%`}
+                    formatter={(v) => formatLocalizedPercent(Number(v), preferences, { maximumFractionDigits: 2 })}
                   />
                   <Bar
                     dataKey="avgEngagement"
-                    name="Avg Engagement Rate"
+                    name={t('social.avgEngagementRate', { defaultValue: 'Avg Engagement Rate' })}
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   >
@@ -452,10 +521,12 @@ export function SocialAnalyticsPage() {
         {/* ── Section 4: Best Posting Times Heatmap ──────── */}
         <Card>
           <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-            Best Posting Times
+            {t('social.bestPostingTimes')}
           </h2>
           <p className="mb-4 text-sm text-warm-gray">
-            Average engagement rate by day and hour. Darker cells indicate higher engagement.
+            {t('social.bestPostingTimesHelper', {
+              defaultValue: 'Average engagement rate by day and hour. Darker cells indicate higher engagement.',
+            })}
           </p>
           <div className="overflow-x-auto">
             {/* Hour labels */}
@@ -474,7 +545,7 @@ export function SocialAnalyticsPage() {
             {DAYS_ORDER.map((day, dayIdx) => (
               <div key={day} className="flex">
                 <div className="flex w-12 shrink-0 items-center text-xs font-medium text-warm-gray">
-                  {DAY_LABELS[dayIdx]}
+                  {translateDay(DAY_LABELS[dayIdx], DAY_LABELS[dayIdx])}
                 </div>
                 {Array.from({ length: 24 }, (_, h) => {
                   const cell = heatmapData.cells.find(
@@ -492,7 +563,13 @@ export function SocialAnalyticsPage() {
                         backgroundColor: COLORS.sageGreen,
                         opacity: Math.max(0.08, intensity),
                       }}
-                      title={`${day} ${h}:00 - Avg: ${cell?.avg.toFixed(2) ?? 0}% (${cell?.count ?? 0} posts)`}
+                      title={t('social.heatmapCellTitle', {
+                        defaultValue: '{{day}} {{hour}}:00 - Avg: {{avg}} ({{count}} posts)',
+                        day: translateDay(day, day),
+                        hour: h,
+                        avg: formatLocalizedPercent(cell?.avg ?? 0, preferences, { maximumFractionDigits: 2 }),
+                        count: formatLocalizedNumber(cell?.count ?? 0, preferences),
+                      })}
                     />
                   );
                 })}
@@ -504,7 +581,7 @@ export function SocialAnalyticsPage() {
         {/* ── Section 5: Donation Referral Tracking ──────── */}
         <Card>
           <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-            Top Posts By Donation Referrals
+            {t('social.topPostsByDonationReferrals', { defaultValue: 'Top Posts By Donation Referrals' })}
           </h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -528,7 +605,7 @@ export function SocialAnalyticsPage() {
                 <Legend />
                 <Bar
                   dataKey="donationReferrals"
-                  name="Donation Referrals"
+                  name={t('social.donationReferrals')}
                   fill={COLORS.goldenHoney}
                   radius={[0, 4, 4, 0]}
                   barSize={20}
@@ -541,12 +618,12 @@ export function SocialAnalyticsPage() {
         {/* ── Section 6: Campaign Effectiveness ──────────── */}
         <Card>
           <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-            Campaign Effectiveness
+            {t('social.campaignEffectiveness')}
           </h2>
           <Table
             columns={campaignColumns}
             data={campaignData as unknown as Record<string, unknown>[]}
-            emptyMessage="No campaign data available."
+            emptyMessage={t('social.noCampaignData', { defaultValue: 'No campaign data available.' })}
           />
         </Card>
       </div>
