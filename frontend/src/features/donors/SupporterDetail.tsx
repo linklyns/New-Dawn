@@ -17,6 +17,7 @@ import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import type { Supporter, Donation } from '../../types/models';
 import type { PagedResult } from '../../types/api';
+import type { SupporterLikelihood } from '../../types/predictions';
 
 const selectClass =
   'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
@@ -112,6 +113,16 @@ export function SupporterDetail() {
   });
 
   const donations = donationsData?.items ?? [];
+
+  const { data: likelihoodResp } = useQuery({
+    queryKey: ['supporter-likelihood'],
+    queryFn: () => api.get<{ items: SupporterLikelihood[] }>('/api/predictions/ml/supporter-likelihood'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const likelihood = (likelihoodResp?.items ?? []).find(
+    (l) => l.supporterId === Number(id),
+  );
 
   const updateMutation = useMutation({
     mutationFn: (data: SupporterFormData) => api.put(`/api/supporters/${id}`, data),
@@ -236,6 +247,28 @@ export function SupporterDetail() {
           <InfoRow label="First Donation" value={formatDate(s.firstDonationDate)} />
           <InfoRow label="Acquisition Channel" value={s.acquisitionChannel || '--'} />
           <InfoRow label="Relationship" value={s.relationshipType || '--'} />
+          <InfoRow
+            label="Likelihood to Donate Again"
+            value={
+              likelihood ? (
+                <Badge
+                  variant={
+                    likelihood.likelihoodCategory === 'High' ? 'success'
+                    : likelihood.likelihoodCategory === 'Medium' ? 'info'
+                    : 'neutral'
+                  }
+                >
+                  {likelihood.likelihoodCategory} ({(likelihood.likelihoodScore * 100).toFixed(0)}%)
+                </Badge>
+              ) : '--'
+            }
+          />
+          {likelihood?.topReason1 && (
+            <InfoRow
+              label="Top Prediction Drivers"
+              value={[likelihood.topReason1, likelihood.topReason2].filter(Boolean).join(', ')}
+            />
+          )}
         </div>
       </Card>
 

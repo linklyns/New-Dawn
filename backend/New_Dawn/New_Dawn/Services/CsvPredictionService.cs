@@ -7,7 +7,7 @@ namespace New_Dawn.Services;
 public class CsvPredictionService : IDisposable
 {
     private readonly string _modelsPath;
-    private readonly FileSystemWatcher _watcher;
+    private readonly FileSystemWatcher? _watcher;
     private readonly ILogger<CsvPredictionService> _logger;
 
     private List<Dictionary<string, string>> _supporterPredictions = [];
@@ -26,20 +26,31 @@ public class CsvPredictionService : IDisposable
     {
         _logger = logger;
 
+        var devPath = Path.GetFullPath(
+            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "ml-pipelines", "models"));
+        var publishedPath = Path.Combine(AppContext.BaseDirectory, "models");
+
         _modelsPath = config["MlModelsPath"]
-            ?? Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "ml-pipelines", "models");
+            ?? (Directory.Exists(devPath) ? devPath : publishedPath);
         _modelsPath = Path.GetFullPath(_modelsPath);
         _logger.LogInformation("ML models path: {Path}", _modelsPath);
 
         LoadAll();
 
-        _watcher = new FileSystemWatcher(_modelsPath, "*.csv")
+        if (Directory.Exists(_modelsPath))
         {
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
-            EnableRaisingEvents = true
-        };
-        _watcher.Changed += OnCsvChanged;
-        _watcher.Created += OnCsvChanged;
+            _watcher = new FileSystemWatcher(_modelsPath, "*.csv")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+                EnableRaisingEvents = true
+            };
+            _watcher.Changed += OnCsvChanged;
+            _watcher.Created += OnCsvChanged;
+        }
+        else
+        {
+            _logger.LogWarning("Models directory not found, file watching disabled: {Path}", _modelsPath);
+        }
     }
 
     private void OnCsvChanged(object sender, FileSystemEventArgs e)

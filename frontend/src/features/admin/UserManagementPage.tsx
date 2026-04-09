@@ -44,9 +44,27 @@ export function UserManagementPage() {
   const updateRole = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
       api.put(`/api/users/${userId}/role`, { role }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+    onMutate: async ({ userId, role }) => {
+      await queryClient.cancelQueries({ queryKey: ['users', page] });
+      const previous = queryClient.getQueryData<UsersResponse>(['users', page]);
+      queryClient.setQueryData<UsersResponse>(['users', page], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((u) => (u.id === userId ? { ...u, role } : u)),
+        };
+      });
       setEditingUserId(null);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['users', page], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['supporters'] });
     },
   });
 

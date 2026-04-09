@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { Plus } from 'lucide-react';
+import { ArrowUpDown, Plus } from 'lucide-react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { api } from '../../lib/api';
 import { getPageSizeOptions } from '../../lib/pagination';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -80,22 +81,29 @@ export function SupportersList() {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [likelihoodFilter, setLikelihoodFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+
+  const debouncedSearch = useDebounce(search, 300);
 
   const queryParams = new URLSearchParams();
   queryParams.set('page', String(page));
   queryParams.set('pageSize', String(pageSize));
   if (typeFilter) queryParams.set('supporterType', typeFilter);
   if (statusFilter) queryParams.set('status', statusFilter);
-  if (search) queryParams.set('search', search);
+  if (debouncedSearch) queryParams.set('search', debouncedSearch);
+  if (sortBy !== 'likelihood') {
+    queryParams.set('sortBy', sortBy);
+    queryParams.set('sortDir', sortDir);
+  }
 
   const { data, isLoading } = useQuery({
-    queryKey: ['supporters', page, pageSize, typeFilter, statusFilter, search],
+    queryKey: ['supporters', page, pageSize, typeFilter, statusFilter, debouncedSearch, sortBy, sortDir],
     queryFn: () =>
       api.get<PagedResult<Supporter>>(`/api/supporters?${queryParams.toString()}`),
   });
-
-  const supporters = data?.items ?? [];
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
@@ -112,6 +120,30 @@ export function SupportersList() {
   const likelihoodMap = new Map(
     (likelihoodResp?.items ?? []).map((l) => [l.supporterId, l]),
   );
+
+  // Client-side filtering & sorting for likelihood
+  const displayedSupporters = useMemo(() => {
+    let items = data?.items ?? [];
+
+    // Filter by likelihood category
+    if (likelihoodFilter) {
+      items = items.filter((s) => {
+        const pred = likelihoodMap.get(s.supporterId);
+        return pred?.likelihoodCategory === likelihoodFilter;
+      });
+    }
+
+    // Sort by likelihood client-side
+    if (sortBy === 'likelihood') {
+      items = [...items].sort((a, b) => {
+        const scoreA = likelihoodMap.get(a.supporterId)?.likelihoodScore ?? -1;
+        const scoreB = likelihoodMap.get(b.supporterId)?.likelihoodScore ?? -1;
+        return sortDir === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+      });
+    }
+
+    return items;
+  }, [data?.items, likelihoodFilter, likelihoodMap, sortBy, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: SupporterFormData) => api.post<Supporter>('/api/supporters', body),
@@ -151,7 +183,7 @@ export function SupportersList() {
     { key: 'acquisitionChannel', header: 'Channel' },
     {
       key: 'likelihood',
-      header: 'Likelihood',
+      header: 'Likelihood to Donate Again',
       render: (row: Record<string, unknown>) => {
         const pred = likelihoodMap.get((row as unknown as Supporter).supporterId);
         if (!pred) return <span className="text-xs text-warm-gray">--</span>;
@@ -183,7 +215,7 @@ export function SupportersList() {
 
       {/* Filters */}
       <Card className="mb-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-navy dark:text-white">Supporter Type</label>
             <select
@@ -216,6 +248,22 @@ export function SupportersList() {
               ))}
             </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-navy dark:text-white">Likelihood</label>
+            <select
+              className={selectClass}
+              value={likelihoodFilter}
+              onChange={(e) => {
+                setLikelihoodFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Likelihood</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
           <Input
             label="Search"
             placeholder="Search by name or email..."
@@ -226,12 +274,40 @@ export function SupportersList() {
             }}
           />
         </div>
+        <div className="mt-4 flex items-end gap-2">
+          <div className="flex flex-col gap-1 sm:w-52">
+            <label className="text-sm font-medium text-slate-navy dark:text-white">Sort</label>
+            <div className="flex gap-1">
+              <select
+                className={selectClass}
+                value={sortBy}
+                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+              >
+                <option value="name">Name</option>
+                <option value="type">Type</option>
+                <option value="status">Status</option>
+                <option value="email">Email</option>
+                <option value="firstdonation">First Donation</option>
+                <option value="channel">Channel</option>
+                <option value="likelihood">Likelihood to Donate Again</option>
+              </select>
+              <button
+                type="button"
+                title={sortDir === 'desc' ? 'Descending' : 'Ascending'}
+                onClick={() => { setSortDir(d => d === 'desc' ? 'asc' : 'desc'); setPage(1); }}
+                className="flex items-center justify-center rounded-lg border border-slate-navy/20 bg-white px-2 text-slate-navy hover:bg-slate-navy/5 dark:border-white/20 dark:bg-slate-navy dark:text-white"
+              >
+                <ArrowUpDown size={15} className={sortDir === 'asc' ? 'rotate-180' : ''} />
+              </button>
+            </div>
+          </div>
+        </div>
       </Card>
 
       <Card>
         <Table
           columns={columns}
-          data={supporters as unknown as Record<string, unknown>[]}
+          data={displayedSupporters as unknown as Record<string, unknown>[]}
           loading={isLoading}
           emptyMessage="No supporters found."
           page={page}
