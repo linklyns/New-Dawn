@@ -41,7 +41,7 @@ const allocationSchema = z.object({
   programArea: z.string().min(1, 'Required'),
   amountAllocated: z.number().min(0.01, 'Must be > 0'),
   allocationDate: z.string().min(1, 'Required'),
-  allocationNotes: z.string().default(''),
+  allocationNotes: z.string(),
 });
 type AllocationFormData = z.infer<typeof allocationSchema>;
 type SortKey = 'date' | 'amount' | 'program' | 'safehouse';
@@ -56,7 +56,7 @@ function AllocationForm({
 }) {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData>({
     resolver: zodResolver(allocationSchema),
-    defaultValues: { allocationDate: new Date().toISOString().slice(0, 10) },
+    defaultValues: { allocationDate: new Date().toISOString().slice(0, 10), allocationNotes: '' },
   });
 
   const { data: unallocatedDonations } = useQuery({
