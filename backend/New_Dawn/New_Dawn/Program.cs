@@ -20,6 +20,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<CsvPredictionService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddHostedService<NotificationBackgroundService>();
 
 var allowedOrigins = new List<string>
 {

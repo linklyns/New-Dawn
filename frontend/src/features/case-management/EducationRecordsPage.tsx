@@ -386,12 +386,14 @@ function EducationForm({
         <Input
           label="Attendance Rate (0-100)"
           type="number"
+          step="any"
           error={errors.attendanceRate?.message}
           {...register('attendanceRate')}
         />
         <Input
           label="Progress Percent (0-100)"
           type="number"
+          step="any"
           error={errors.progressPercent?.message}
           {...register('progressPercent')}
         />

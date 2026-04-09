@@ -308,6 +308,7 @@ function PlanForm({
         <Input
           label="Target Value"
           type="number"
+          step="any"
           error={errors.targetValue?.message}
           {...register('targetValue')}
         />

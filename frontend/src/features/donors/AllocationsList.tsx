@@ -7,12 +7,14 @@ import { format, parseISO } from 'date-fns';
 import { ArrowUpDown, Plus, Search } from 'lucide-react';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
+import { getPageSizeOptions } from '../../lib/pagination';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Table } from '../../components/ui/Table';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { useAuthStore } from '../../stores/authStore';
 import type { DonationAllocation, Safehouse } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -149,8 +151,10 @@ function AllocationForm({
 
 export function AllocationsList() {
   const queryClient = useQueryClient();
+  const userRole = useAuthStore((s) => s.user?.role);
+  const isAdmin = userRole === 'Admin';
   const [page, setPage] = useState(1);
-  const pageSize = 100;
+  const [pageSize, setPageSize] = useState(20);
 
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('');
@@ -226,6 +230,11 @@ export function AllocationsList() {
     });
   }, [data, search, programFilter, sortKey, sortDir, safehouses]);
 
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1);
+  };
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('desc'); }
@@ -288,20 +297,27 @@ export function AllocationsList() {
     <div>
       <PageHeader
         title="Donation Allocations"
-        subtitle="How donations are distributed across safehouses and programs"
+        subtitle={isAdmin
+          ? 'How donations are distributed across safehouses and programs'
+          : 'See how your donations are being allocated to safehouses and programs'
+        }
       />
 
       {/* Funds still to allocate */}
-      <Card className="mb-6 flex items-center justify-between border-golden-honey/40 bg-golden-honey/5 dark:border-golden-honey/30 dark:bg-golden-honey/5">
-        <div>
-          <p className="text-sm font-semibold text-slate-navy dark:text-white">Funds Still to Allocate</p>
-          <p className="text-2xl font-bold text-golden-honey">PHP {unallocated.toLocaleString()}</p>
-        </div>
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus size={14} />
-          Allocate
-        </Button>
-      </Card>
+      {isAdmin && (
+        <Card className="mb-6 flex items-center justify-between border-golden-honey/40 bg-golden-honey/5 dark:border-golden-honey/30 dark:bg-golden-honey/5">
+          <div>
+            <p className="text-sm font-semibold text-slate-navy dark:text-white">
+              Funds Still to Allocate
+            </p>
+            <p className="text-2xl font-bold text-golden-honey">PHP {unallocated.toLocaleString()}</p>
+          </div>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus size={14} />
+            Allocate
+          </Button>
+        </Card>
+      )}
 
       <Card>
         {/* Toolbar */}
@@ -333,26 +349,28 @@ export function AllocationsList() {
           page={page}
           pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
-          totalCount={processed.length}
+          totalCount={data?.totalCount ?? 0}
           onPageChange={setPage}
-          onPageSizeChange={() => {}}
-          pageSizeOptions={[100]}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={getPageSizeOptions(data?.totalCount)}
         />
       </Card>
 
-      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title="New Allocation" size="lg" hideFooter>
-        {createMutation.isError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-            {(createMutation.error as Error).message}
-          </div>
-        )}
-        <AllocationForm
-          safehouses={safehouses}
-          onSubmit={(d) => createMutation.mutate(d)}
-          onCancel={() => setAddOpen(false)}
-          isSubmitting={createMutation.isPending}
-        />
-      </Modal>
+      {isAdmin && (
+        <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title="New Allocation" size="lg" hideFooter>
+          {createMutation.isError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+              {(createMutation.error as Error).message}
+            </div>
+          )}
+          <AllocationForm
+            safehouses={safehouses}
+            onSubmit={(d) => createMutation.mutate(d)}
+            onCancel={() => setAddOpen(false)}
+            isSubmitting={createMutation.isPending}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

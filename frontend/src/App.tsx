@@ -39,6 +39,8 @@ const SocialEditorPage = lazy(async () => ({ default: (await import('./features/
 const ProfilePage = lazy(async () => ({ default: (await import('./features/profile/ProfilePage')).ProfilePage }));
 const UserManagementPage = lazy(async () => ({ default: (await import('./features/admin/UserManagementPage')).UserManagementPage }));
 const PartnersList = lazy(async () => ({ default: (await import('./features/partners/PartnersList')).PartnersList }));
+const SafehousesPage = lazy(async () => ({ default: (await import('./features/safehouses/SafehousesPage')).SafehousesPage }));
+const NotificationsPage = lazy(async () => ({ default: (await import('./features/admin/NotificationsPage')).NotificationsPage }));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -145,10 +147,12 @@ function AppContent() {
           path="/admin"
           element={
             user?.role === 'Donor'
-              ? <Navigate to="/admin/donate" replace />
+              ? <Navigate to="/admin/impact" replace />
               : <Suspense fallback={<RouteLoadingFallback />}><AdminDashboard /></Suspense>
           }
         />
+        <Route path="/admin/impact" element={<ImpactDashboard />} />
+        <Route path="/admin/donate" element={<DonatePage />} />
         <Route path="/admin/residents" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentsList /></Suspense>} />
         <Route path="/admin/residents/new" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
         <Route path="/admin/residents/:id" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
@@ -176,10 +180,20 @@ function AppContent() {
             <Suspense fallback={<RouteLoadingFallback />}><PartnersList /></Suspense>
           </ProtectedRoute>
         } />
+        <Route path="/admin/safehouses" element={
+          <ProtectedRoute requiredRole="Admin">
+            <Suspense fallback={<RouteLoadingFallback />}><SafehousesPage /></Suspense>
+          </ProtectedRoute>
+        } />
         <Route path="/admin/profile" element={<Suspense fallback={<RouteLoadingFallback />}><ProfilePage /></Suspense>} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="Admin">
             <Suspense fallback={<RouteLoadingFallback />}><UserManagementPage /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/notifications" element={
+          <ProtectedRoute requiredRole="Admin">
+            <Suspense fallback={<RouteLoadingFallback />}><NotificationsPage /></Suspense>
           </ProtectedRoute>
         } />
       </Route>
