@@ -92,7 +92,20 @@ public class SupportersController(AppDbContext db, UserManager<ApplicationUser> 
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(s => s.Status == status);
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(s => s.DisplayName.Contains(search) || s.Email.Contains(search));
+        {
+            var tokens = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var token in tokens)
+            {
+                var term = $"%{token}%";
+                query = query.Where(s =>
+                    EF.Functions.ILike(s.DisplayName, term) ||
+                    EF.Functions.ILike(s.FirstName, term) ||
+                    EF.Functions.ILike(s.LastName, term) ||
+                    EF.Functions.ILike(s.OrganizationName ?? string.Empty, term) ||
+                    EF.Functions.ILike(s.Email, term) ||
+                    EF.Functions.ILike(s.Phone ?? string.Empty, term));
+            }
+        }
 
         var desc = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
         query = sortBy?.ToLowerInvariant() switch

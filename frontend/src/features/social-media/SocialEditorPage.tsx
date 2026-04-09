@@ -73,6 +73,7 @@ const OPTION_LABELS: Record<string, string> = {
 };
 const CONTENT_TOPICS = ['Education', 'Health', 'Reintegration', 'CampaignLaunch', 'Gratitude', 'SafehouseLife', 'AwarenessRaising', 'DonorImpact', 'EventRecap'] as const;
 const SENTIMENT_TONES = ['Grateful', 'Celebratory', 'Emotional', 'Urgent', 'Hopeful', 'Informative'] as const;
+const SOCIAL_EDITOR_SELECTED_DRAFT_KEY = 'social-editor-selected-draft-id';
 
 const briefSchema = z.object({
   title: z.string().trim().min(2, 'Give this draft a title so you can find it later.'),
@@ -269,7 +270,19 @@ export function SocialEditorPage() {
   const { t } = useTranslation();
   const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
   const queryClient = useQueryClient();
-  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
+  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const storedDraftId = window.sessionStorage.getItem(SOCIAL_EDITOR_SELECTED_DRAFT_KEY);
+    if (!storedDraftId) {
+      return null;
+    }
+
+    const parsedDraftId = Number(storedDraftId);
+    return Number.isInteger(parsedDraftId) && parsedDraftId > 0 ? parsedDraftId : null;
+  });
   const [activeDraft, setActiveDraft] = useState<SocialMediaDraft>(() => createEmptyDraft(t('social.untitledDraft', { defaultValue: 'Untitled draft' })));
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [persistedPreviewUrls, setPersistedPreviewUrls] = useState<Record<number, string>>({});
@@ -285,6 +298,7 @@ export function SocialEditorPage() {
   const [performanceLoading, setPerformanceLoading] = useState(false);
   const [timesLoading, setTimesLoading] = useState(false);
   const autoSaveSkipRef = useRef(true);
+  const predictorRefreshKeyRef = useRef<string | null>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -451,6 +465,19 @@ export function SocialEditorPage() {
     clearPendingUploads();
     form.reset(toBriefValues(normalizedDraft));
   }, [clearPendingUploads, form, selectedDraftQuery.data]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (selectedDraftId && selectedDraftId > 0) {
+      window.sessionStorage.setItem(SOCIAL_EDITOR_SELECTED_DRAFT_KEY, String(selectedDraftId));
+      return;
+    }
+
+    window.sessionStorage.removeItem(SOCIAL_EDITOR_SELECTED_DRAFT_KEY);
+  }, [selectedDraftId]);
 
   useEffect(() => {
     if (!statusMessage) {
@@ -812,6 +839,22 @@ export function SocialEditorPage() {
       setTimesLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedDraftQuery.data || activeDraft.stage !== 'compose' || activeDraft.draftId <= 0) {
+      predictorRefreshKeyRef.current = null;
+      return;
+    }
+
+    const refreshKey = String(activeDraft.draftId);
+    if (predictorRefreshKeyRef.current === refreshKey) {
+      return;
+    }
+
+    predictorRefreshKeyRef.current = refreshKey;
+    void fetchPerformance();
+    void fetchBestTimes();
+  }, [activeDraft.draftId, activeDraft.stage, selectedDraftQuery.data]);
 
   const handleChatSend = async () => {
     const trimmed = chatInput.trim();

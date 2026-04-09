@@ -7,6 +7,9 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
   groupKey: string | null;
+  userId: string | null;
+  targetRole: string | null;
+  listData: string | null;
 }
 
 export interface NotificationPagedResult {

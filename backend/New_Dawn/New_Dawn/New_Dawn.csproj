@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="publish\**" />
+    <Content Remove="publish\**" />
+    <EmbeddedResource Remove="publish\**" />
+    <None Remove="publish\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\..\ml-pipelines\models\*.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>models\%(Filename)%(Extension)</Link>

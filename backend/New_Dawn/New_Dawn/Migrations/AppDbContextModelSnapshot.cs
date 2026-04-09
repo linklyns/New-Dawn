@@ -789,10 +789,18 @@ namespace New_Dawn.Migrations
                         .HasColumnType("text")
                         .HasColumnName("link");
 
+                    b.Property<string>("ListData")
+                        .HasColumnType("text")
+                        .HasColumnName("list_data");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("message");
+
+                    b.Property<string>("TargetRole")
+                        .HasColumnType("text")
+                        .HasColumnName("target_role");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -803,6 +811,10 @@ namespace New_Dawn.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("type");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
 
                     b.HasKey("NotificationId");
 

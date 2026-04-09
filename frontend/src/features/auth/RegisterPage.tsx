@@ -25,6 +25,7 @@ const createRegisterSchema = (t: (key: string) => string) => z
   .object({
     email: z.string().email(t('auth.emailInvalid')),
     displayName: z.string().min(2, t('auth.displayNameMin')),
+    phoneNumber: z.string().min(7, 'Phone number is required'),
     preferredLanguage: z.enum(SUPPORTED_LANGUAGES),
     preferredCurrency: z.enum(SUPPORTED_CURRENCIES),
     password: z
@@ -110,6 +111,7 @@ export function RegisterPage() {
         email: data.email,
         password: data.password,
         displayName: data.displayName,
+        phoneNumber: data.phoneNumber,
         preferredLanguage: data.preferredLanguage,
         preferredCurrency: data.preferredCurrency,
       });
@@ -161,6 +163,14 @@ export function RegisterPage() {
             placeholder={t('auth.displayNamePlaceholder')}
             error={errors.displayName?.message}
             {...register('displayName')}
+          />
+
+          <Input
+            label="Phone Number"
+            type="tel"
+            placeholder="09xx xxx xxxx"
+            error={errors.phoneNumber?.message}
+            {...register('phoneNumber')}
           />
 
           <div className="grid gap-4 sm:grid-cols-2">

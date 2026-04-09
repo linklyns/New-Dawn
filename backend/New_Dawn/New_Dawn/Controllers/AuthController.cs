@@ -85,6 +85,7 @@ public class AuthController(
             UserName = request.Email,
             Email = request.Email,
             DisplayName = request.DisplayName,
+            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
             PreferredLanguage = NormalizeLanguageOrDefault(request.PreferredLanguage),
             PreferredCurrency = NormalizeCurrencyOrDefault(request.PreferredCurrency)
         };
