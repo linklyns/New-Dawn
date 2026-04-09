@@ -146,34 +146,9 @@ function AppContent() {
           element={
             user?.role === 'Donor'
               ? <Navigate to="/admin/donate" replace />
-              : <AdminDashboard />
+              : <Suspense fallback={<RouteLoadingFallback />}><AdminDashboard /></Suspense>
           }
         />
-        <Route path="/admin/impact" element={<ImpactDashboard />} />
-        <Route path="/admin/donate" element={<DonatePage />} />
-        <Route path="/admin/residents" element={<ResidentsList />} />
-        <Route path="/admin/residents/new" element={<ResidentDetail />} />
-        <Route path="/admin/residents/:id" element={<ResidentDetail />} />
-        <Route path="/admin/case/recordings" element={<AllRecordingsPage />} />
-        <Route path="/admin/case/visits" element={<AllVisitationsPage />} />
-        <Route path="/admin/case/education" element={<AllEducationPage />} />
-        <Route path="/admin/case/health" element={<AllHealthPage />} />
-        <Route path="/admin/case/interventions" element={<AllInterventionsPage />} />
-        <Route path="/admin/case/incidents" element={<AllIncidentsPage />} />
-        <Route path="/admin/case/:residentId/recordings" element={<ProcessRecordingsPage />} />
-        <Route path="/admin/case/:residentId/visits" element={<HomeVisitationsPage />} />
-        <Route path="/admin/case/:residentId/education" element={<EducationRecordsPage />} />
-        <Route path="/admin/case/:residentId/health" element={<HealthRecordsPage />} />
-        <Route path="/admin/case/:residentId/interventions" element={<InterventionPlansPage />} />
-        <Route path="/admin/case/:residentId/incidents" element={<IncidentReportsPage />} />
-        <Route path="/admin/supporters" element={<SupportersList />} />
-        <Route path="/admin/supporters/:id" element={<SupporterDetail />} />
-        <Route path="/admin/donations" element={<DonationsList />} />
-        <Route path="/admin/allocations" element={<AllocationsList />} />
-        <Route path="/admin/reports" element={<ReportsPage />} />
-        <Route path="/admin/social" element={<SocialAnalyticsPage />} />
-        <Route path="/admin/social/editor" element={<SocialEditorPage />} />
-        <Route path="/admin" element={<Suspense fallback={<RouteLoadingFallback />}><AdminDashboard /></Suspense>} />
         <Route path="/admin/residents" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentsList /></Suspense>} />
         <Route path="/admin/residents/new" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
         <Route path="/admin/residents/:id" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
