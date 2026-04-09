@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { ArrowUpDown, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowUpDown, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { getPageSizeOptions } from '../../lib/pagination';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -446,7 +446,7 @@ export function DonationsList() {
         title="Donations"
         subtitle="Track all donations and contributions"
         action={
-          <Button size="sm" onClick={openCreate}>
+          <Button size="sm" onClick={() => openCreate()}>
             <Plus size={16} />
             Add Donation
           </Button>

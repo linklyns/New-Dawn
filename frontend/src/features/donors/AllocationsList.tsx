@@ -36,12 +36,12 @@ function formatDate(d: string | null | undefined): string {
 }
 
 const allocationSchema = z.object({
-  donationId: z.coerce.number().min(1, 'Required'),
-  safehouseId: z.coerce.number().min(1, 'Required'),
+  donationId: z.number().min(1, 'Required'),
+  safehouseId: z.number().min(1, 'Required'),
   programArea: z.string().min(1, 'Required'),
-  amountAllocated: z.coerce.number().min(0.01, 'Must be > 0'),
+  amountAllocated: z.number().min(0.01, 'Must be > 0'),
   allocationDate: z.string().min(1, 'Required'),
-  allocationNotes: z.string().optional().default(''),
+  allocationNotes: z.string().default(''),
 });
 type AllocationFormData = z.infer<typeof allocationSchema>;
 type SortKey = 'date' | 'amount' | 'program' | 'safehouse';
@@ -54,7 +54,7 @@ function AllocationForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData, any, AllocationFormData>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData>({
     resolver: zodResolver(allocationSchema),
     defaultValues: { allocationDate: new Date().toISOString().slice(0, 10) },
   });
@@ -80,6 +80,7 @@ function AllocationForm({
           <select
             className={selectClass}
             {...register('donationId', {
+              valueAsNumber: true,
               onChange: (e) => {
                 const don = (unallocatedDonations ?? []).find(
                   (d) => d.donationId === Number(e.target.value),
@@ -100,7 +101,7 @@ function AllocationForm({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Safehouse</label>
-          <select className={selectClass} {...register('safehouseId')}>
+          <select className={selectClass} {...register('safehouseId', { valueAsNumber: true })}>
             <option value="">Select safehouse...</option>
             {safehouses.map((s) => (
               <option key={s.safehouseId} value={s.safehouseId}>{s.name.replace(/^Lighthouse\s+/i, '')}</option>
@@ -125,7 +126,7 @@ function AllocationForm({
               </span>
             )}
           </label>
-          <Input type="number" step="0.01" {...register('amountAllocated')} placeholder="0.00" />
+          <Input type="number" step="0.01" {...register('amountAllocated', { valueAsNumber: true })} placeholder="0.00" />
           {errors.amountAllocated && <p className="mt-1 text-xs text-red-500">{errors.amountAllocated.message}</p>}
         </div>
         <div>
@@ -139,7 +140,7 @@ function AllocationForm({
         <textarea className={textareaClass} rows={2} placeholder="Optional notes..." {...register('allocationNotes')} />
       </div>
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
         <Button type="submit" size="sm" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Allocation'}</Button>
       </div>
     </form>
