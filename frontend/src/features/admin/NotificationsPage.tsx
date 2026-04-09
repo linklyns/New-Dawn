@@ -1,22 +1,31 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Shield, Users, TrendingDown, Share2, DollarSign, PieChart } from 'lucide-react';
+import { Bell, CheckCircle2, Circle, CheckCheck, Shield, TrendingDown, Share2, DollarSign, PieChart, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications, useMarkRead, useMarkAllRead } from '../../hooks/useNotifications';
+import { useNotifications, useMarkRead, useMarkAllRead, useMarkUnread, useSnoozeNotification } from '../../hooks/useNotifications';
+import { MfaSnoozeModal } from '../../components/ui/MfaSnoozeModal';
+import { NotificationListModal } from '../../components/ui/NotificationListModal';
 import type { Notification } from '../../types';
+
+const navigateTypes = new Set(['SocialMediaReminder']);
+const listModalTypes = new Set(['LowLikelihoodDonors', 'HighRiskResidents']);
 
 export function NotificationsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
+  const [snoozeNotification, setSnoozeNotification] = useState<Notification | null>(null);
+  const [listModal, setListModal] = useState<Notification | null>(null);
   const { data, isLoading } = useNotifications(page, 20);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+  const markUnread = useMarkUnread();
+  const snooze = useSnoozeNotification();
   const navigate = useNavigate();
 
   const typeConfig: Record<string, { icon: typeof Bell; label: string; color: string }> = {
     MfaReminder: { icon: Shield, label: t('notifications.mfaReminder'), color: 'bg-golden-honey/10 text-golden-honey' },
     LowLikelihoodDonors: { icon: TrendingDown, label: t('notifications.lowLikelihood'), color: 'bg-coral-pink/10 text-coral-pink' },
-    ForgottenParticipants: { icon: Users, label: t('notifications.needsAttention'), color: 'bg-red-100 text-red-500' },
+    HighRiskResidents: { icon: AlertTriangle, label: 'High Risk', color: 'bg-red-100 text-red-500 dark:bg-red-500/15 dark:text-red-300' },
     SocialMediaReminder: { icon: Share2, label: t('notifications.socialMedia'), color: 'bg-sky-blue/10 text-sky-blue' },
     DonationMilestone: { icon: DollarSign, label: t('notifications.milestone'), color: 'bg-sage-green/10 text-sage-green' },
     AllocationBenchmark: { icon: PieChart, label: t('notifications.benchmark'), color: 'bg-sage-green/10 text-sage-green' },
@@ -24,9 +33,46 @@ export function NotificationsPage() {
 
   const notifications = data?.items ?? [];
 
-  function handleClick(n: Notification) {
-    if (!n.isRead) markRead.mutate(n.notificationId);
-    if (n.link) navigate(n.link);
+  function handleClick(notification: Notification) {
+    if (!notification.isRead) markRead.mutate(notification.notificationId);
+
+    if (notification.type === 'MfaReminder') {
+      setSnoozeNotification(notification);
+      return;
+    }
+
+    if (listModalTypes.has(notification.type) && notification.listData) {
+      setListModal(notification);
+      return;
+    }
+
+    if (navigateTypes.has(notification.type) && notification.link) {
+      navigate(notification.link);
+      return;
+    }
+
+    if (notification.link) {
+      navigate(notification.link);
+    }
+  }
+
+  function handleSnooze(months: number) {
+    if (!snoozeNotification) return;
+
+    snooze.mutate(
+      { id: snoozeNotification.notificationId, months },
+      { onSuccess: () => setSnoozeNotification(null) },
+    );
+  }
+
+  function toggleRead(event: React.MouseEvent, notification: Notification) {
+    event.stopPropagation();
+    if (notification.isRead) {
+      markUnread.mutate(notification.notificationId);
+      return;
+    }
+
+    markRead.mutate(notification.notificationId);
   }
 
   return (
@@ -43,7 +89,7 @@ export function NotificationsPage() {
         {data && data.unreadCount > 0 && (
           <button
             onClick={() => markAllRead.mutate()}
-            className="flex items-center gap-1.5 rounded-lg bg-sky-blue/10 px-3 py-2 text-sm font-medium text-sky-blue transition-colors hover:bg-sky-blue/20"
+            className="flex items-center gap-1.5 rounded-lg bg-sky-blue/15 px-3 py-2 text-sm font-semibold text-slate-navy transition-colors hover:bg-sky-blue/25 dark:bg-sky-blue/20 dark:text-white dark:hover:bg-sky-blue/30"
           >
             <CheckCheck size={16} />
             {t('notifications.markAllRead')}
@@ -62,60 +108,69 @@ export function NotificationsPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-navy/10 bg-white dark:border-white/10 dark:bg-dark-surface">
-          {notifications.map((n, i) => {
-            const cfg = typeConfig[n.type] ?? { icon: Bell, label: n.type, color: 'bg-slate-navy/10 text-slate-navy dark:text-white' };
+          {notifications.map((notification, index) => {
+            const cfg = typeConfig[notification.type] ?? { icon: Bell, label: notification.type, color: 'bg-slate-navy/10 text-slate-navy dark:text-white' };
             const Icon = cfg.icon;
+
             return (
-              <button
-                key={n.notificationId}
-                onClick={() => handleClick(n)}
-                className={`flex w-full items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-navy/5 dark:hover:bg-white/5 ${
-                  i > 0 ? 'border-t border-slate-navy/5 dark:border-white/5' : ''
-                } ${!n.isRead ? 'bg-sky-blue/5 dark:bg-sky-blue/10' : ''}`}
+              <div
+                key={notification.notificationId}
+                className={`flex w-full items-start gap-4 px-5 py-4 transition-colors ${
+                  index > 0 ? 'border-t border-slate-navy/5 dark:border-white/5' : ''
+                } ${!notification.isRead ? 'bg-sky-blue/5 dark:bg-sky-blue/10' : ''}`}
               >
-                <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cfg.color}`}>
-                  <Icon size={16} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold ${!n.isRead ? 'text-slate-navy dark:text-white' : 'text-slate-navy/70 dark:text-white/70'}`}>
-                      {n.title}
+                <button
+                  onClick={(event) => toggleRead(event, notification)}
+                  className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                    notification.isRead
+                      ? 'text-sage-green hover:bg-sage-green/10'
+                      : 'text-slate-navy/40 hover:bg-sky-blue/10 hover:text-sky-blue dark:text-white/40'
+                  }`}
+                  title={notification.isRead ? 'Mark as unread' : 'Mark as read'}
+                >
+                  {notification.isRead ? <CheckCircle2 size={22} /> : <Circle size={22} strokeWidth={2} />}
+                </button>
+
+                <button onClick={() => handleClick(notification)} className="min-w-0 flex-1 text-left">
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cfg.color}`}>
+                      <Icon size={16} />
                     </span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.color}`}>
-                      {cfg.label}
-                    </span>
-                    {!n.isRead && <span className="h-2 w-2 rounded-full bg-sky-blue" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[15px] font-semibold leading-tight ${
+                          !notification.isRead ? 'text-slate-navy dark:text-white' : 'text-slate-navy dark:text-white/90'
+                        }`}>
+                          {notification.title}
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
+                        {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-sky-blue" />}
+                      </div>
+                      <p className={`mt-1 text-[14px] leading-relaxed ${
+                        !notification.isRead ? 'text-slate-navy/90 dark:text-white/80' : 'text-slate-navy/70 dark:text-white/60'
+                      }`}>
+                        {notification.message}
+                      </p>
+                      <span className={`mt-1.5 block text-xs ${
+                        !notification.isRead ? 'text-slate-navy/60 dark:text-white/50' : 'text-slate-navy/50 dark:text-white/40'
+                      }`}>
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-slate-navy/60 dark:text-white/60">
-                    {n.message}
-                  </p>
-                  <span className="mt-1 block text-xs text-slate-navy/40 dark:text-white/40">
-                    {new Date(n.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                {!n.isRead && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      markRead.mutate(n.notificationId);
-                    }}
-                    className="mt-1 shrink-0 rounded-lg p-1.5 text-slate-navy/40 transition-colors hover:bg-slate-navy/10 hover:text-slate-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-                    aria-label={t('notifications.markAllRead')}
-                  >
-                    <Check size={14} />
-                  </button>
-                )}
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* Pagination */}
       {data && data.totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">
           <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
             disabled={page === 1}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-navy transition-colors hover:bg-slate-navy/5 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
           >
@@ -125,13 +180,30 @@ export function NotificationsPage() {
             {t('common.pageOf', { page, pages: data.totalPages })}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+            onClick={() => setPage((currentPage) => Math.min(data.totalPages, currentPage + 1))}
             disabled={page === data.totalPages}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-navy transition-colors hover:bg-slate-navy/5 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
           >
             {t('common.next')}
           </button>
         </div>
+      )}
+
+      <MfaSnoozeModal
+        isOpen={snoozeNotification !== null}
+        onClose={() => setSnoozeNotification(null)}
+        onSnooze={handleSnooze}
+        isLoading={snooze.isPending}
+      />
+
+      {listModal && listModal.listData && (
+        <NotificationListModal
+          isOpen={true}
+          onClose={() => setListModal(null)}
+          title={listModal.title}
+          type={listModal.type as 'LowLikelihoodDonors' | 'HighRiskResidents'}
+          listData={listModal.listData}
+        />
       )}
     </div>
   );

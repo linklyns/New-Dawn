@@ -110,7 +110,6 @@ export function SupportersList() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [likelihoodFilter, setLikelihoodFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
@@ -147,30 +146,6 @@ export function SupportersList() {
   const likelihoodMap = new Map(
     (likelihoodResp?.items ?? []).map((l) => [l.supporterId, l]),
   );
-
-  // Client-side filtering & sorting for likelihood
-  const displayedSupporters = useMemo(() => {
-    let items = data?.items ?? [];
-
-    // Filter by likelihood category
-    if (likelihoodFilter) {
-      items = items.filter((s) => {
-        const pred = likelihoodMap.get(s.supporterId);
-        return pred?.likelihoodCategory === likelihoodFilter;
-      });
-    }
-
-    // Sort by likelihood client-side
-    if (sortBy === 'likelihood') {
-      items = [...items].sort((a, b) => {
-        const scoreA = likelihoodMap.get(a.supporterId)?.likelihoodScore ?? -1;
-        const scoreB = likelihoodMap.get(b.supporterId)?.likelihoodScore ?? -1;
-        return sortDir === 'asc' ? scoreA - scoreB : scoreB - scoreA;
-      });
-    }
-
-    return items;
-  }, [data?.items, likelihoodFilter, likelihoodMap, sortBy, sortDir]);
 
   const createMutation = useMutation({
     mutationFn: (body: SupporterFormData) => api.post<Supporter>('/api/supporters', body),
@@ -275,22 +250,6 @@ export function SupportersList() {
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-navy dark:text-white">{t('donors.likelihoodToDonate')}</label>
-            <select
-              className={selectClass}
-              value={likelihoodFilter}
-              onChange={(e) => {
-                setLikelihoodFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{t('common.all')}</option>
-              <option value="High">{t('caseManagement.high')}</option>
-              <option value="Medium">{t('caseManagement.medium')}</option>
-              <option value="Low">{t('caseManagement.low')}</option>
-            </select>
-          </div>
           <Input
             label={t('common.search')}
             placeholder={t('donors.searchSupporters')}
@@ -316,7 +275,6 @@ export function SupportersList() {
                 <option value="email">{t('common.email')}</option>
                 <option value="firstdonation">{t('donors.firstDonation')}</option>
                 <option value="channel">{t('donors.channel')}</option>
-                <option value="likelihood">{t('donors.likelihoodToDonate')}</option>
               </select>
               <button
                 type="button"
@@ -334,7 +292,7 @@ export function SupportersList() {
       <Card>
         <Table
           columns={columns}
-          data={displayedSupporters as unknown as Record<string, unknown>[]}
+          data={(data?.items ?? []) as unknown as Record<string, unknown>[]}
           loading={isLoading}
           emptyMessage={t('common.noData')}
           page={page}

@@ -83,18 +83,46 @@ public class DonationAllocationsController(AppDbContext db, UserManager<Applicat
         [FromQuery] int pageSize = 20,
         [FromQuery] int? donationId = null,
         [FromQuery] int? safehouseId = null,
-        [FromQuery] string? programArea = null)
+        [FromQuery] string? programArea = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string sortBy = "date",
+        [FromQuery] string sortDir = "desc")
     {
-        var query = db.DonationAllocations.AsNoTracking().AsQueryable();
+        var query = db.DonationAllocations
+            .AsNoTracking()
+            .Join(
+                db.Donations,
+                allocation => allocation.DonationId,
+                donation => donation.DonationId,
+                (allocation, donation) => new { Allocation = allocation, Donation = donation })
+            .Join(
+                db.Supporters,
+                joined => joined.Donation.SupporterId,
+                supporter => supporter.SupporterId,
+                (joined, supporter) => new
+                {
+                    joined.Allocation,
+                    joined.Donation,
+                    DonorName = supporter.DisplayName
+                })
+            .Join(
+                db.Safehouses,
+                joined => joined.Allocation.SafehouseId,
+                safehouse => safehouse.SafehouseId,
+                (joined, safehouse) => new
+                {
+                    joined.Allocation,
+                    joined.Donation,
+                    joined.DonorName,
+                    SafehouseName = safehouse.Name
+                })
+            .AsQueryable();
 
         // Scope to donor's own donations
         var linkedId = await GetLinkedSupporterIdAsync();
         if (linkedId.HasValue)
         {
-            var donorDonationIds = db.Donations
-                .Where(d => d.SupporterId == linkedId.Value)
-                .Select(d => d.DonationId);
-            query = query.Where(da => donorDonationIds.Contains(da.DonationId));
+            query = query.Where(x => x.Donation.SupporterId == linkedId.Value);
         }
         else if (!User.IsInRole("Admin"))
         {
@@ -102,13 +130,43 @@ public class DonationAllocationsController(AppDbContext db, UserManager<Applicat
         }
 
         if (donationId.HasValue)
-            query = query.Where(da => da.DonationId == donationId.Value);
+            query = query.Where(x => x.Allocation.DonationId == donationId.Value);
         if (safehouseId.HasValue)
-            query = query.Where(da => da.SafehouseId == safehouseId.Value);
+            query = query.Where(x => x.Allocation.SafehouseId == safehouseId.Value);
         if (!string.IsNullOrWhiteSpace(programArea))
-            query = query.Where(da => da.ProgramArea == programArea);
+            query = query.Where(x => x.Allocation.ProgramArea == programArea);
 
-        var result = await query.ToPagedResultAsync(page, pageSize);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var tokens = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var token in tokens)
+            {
+                var term = $"%{token}%";
+                var hasDonationId = int.TryParse(token, out var parsedDonationId);
+                var hasSafehouseId = int.TryParse(token, out var parsedSafehouseId);
+                var hasAmount = decimal.TryParse(token, out var parsedAmount);
+
+                query = query.Where(x =>
+                    (hasDonationId && x.Allocation.DonationId == parsedDonationId) ||
+                    (hasSafehouseId && x.Allocation.SafehouseId == parsedSafehouseId) ||
+                    (hasAmount && x.Allocation.AmountAllocated == parsedAmount) ||
+                    EF.Functions.ILike(x.DonorName, term) ||
+                    EF.Functions.ILike(x.SafehouseName, term) ||
+                    EF.Functions.ILike(x.Allocation.ProgramArea, term) ||
+                    EF.Functions.ILike(x.Allocation.AllocationNotes ?? string.Empty, term));
+            }
+        }
+
+        var desc = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+        var sorted = sortBy.ToLowerInvariant() switch
+        {
+            "amount" => desc ? query.OrderByDescending(x => x.Allocation.AmountAllocated) : query.OrderBy(x => x.Allocation.AmountAllocated),
+            "program" => desc ? query.OrderByDescending(x => x.Allocation.ProgramArea) : query.OrderBy(x => x.Allocation.ProgramArea),
+            "safehouse" => desc ? query.OrderByDescending(x => x.SafehouseName) : query.OrderBy(x => x.SafehouseName),
+            _ => desc ? query.OrderByDescending(x => x.Allocation.AllocationDate) : query.OrderBy(x => x.Allocation.AllocationDate),
+        };
+
+        var result = await sorted.Select(x => x.Allocation).ToPagedResultAsync(page, pageSize);
         return Ok(result);
     }
 
@@ -162,7 +220,19 @@ public class DonationAllocationsController(AppDbContext db, UserManager<Applicat
 
         var donations = await db.Donations
             .Where(d => d.Amount != null && d.Amount > 0)
-            .Select(d => new { d.DonationId, d.Amount, d.DonationType, d.DonationDate, d.CampaignName })
+            .Join(
+                db.Supporters,
+                donation => donation.SupporterId,
+                supporter => supporter.SupporterId,
+                (donation, supporter) => new
+                {
+                    donation.DonationId,
+                    donation.Amount,
+                    donation.DonationType,
+                    donation.DonationDate,
+                    donation.CampaignName,
+                    DonorName = supporter.DisplayName
+                })
             .ToListAsync();
 
         var result = donations
@@ -170,7 +240,7 @@ public class DonationAllocationsController(AppDbContext db, UserManager<Applicat
             {
                 var allocated = allocatedLookup.GetValueOrDefault(d.DonationId, 0m);
                 var remaining = (d.Amount ?? 0m) - allocated;
-                return new { d.DonationId, d.Amount, d.DonationType, d.DonationDate, d.CampaignName, remaining };
+                return new { d.DonationId, d.Amount, d.DonationType, d.DonationDate, d.CampaignName, d.DonorName, remaining };
             })
             .Where(d => d.remaining > 0)
             .OrderByDescending(d => d.remaining)

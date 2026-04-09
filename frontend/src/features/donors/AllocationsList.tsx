@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
+import { useDebounce } from '../../hooks/useDebounce';
 import { formatLocalizedCurrency, formatLocalizedDate, resolveUserPreferences } from '../../lib/locale';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -16,7 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { useAuthStore } from '../../stores/authStore';
-import type { DonationAllocation, Safehouse } from '../../types/models';
+import type { DonationAllocation, Safehouse, Supporter } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
 const selectClass =
@@ -62,6 +63,16 @@ function createAllocationSchema(t: (key: string) => string) {
 
 type AllocationFormData = z.infer<ReturnType<typeof createAllocationSchema>>;
 
+type UnallocatedDonationOption = {
+  donationId: number;
+  amount: number;
+  donationType: string;
+  donationDate: string;
+  campaignName: string | null;
+  donorName: string;
+  remaining: number;
+};
+
 function AllocationForm({
   safehouses, onSubmit, onCancel, isSubmitting,
 }: {
@@ -77,11 +88,13 @@ function AllocationForm({
     resolver: zodResolver(allocationSchema),
     defaultValues: { allocationDate: new Date().toISOString().slice(0, 10), allocationNotes: '' },
   });
+  const [donationSearch, setDonationSearch] = useState('');
+  const [showDonationOptions, setShowDonationOptions] = useState(false);
 
   const { data: unallocatedDonations } = useQuery({
     queryKey: ['unallocated-donations'],
     queryFn: () =>
-      api.get<{ donationId: number; amount: number; donationType: string; donationDate: string; campaignName: string | null; remaining: number }[]>(
+      api.get<UnallocatedDonationOption[]>(
         '/api/donation-allocations/unallocated-donations',
       ),
   });
@@ -90,32 +103,70 @@ function AllocationForm({
   const selectedDonation = (unallocatedDonations ?? []).find(
     (d) => d.donationId === Number(selectedDonationId),
   );
+  const donationIdField = register('donationId', {
+    valueAsNumber: true,
+    onBlur: () => setShowDonationOptions(false),
+    onChange: (e) => {
+      const don = (unallocatedDonations ?? []).find(
+        (d) => d.donationId === Number(e.target.value),
+      );
+      if (don) {
+        setValue('amountAllocated', don.remaining);
+        setDonationSearch(`${don.donationId} ${don.donorName}`);
+      }
+      setShowDonationOptions(false);
+    },
+  });
+  const filteredDonations = useMemo(
+    () => (unallocatedDonations ?? []).filter((donation) =>
+      smartMatch(donationSearch, [
+        donation.donationId,
+        donation.donorName,
+        donation.amount,
+        donation.remaining,
+        donation.campaignName,
+      ])),
+    [donationSearch, unallocatedDonations],
+  );
+  const donationSelectSize = showDonationOptions
+    ? Math.min(Math.max(filteredDonations.length, 2), 6)
+    : 1;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('donors.donation')}</label>
+          <Input
+            value={donationSearch}
+            onChange={(e) => {
+              setDonationSearch(e.target.value);
+              setShowDonationOptions(true);
+            }}
+            onFocus={() => setShowDonationOptions(true)}
+            onBlur={() => {
+              window.setTimeout(() => setShowDonationOptions(false), 150);
+            }}
+            placeholder="Search by donation #, donor, or amount..."
+            className="mb-2"
+          />
           <select
-            className={selectClass}
-            {...register('donationId', {
-              valueAsNumber: true,
-              onChange: (e) => {
-                const don = (unallocatedDonations ?? []).find(
-                  (d) => d.donationId === Number(e.target.value),
-                );
-                if (don) setValue('amountAllocated', don.remaining);
-              },
-            })}
+            className={`${selectClass} ${showDonationOptions ? 'min-h-[8rem]' : ''}`}
+            size={donationSelectSize}
+            onFocus={() => setShowDonationOptions(true)}
+            {...donationIdField}
           >
             <option value="">Select donation...</option>
-            {(unallocatedDonations ?? []).map((d) => (
+            {filteredDonations.map((d) => (
               <option key={d.donationId} value={d.donationId}>
-                #{d.donationId} — {formatLocalizedCurrency(d.remaining, preferences, { maximumFractionDigits: 2 })} left
+                #{d.donationId} — {d.donorName} — {formatLocalizedCurrency(d.remaining, preferences, { maximumFractionDigits: 2 })} left
                 {d.campaignName ? ` (${d.campaignName})` : ''}
               </option>
             ))}
           </select>
+          {donationSearch.trim() && filteredDonations.length === 0 && (
+            <p className="mt-1 text-xs text-warm-gray dark:text-white/50">No donations match that search.</p>
+          )}
           {errors.donationId && <p className="mt-1 text-xs text-red-500">{errors.donationId.message}</p>}
         </div>
         <div>
@@ -182,11 +233,21 @@ export function AllocationsList() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [addOpen, setAddOpen] = useState(false);
 
+  const debouncedSearch = useDebounce(search, 300);
+
+  const queryParams = new URLSearchParams();
+  queryParams.set('page', String(page));
+  queryParams.set('pageSize', String(pageSize));
+  queryParams.set('sortBy', sortKey);
+  queryParams.set('sortDir', sortDir);
+  if (programFilter) queryParams.set('programArea', programFilter);
+  if (debouncedSearch) queryParams.set('search', debouncedSearch);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['donation-allocations', page, pageSize],
+    queryKey: ['donation-allocations', page, pageSize, programFilter, debouncedSearch, sortKey, sortDir],
     queryFn: () =>
       api.get<PagedResult<DonationAllocation>>(
-        `/api/donation-allocations?page=${page}&pageSize=${pageSize}`,
+        `/api/donation-allocations?${queryParams.toString()}`,
       ),
   });
 
@@ -203,7 +264,23 @@ export function AllocationsList() {
     queryKey: ['safehouses-list'],
     queryFn: () => api.get<{ items: Safehouse[] }>('/api/safehouses?pageSize=100'),
   });
+  const { data: donationsData } = useQuery({
+    queryKey: ['donations-allocation-lookup'],
+    queryFn: () => api.get<PagedResult<{ donationId: number; supporterId: number }>>('/api/donations?page=1&pageSize=1000'),
+  });
+  const { data: supportersData } = useQuery({
+    queryKey: ['supporters-allocation-lookup'],
+    queryFn: () => api.get<PagedResult<Supporter>>('/api/supporters?page=1&pageSize=1000'),
+  });
   const safehouses = safehousesData?.items ?? [];
+  const donationSupporterMap = useMemo(
+    () => new Map((donationsData?.items ?? []).map((donation) => [donation.donationId, donation.supporterId])),
+    [donationsData],
+  );
+  const supporterNameMap = useMemo(
+    () => new Map((supportersData?.items ?? []).map((supporter) => [supporter.supporterId, supporter.displayName])),
+    [supportersData],
+  );
 
   const createMutation = useMutation({
     mutationFn: (body: AllocationFormData) =>
@@ -223,32 +300,6 @@ export function AllocationsList() {
       setAddOpen(false);
     },
   });
-
-  const processed = useMemo(() => {
-    let items = data?.items ?? [];
-    if (programFilter) items = items.filter((r) => r.programArea === programFilter);
-    if (search.trim()) {
-      items = items.filter((r) =>
-        smartMatch(search, [
-          r.donationId,
-          r.safehouseId,
-          safehouses.find((s) => s.safehouseId === r.safehouseId)?.name ?? '',
-          r.programArea,
-          r.amountAllocated,
-          r.allocationDate,
-          r.allocationNotes,
-        ]),
-      );
-    }
-    return [...items].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === 'date') cmp = a.allocationDate.localeCompare(b.allocationDate);
-      else if (sortKey === 'amount') cmp = a.amountAllocated - b.amountAllocated;
-      else if (sortKey === 'program') cmp = a.programArea.localeCompare(b.programArea);
-      else if (sortKey === 'safehouse') cmp = a.safehouseId - b.safehouseId;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-  }, [data, search, programFilter, sortKey, sortDir, safehouses]);
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
@@ -279,6 +330,15 @@ export function AllocationsList() {
       key: 'donationId',
       header: <span className="flex items-center">{t('donors.donation')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => `#${row.donationId}`,
+    },
+    {
+      key: 'donorName',
+      header: t('donors.supporter'),
+      render: (row: Record<string, unknown>) => {
+        const donationId = Number(row.donationId);
+        const supporterId = donationSupporterMap.get(donationId);
+        return supporterId ? supporterNameMap.get(supporterId) ?? `#${supporterId}` : '--';
+      },
     },
     {
       key: 'safehouseId',
@@ -346,13 +406,19 @@ export function AllocationsList() {
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
               placeholder={t('donors.searchAllocations')}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <select
             className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
             value={programFilter}
-            onChange={(e) => setProgramFilter(e.target.value)}
+            onChange={(e) => {
+              setProgramFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">{t('common.all')}</option>
             {programAreas.map((a) => <option key={a} value={a}>{getProgramAreaLabel(a, t)}</option>)}
@@ -361,7 +427,7 @@ export function AllocationsList() {
 
         <Table
           columns={columns as Parameters<typeof Table>[0]['columns']}
-          data={processed as unknown as Record<string, unknown>[]}
+          data={(data?.items ?? []) as unknown as Record<string, unknown>[]}
           loading={isLoading}
           emptyMessage={t('common.noData')}
           page={page}
