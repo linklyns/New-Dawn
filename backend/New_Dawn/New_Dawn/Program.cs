@@ -161,6 +161,7 @@ if (app.Environment.IsProduction())
 
 app.UseMiddleware<CspMiddleware>();
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseCors("AllowFrontend");
 
 app.UseSwagger();

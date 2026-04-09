@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using New_Dawn.DTOs;
@@ -9,57 +10,94 @@ namespace New_Dawn.Controllers;
 [ApiController]
 [Route("api/ai")]
 [Authorize(Roles = "Admin,Staff")]
-public class AiController : ControllerBase
+public class AiController(ILogger<AiController> logger) : ControllerBase
 {
+    private const string DefaultGeminiModel = "gemini-2.5-flash";
+    private static readonly string[] DefaultGeminiFallbackModels =
+    [
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash"
+    ];
+
+    [HttpPost("social/generate")]
+    public async Task<IActionResult> GenerateSocialDraft([FromBody] GenerateSocialDraftRequest request)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            var generated = await CallGeminiForSocialDraft(apiKey, BuildSocialGenerationPrompt(request.Brief), [], logger, "social-generate");
+            if (generated != null)
+            {
+                return Ok(generated);
+            }
+        }
+
+        return Ok(GenerateSocialDraftFallback(request.Brief));
+    }
+
+    [HttpPost("social/refine")]
+    public async Task<IActionResult> RefineSocialDraft([FromBody] RefineSocialDraftRequest request)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            var generated = await CallGeminiForSocialDraft(apiKey, BuildSocialRefinePrompt(request.Draft), request.ConversationHistory, logger, "social-refine", request.Message);
+            if (generated != null)
+            {
+                return Ok(generated);
+            }
+        }
+
+        return Ok(RefineSocialDraftFallback(request));
+    }
+
     [HttpPost("chat")]
     public async Task<IActionResult> Chat([FromBody] AiChatRequest request)
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            return await CallOpenAi(apiKey, request);
+            return await CallGemini(apiKey, request, logger);
         }
 
         return Ok(GenerateFallbackResponse(request));
     }
 
-    private static async Task<IActionResult> CallOpenAi(string apiKey, AiChatRequest request)
+    private static async Task<IActionResult> CallGemini(string apiKey, AiChatRequest request, ILogger logger)
     {
         using var httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
         var systemPrompt = BuildSystemPrompt(request.EditorState);
 
-        var messages = new List<object>
-        {
-            new { role = "system", content = systemPrompt }
-        };
+        var contents = new List<object>();
 
+        // Add conversation history
         foreach (var msg in request.ConversationHistory)
         {
-            messages.Add(new { role = msg.Role, content = msg.Content });
+            var geminiRole = msg.Role == "assistant" ? "model" : "user";
+            contents.Add(new { role = geminiRole, parts = new[] { new { text = msg.Content } } });
         }
 
-        messages.Add(new { role = "user", content = request.Message });
+        // Add current user message
+        contents.Add(new { role = "user", parts = new[] { new { text = request.Message } } });
 
         var payload = new
         {
-            model = "gpt-4o",
-            messages,
-            temperature = 0.7,
-            max_tokens = 1000,
-            response_format = new { type = "json_object" }
+            system_instruction = new { parts = new[] { new { text = systemPrompt } } },
+            contents,
+            generationConfig = new
+            {
+                temperature = 0.7,
+                maxOutputTokens = 1000,
+                responseMimeType = "application/json"
+            }
         };
 
-        var json = JsonSerializer.Serialize(payload);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await httpClient.PostAsync("https://api.openai.com/v1/chat/completions", content);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+        var responseBody = await PostToGeminiWithFallback(httpClient, apiKey, payload, logger, "chat");
+        if (string.IsNullOrWhiteSpace(responseBody))
         {
+            logger.LogWarning("Gemini chat request failed for all configured models.");
             return new ObjectResult(new { text = "Sorry, I encountered an error connecting to the AI service.", commands = Array.Empty<object>() })
             {
                 StatusCode = 200
@@ -68,12 +106,15 @@ public class AiController : ControllerBase
 
         using var doc = JsonDocument.Parse(responseBody);
         var messageContent = doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
+            .GetProperty("candidates")[0]
             .GetProperty("content")
+            .GetProperty("parts")[0]
+            .GetProperty("text")
             .GetString() ?? "{}";
 
-        using var parsed = JsonDocument.Parse(messageContent);
+        var responseJson = ExtractJsonPayload(messageContent);
+
+        using var parsed = JsonDocument.Parse(responseJson);
         var root = parsed.RootElement;
 
         var text = root.TryGetProperty("text", out var textProp) ? textProp.GetString() ?? "" : "";
@@ -92,6 +133,274 @@ public class AiController : ControllerBase
         }
 
         return new OkObjectResult(new AiChatResponse { Text = text, Commands = commands });
+    }
+
+    private static async Task<SocialDraftAiResponse?> CallGeminiForSocialDraft(
+        string apiKey,
+        string systemPrompt,
+        IReadOnlyCollection<ChatMessage> history,
+        ILogger logger,
+        string operationName,
+        string? currentUserMessage = null)
+    {
+        using var httpClient = new HttpClient();
+
+        // Build turn list from history, then append current message
+        var turns = new List<(string role, string text)>();
+        foreach (var msg in history)
+        {
+            turns.Add((msg.Role == "assistant" ? "model" : "user", msg.Content));
+        }
+
+        if (!string.IsNullOrWhiteSpace(currentUserMessage))
+        {
+            turns.Add(("user", currentUserMessage));
+        }
+        else
+        {
+            turns.Add(("user", "Generate the strongest possible first draft from the provided brief."));
+        }
+
+        // Gemini requires the first content to have role "user" — drop leading model turns
+        // (the system_instruction already carries the full draft context)
+        while (turns.Count > 0 && turns[0].role == "model")
+        {
+            turns.RemoveAt(0);
+        }
+
+        // Merge consecutive same-role turns (Gemini requires strict alternation)
+        var merged = new List<(string role, string text)>();
+        foreach (var turn in turns)
+        {
+            if (merged.Count > 0 && merged[^1].role == turn.role)
+            {
+                merged[^1] = (turn.role, merged[^1].text + "\n\n" + turn.text);
+            }
+            else
+            {
+                merged.Add(turn);
+            }
+        }
+
+        var contents = merged
+            .Select(t => (object)new { role = t.role, parts = new[] { new { text = t.text } } })
+            .ToList();
+
+        var payload = new
+        {
+            system_instruction = new { parts = new[] { new { text = systemPrompt } } },
+            contents,
+            generationConfig = new
+            {
+                temperature = 0.8,
+                maxOutputTokens = 1400,
+                responseMimeType = "application/json"
+            }
+        };
+
+        var responseBody = await PostToGeminiWithFallback(httpClient, apiKey, payload, logger, operationName);
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            logger.LogWarning("Gemini {OperationName} request failed for all configured models.", operationName);
+            return null;
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        var messageContent = doc.RootElement
+            .GetProperty("candidates")[0]
+            .GetProperty("content")
+            .GetProperty("parts")[0]
+            .GetProperty("text")
+            .GetString() ?? "{}";
+
+        var responseJson = ExtractJsonPayload(messageContent);
+        return JsonSerializer.Deserialize<SocialDraftAiResponse>(responseJson, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    }
+
+    private static async Task<string?> PostToGeminiWithFallback(HttpClient httpClient, string apiKey, object payload, ILogger logger, string operationName)
+    {
+        var json = JsonSerializer.Serialize(payload);
+        var models = GetGeminiModels();
+
+        logger.LogInformation("Gemini {OperationName} using model chain: {Models}", operationName, string.Join(", ", models));
+
+        foreach (var model in models)
+        {
+            try
+            {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await httpClient.PostAsync(
+                    $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}",
+                    content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("Gemini {OperationName} succeeded with model {Model}.", operationName, model);
+                    return await response.Content.ReadAsStringAsync();
+                }
+
+                logger.LogWarning("Gemini {OperationName} model {Model} returned status {StatusCode}.", operationName, model, (int)response.StatusCode);
+
+                if (!ShouldTryNextModel(response.StatusCode))
+                {
+                    logger.LogWarning("Gemini {OperationName} stopped failover after model {Model} due to non-retryable status {StatusCode}.", operationName, model, (int)response.StatusCode);
+                    return null;
+                }
+
+                logger.LogInformation("Gemini {OperationName} falling back from model {Model} to the next configured model.", operationName, model);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Gemini {OperationName} model {Model} threw an exception. Trying next configured model.", operationName, model);
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> GetGeminiModels()
+    {
+        var configuredModels = Environment.GetEnvironmentVariable("GEMINI_MODELS");
+        if (!string.IsNullOrWhiteSpace(configuredModels))
+        {
+            var parsed = configuredModels
+                .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(model => !string.IsNullOrWhiteSpace(model))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (parsed.Length > 0)
+            {
+                return parsed;
+            }
+        }
+
+        var singleModel = Environment.GetEnvironmentVariable("GEMINI_MODEL")?.Trim();
+        if (!string.IsNullOrWhiteSpace(singleModel))
+        {
+            return [singleModel];
+        }
+
+        return DefaultGeminiFallbackModels;
+    }
+
+    private static bool ShouldTryNextModel(HttpStatusCode statusCode)
+    {
+        return statusCode switch
+        {
+            HttpStatusCode.Unauthorized => false,
+            HttpStatusCode.Forbidden => false,
+            _ => true
+        };
+    }
+
+    private static string ExtractJsonPayload(string content)
+    {
+        var trimmed = content.Trim();
+
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var lines = trimmed
+            .Split('\n', StringSplitOptions.TrimEntries)
+            .Where(line => !line.StartsWith("```", StringComparison.Ordinal))
+            .ToArray();
+
+        return string.Join("\n", lines).Trim();
+    }
+
+    private static string BuildSocialGenerationPrompt(SocialDraftAiState brief)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You are New Dawn's AI social content strategist and copywriter.");
+        sb.AppendLine("You create posts for a nonprofit supporting girls rescued from trafficking and abuse in the Philippines.");
+        sb.AppendLine("Use compassionate, dignified, non-sensational language.");
+        sb.AppendLine("Respond ONLY with valid JSON matching this shape:");
+        sb.AppendLine("{ \"text\": \"short explanation of your choices\", \"draft\": { \"title\": \"...\", \"platform\": \"...\", \"postType\": \"...\", \"mediaType\": \"...\", \"callToActionType\": \"...\", \"contentTopic\": \"...\", \"sentimentTone\": \"...\", \"hashtags\": \"...\", \"audience\": \"...\", \"campaignName\": \"...\", \"additionalInstructions\": \"...\", \"headline\": \"...\", \"body\": \"...\", \"ctaText\": \"...\", \"websiteUrl\": \"...\" } }");
+        sb.AppendLine("Generate a strong first draft. If hashtags were left blank, suggest them.");
+        sb.AppendLine("Keep the output realistic for the selected platform and media type.");
+        sb.AppendLine("IMPORTANT: Do not insert line breaks within paragraphs in the body field. Write each paragraph as a single continuous line. Use \\n\\n only for paragraph breaks.");
+        sb.AppendLine($"Brief: {JsonSerializer.Serialize(brief)}");
+        return sb.ToString();
+    }
+
+    private static string BuildSocialRefinePrompt(SocialDraftAiState draft)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You are refining an existing New Dawn social media draft.");
+        sb.AppendLine("Preserve the user's intent, platform, and media context unless the user explicitly asks to change them.");
+        sb.AppendLine("IMPORTANT: Do not insert line breaks within paragraphs in the body field. Write each paragraph as a single continuous line. Use \\n\\n only for paragraph breaks.");
+        sb.AppendLine("Respond ONLY with valid JSON matching this shape:");
+        sb.AppendLine("{ \"text\": \"what you changed\", \"draft\": { \"title\": \"...\", \"platform\": \"...\", \"postType\": \"...\", \"mediaType\": \"...\", \"callToActionType\": \"...\", \"contentTopic\": \"...\", \"sentimentTone\": \"...\", \"hashtags\": \"...\", \"audience\": \"...\", \"campaignName\": \"...\", \"additionalInstructions\": \"...\", \"headline\": \"...\", \"body\": \"...\", \"ctaText\": \"...\", \"websiteUrl\": \"...\" } }");
+        sb.AppendLine($"Current draft: {JsonSerializer.Serialize(draft)}");
+        return sb.ToString();
+    }
+
+    private static SocialDraftAiResponse GenerateSocialDraftFallback(SocialDraftAiState brief)
+    {
+        var generated = new SocialDraftAiState
+        {
+            Title = string.IsNullOrWhiteSpace(brief.Title) ? $"{brief.ContentTopic} {brief.Platform} draft" : brief.Title,
+            Platform = brief.Platform,
+            PostType = brief.PostType,
+            MediaType = brief.MediaType,
+            CallToActionType = brief.CallToActionType,
+            ContentTopic = brief.ContentTopic,
+            SentimentTone = brief.SentimentTone,
+            Hashtags = string.IsNullOrWhiteSpace(brief.Hashtags) ? GenerateHashtags(brief.ContentTopic, brief.Platform) : brief.Hashtags,
+            Audience = brief.Audience,
+            CampaignName = brief.CampaignName,
+            AdditionalInstructions = brief.AdditionalInstructions,
+            Headline = GenerateHeadline(brief.ContentTopic, brief.SentimentTone),
+            Body = GenerateCaption(brief.Platform, brief.ContentTopic, brief.SentimentTone, brief.CallToActionType),
+            CtaText = brief.CallToActionType switch
+            {
+                "DonateNow" => "Donate today to help more girls find safety.",
+                "LearnMore" => "Learn more about the impact your support makes.",
+                "ShareStory" => "Share this post to help more people hear their stories.",
+                "SignUp" => "Sign up to stay connected with New Dawn.",
+                _ => "Join us in supporting every girl's path to safety and healing."
+            },
+            WebsiteUrl = string.IsNullOrWhiteSpace(brief.WebsiteUrl) ? "new-dawn-virid.vercel.app" : brief.WebsiteUrl
+        };
+
+        return new SocialDraftAiResponse
+        {
+            Text = "I created a first-pass post based on your brief. You can edit any field or ask me to revise the tone, CTA, or wording.",
+            Draft = generated
+        };
+    }
+
+    private static SocialDraftAiResponse RefineSocialDraftFallback(RefineSocialDraftRequest request)
+    {
+        var updated = request.Draft;
+        var message = request.Message.ToLowerInvariant();
+
+        if (message.Contains("shorter"))
+        {
+            updated.Body = updated.Body.Length > 180 ? updated.Body[..180].TrimEnd() + "..." : updated.Body;
+        }
+        else if (message.Contains("stronger call to action") || message.Contains("stronger cta"))
+        {
+            updated.CtaText = "Give today to help create safety, healing, and new beginnings.";
+        }
+        else if (message.Contains("hopeful"))
+        {
+            updated.SentimentTone = "Hopeful";
+            updated.Body = GenerateCaption(updated.Platform, updated.ContentTopic, updated.SentimentTone, updated.CallToActionType);
+        }
+        else
+        {
+            updated.Body = updated.Body + "\n\n" + "Together, we can keep building safer futures for every girl in our care.";
+        }
+
+        return new SocialDraftAiResponse
+        {
+            Text = "I updated the draft based on your request. You can keep editing manually or ask for another revision.",
+            Draft = updated
+        };
     }
 
     private static string BuildSystemPrompt(JsonElement? editorState)

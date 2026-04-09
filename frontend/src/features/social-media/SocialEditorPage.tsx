@@ -1,625 +1,1215 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Clock, CalendarCheck, RotateCcw, TrendingUp, Heart, Eye, Users, Share2, DollarSign } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarClock, ImagePlus, MessageSquareText, RefreshCcw, Save, Sparkles, Trash2, WandSparkles } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Modal } from '../../components/ui/Modal';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { Spinner } from '../../components/ui/Spinner';
 import { api } from '../../lib/api';
-import { useEditorStore } from '../../stores/editorStore';
-import { useDebounce } from '../../hooks/useDebounce';
+import { normalizeRichTextHtml, richTextToPlainText } from '../../lib/richText';
+import type { PagedResult } from '../../types/api';
+import type { BestPostingTime, MlSocialPostPrediction } from '../../types/predictions';
+import type { SocialMediaDraft, SocialMediaDraftChatMessage, SocialMediaDraftSummary } from '../../types/models';
+import { SocialDraftPreview } from './SocialDraftPreview';
 
-/* ── Types ──────────────────────────────────────────────────── */
+type Stage = 'brief' | 'compose';
 
-interface AiCommand {
-  action: string;
-  value: string;
+interface DraftAiState {
+  title: string;
+  platform: string;
+  postType: string;
+  mediaType: string;
+  callToActionType: string;
+  contentTopic: string;
+  sentimentTone: string;
+  hashtags: string;
+  audience: string;
+  campaignName: string;
+  additionalInstructions: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+  websiteUrl: string;
 }
 
-interface AiChatResponse {
+interface SocialDraftAiResponse {
   text: string;
-  commands: AiCommand[];
+  draft: DraftAiState;
 }
 
-interface ChatMsg {
-  role: 'user' | 'assistant';
-  content: string;
-  commands?: AiCommand[];
+interface PendingUpload {
+  tempId: string;
+  file: File;
+  previewUrl?: string;
+  mediaKind: string;
 }
-
-interface PredictionResult {
-  predictedDonationReferrals: number;
-  predictedEstimatedDonationValuePhp: number;
-  predictedEngagementRate: number;
-  predictedForwards: number;
-  predictedProfileVisits: number;
-  predictedImpressions: number;
-}
-
-interface TimeSlot {
-  dayOfWeek: string;
-  postHour: number;
-  predictedEstimatedDonationValuePhp: number;
-  rank: number;
-}
-
-/* ── Constants ──────────────────────────────────────────────── */
 
 const PLATFORMS = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Twitter', 'WhatsApp'] as const;
 const POST_TYPES = ['FundraisingAppeal', 'EducationalContent', 'EventPromotion', 'ThankYou', 'StoryHighlight'] as const;
 const MEDIA_TYPES = ['Photo', 'Video', 'Carousel', 'Text', 'Reel'] as const;
-const CTA_TYPES = ['DonateNow', 'LearnMore', 'ShareStory', 'SignUp', ''] as const;
-const CTA_LABELS: Record<string, string> = { DonateNow: 'Donate Now', LearnMore: 'Learn More', ShareStory: 'Share Story', SignUp: 'Sign Up', '': 'None' };
+const PLATFORM_LABELS: Record<string, string> = {
+  Twitter: 'X (previously Twitter)',
+  X: 'X (previously Twitter)',
+};
+const CTA_TYPES = ['', 'DonateNow', 'LearnMore', 'ShareStory', 'SignUp'] as const;
+const OPTION_LABELS: Record<string, string> = {
+  '': 'No CTA yet',
+  DonateNow: 'Donate Now',
+  LearnMore: 'Learn More',
+  ShareStory: 'Share Story',
+  SignUp: 'Sign Up',
+  ...PLATFORM_LABELS,
+};
 const CONTENT_TOPICS = ['Education', 'Health', 'Reintegration', 'CampaignLaunch', 'Gratitude', 'SafehouseLife', 'AwarenessRaising', 'DonorImpact', 'EventRecap'] as const;
 const SENTIMENT_TONES = ['Grateful', 'Celebratory', 'Emotional', 'Urgent', 'Hopeful', 'Informative'] as const;
 
-const SELECT_CLASS =
-  'w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white';
+const briefSchema = z.object({
+  title: z.string().trim().min(2, 'Give this draft a title so you can find it later.'),
+  platform: z.enum(PLATFORMS),
+  postType: z.enum(POST_TYPES),
+  mediaType: z.enum(MEDIA_TYPES),
+  callToActionType: z.enum(CTA_TYPES),
+  contentTopic: z.enum(CONTENT_TOPICS),
+  sentimentTone: z.enum(SENTIMENT_TONES),
+  hashtags: z.string().max(280),
+  audience: z.string().trim().min(2, 'Add a short audience description.'),
+  campaignName: z.string().max(120),
+  additionalInstructions: z.string().max(2000),
+});
 
-function formatHour(h: number): string {
-  if (h === 0) return '12 AM';
-  if (h === 12) return '12 PM';
-  return h < 12 ? `${h} AM` : `${h - 12} PM`;
+type BriefValues = z.infer<typeof briefSchema>;
+
+function createEmptyDraft(): SocialMediaDraft {
+  return {
+    draftId: 0,
+    title: 'Untitled draft',
+    stage: 'brief',
+    status: 'draft',
+    platform: 'Instagram',
+    postType: 'FundraisingAppeal',
+    mediaType: 'Photo',
+    callToActionType: '',
+    contentTopic: 'Education',
+    sentimentTone: 'Informative',
+    hashtags: '',
+    audience: '',
+    campaignName: '',
+    additionalInstructions: '',
+    headline: '',
+    body: '',
+    ctaText: '',
+    websiteUrl: 'new-dawn-virid.vercel.app',
+    scheduledDay: null,
+    scheduledHour: null,
+    chatHistory: [],
+    mediaItems: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
-/* ── Sub-Components ─────────────────────────────────────────── */
+function toBriefValues(draft: SocialMediaDraft): BriefValues {
+  return {
+    title: draft.title,
+    platform: draft.platform as BriefValues['platform'],
+    postType: draft.postType as BriefValues['postType'],
+    mediaType: draft.mediaType as BriefValues['mediaType'],
+    callToActionType: (draft.callToActionType || '') as BriefValues['callToActionType'],
+    contentTopic: draft.contentTopic as BriefValues['contentTopic'],
+    sentimentTone: draft.sentimentTone as BriefValues['sentimentTone'],
+    hashtags: draft.hashtags,
+    audience: draft.audience,
+    campaignName: draft.campaignName,
+    additionalInstructions: draft.additionalInstructions,
+  };
+}
 
-function SelectField({ label, value, onChange, options, labelMap }: {
+function toDraftAiState(draft: SocialMediaDraft): DraftAiState {
+  return {
+    title: draft.title,
+    platform: draft.platform,
+    postType: draft.postType,
+    mediaType: draft.mediaType,
+    callToActionType: draft.callToActionType,
+    contentTopic: draft.contentTopic,
+    sentimentTone: draft.sentimentTone,
+    hashtags: draft.hashtags,
+    audience: draft.audience,
+    campaignName: draft.campaignName,
+    additionalInstructions: draft.additionalInstructions,
+    headline: draft.headline,
+    body: richTextToPlainText(draft.body),
+    ctaText: draft.ctaText,
+    websiteUrl: draft.websiteUrl,
+  };
+}
+
+function normalizeDraft(draft: SocialMediaDraft): SocialMediaDraft {
+  return {
+    ...draft,
+    body: normalizeRichTextHtml(draft.body),
+  };
+}
+
+function mergeAiIntoDraft(base: SocialMediaDraft, aiDraft: DraftAiState): SocialMediaDraft {
+  return {
+    ...base,
+    ...aiDraft,
+    body: normalizeRichTextHtml(aiDraft.body),
+    stage: 'compose',
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function buildUpsertPayload(draft: SocialMediaDraft) {
+  return {
+    title: draft.title,
+    stage: draft.stage,
+    platform: draft.platform,
+    postType: draft.postType,
+    mediaType: draft.mediaType,
+    callToActionType: draft.callToActionType,
+    contentTopic: draft.contentTopic,
+    sentimentTone: draft.sentimentTone,
+    hashtags: draft.hashtags,
+    audience: draft.audience,
+    campaignName: draft.campaignName,
+    additionalInstructions: draft.additionalInstructions,
+    headline: draft.headline,
+    body: draft.body,
+    ctaText: draft.ctaText,
+    websiteUrl: draft.websiteUrl,
+    scheduledDay: draft.scheduledDay,
+    scheduledHour: draft.scheduledHour,
+    chatHistory: draft.chatHistory,
+  };
+}
+
+function toDraftSummary(draft: SocialMediaDraft): SocialMediaDraftSummary {
+  return {
+    draftId: draft.draftId,
+    title: draft.title,
+    stage: draft.stage,
+    status: draft.status,
+    platform: draft.platform,
+    mediaType: draft.mediaType,
+    contentTopic: draft.contentTopic,
+    sentimentTone: draft.sentimentTone,
+    updatedAt: draft.updatedAt,
+    mediaCount: draft.mediaItems.length,
+  };
+}
+
+function formatUpdatedAt(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatHour(hour: number): string {
+  if (hour === 0) return '12 AM';
+  if (hour === 12) return '12 PM';
+  return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+}
+
+function needsVisualMedia(mediaType: string): boolean {
+  return mediaType === 'Photo' || mediaType === 'Video' || mediaType === 'Carousel' || mediaType === 'Reel';
+}
+
+function describeDraft(draft: Pick<SocialMediaDraft, 'platform' | 'mediaType' | 'contentTopic'>) {
+  const platformLabel = PLATFORM_LABELS[draft.platform] ?? draft.platform;
+  return `${platformLabel} ${draft.mediaType.toLowerCase()} for ${draft.contentTopic.toLowerCase()}`;
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  helper,
+}: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
   options: readonly string[];
-  labelMap?: Record<string, string>;
+  onChange: (value: string) => void;
+  helper?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-slate-navy dark:text-white">{label}</label>
+    <label className="flex flex-col gap-2">
+      <span className="text-sm font-medium text-slate-navy dark:text-white">{label}</span>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={SELECT_CLASS}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
       >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{labelMap?.[opt] ?? opt}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{OPTION_LABELS[option] ?? option}</option>
         ))}
       </select>
-    </div>
+      {helper && <span className="text-xs text-warm-gray">{helper}</span>}
+    </label>
   );
 }
 
-function PredictionCard({ label, value, icon: Icon, suffix, loading }: {
-  label: string;
-  value: number | null;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  suffix?: string;
-  loading: boolean;
-}) {
-  const formatted = (() => {
-    if (value === null) return '';
-    if (suffix === '%') return `${value.toFixed(2)}%`;
-    if (suffix === 'PHP') return `${value.toLocaleString()} PHP`;
-    return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  })();
-
+function StagePill({ active, children }: { active: boolean; children: React.ReactNode }) {
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="rounded-lg border border-slate-navy/10 bg-white p-3 dark:border-white/10 dark:bg-slate-navy/60"
-    >
-      <div className="flex items-center gap-2 text-warm-gray">
-        <Icon size={14} className="shrink-0" />
-        <span className="text-xs">{label}</span>
-      </div>
-      {loading || value === null ? (
-        <div className="mt-1.5 h-5 w-16 animate-pulse rounded bg-slate-navy/10 dark:bg-white/10" />
-      ) : (
-        <motion.p
-          key={value}
-          initial={{ opacity: 0.5, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mt-1 text-lg font-bold text-slate-navy dark:text-white"
-        >
-          {formatted}
-        </motion.p>
-      )}
-    </motion.div>
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${active ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-warm-gray dark:bg-white/10 dark:text-white/60'}`}>
+      {children}
+    </span>
   );
 }
-
-/* ── Main Component ─────────────────────────────────────────── */
 
 export function SocialEditorPage() {
-  const store = useEditorStore();
-  const [postType, setPostType] = useState('FundraisingAppeal');
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const queryClient = useQueryClient();
+  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
+  const [activeDraft, setActiveDraft] = useState<SocialMediaDraft>(createEmptyDraft);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [persistedPreviewUrls, setPersistedPreviewUrls] = useState<Record<number, string>>({});
+  const [prediction, setPrediction] = useState<MlSocialPostPrediction | null>(null);
+  const [bestTimes, setBestTimes] = useState<BestPostingTime[]>([]);
+  const [insightError, setInsightError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [predictions, setPredictions] = useState<PredictionResult | null>(null);
-  const [predictionsLoading, setPredictionsLoading] = useState(false);
-  const [goldenSlots, setGoldenSlots] = useState<TimeSlot[]>([]);
-  const [goldenLoading, setGoldenLoading] = useState(false);
-  const [highlightedField, setHighlightedField] = useState<string | null>(null);
-  const [appliedNotice, setAppliedNotice] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [chatIsThinking, setChatIsThinking] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const autoSaveSkipRef = useRef(true);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  /* ── Debounced prediction state ───────────────────────────── */
+  const form = useForm<BriefValues>({
+    resolver: zodResolver(briefSchema),
+    defaultValues: toBriefValues(activeDraft),
+  });
 
-  const debouncedPlatform = useDebounce(store.platform, 1000);
-  const debouncedMediaType = useDebounce(store.mediaType, 1000);
-  const debouncedCtaType = useDebounce(store.ctaType, 1000);
-  const debouncedContentTopic = useDebounce(store.contentTopic, 1000);
-  const debouncedSentimentTone = useDebounce(store.sentimentTone, 1000);
-  const debouncedCaptionLength = useDebounce(store.captionLength, 1000);
-  const debouncedScheduledDay = useDebounce(store.scheduledDay, 1000);
-  const debouncedScheduledHour = useDebounce(store.scheduledHour, 1000);
-  const debouncedPostType = useDebounce(postType, 1000);
+  const draftsQuery = useQuery({
+    queryKey: ['social-media-drafts'],
+    queryFn: () => api.get<PagedResult<SocialMediaDraftSummary>>('/api/social-media-drafts?page=1&pageSize=50'),
+  });
 
-  /* ── Fetch predictions on debounced change ────────────────── */
+  const selectedDraftQuery = useQuery({
+    queryKey: ['social-media-drafts', selectedDraftId],
+    queryFn: () => api.get<SocialMediaDraft>(`/api/social-media-drafts/${selectedDraftId}`),
+    enabled: selectedDraftId !== null,
+  });
 
-  const fetchPredictions = useCallback(async () => {
-    setPredictionsLoading(true);
-    try {
-      const resp = await api.post<{ items: PredictionResult[] }>('/api/predictions/ml/social-lookup', {
-        platform: debouncedPlatform,
-        postType: debouncedPostType,
-        mediaType: debouncedMediaType,
-        contentTopic: debouncedContentTopic,
-        sentimentTone: debouncedSentimentTone,
-        callToActionType: debouncedCtaType,
-        captionLength: debouncedCaptionLength,
-        postHour: debouncedScheduledHour ?? 12,
-        dayOfWeek: debouncedScheduledDay ?? 'Monday',
+  const createDraftMutation = useMutation({
+    mutationFn: (payload: ReturnType<typeof buildUpsertPayload>) => api.post<SocialMediaDraft>('/api/social-media-drafts', payload),
+  });
+
+  const updateDraftMutation = useMutation({
+    mutationFn: ({ draftId, payload }: { draftId: number; payload: ReturnType<typeof buildUpsertPayload> }) =>
+      api.put<SocialMediaDraft>(`/api/social-media-drafts/${draftId}`, payload),
+  });
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: (draftId: number) => api.delete<{ success: boolean }>(`/api/social-media-drafts/${draftId}?confirm=true`),
+  });
+
+  const clearPendingUploads = useCallback(() => {
+    setPendingUploads((prev) => {
+      prev.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
       });
-      const result = resp.items ?? [];
-      if (result.length > 0) {
-        setPredictions(result[0]);
-      }
-    } catch {
-      /* keep previous predictions on error */
-    } finally {
-      setPredictionsLoading(false);
-    }
-  }, [debouncedPlatform, debouncedPostType, debouncedMediaType, debouncedCtaType, debouncedContentTopic, debouncedSentimentTone, debouncedCaptionLength, debouncedScheduledDay, debouncedScheduledHour]);
-
-  useEffect(() => {
-    fetchPredictions();
-  }, [fetchPredictions]);
-
-  /* ── Fetch golden window ──────────────────────────────────── */
-
-  const fetchGoldenWindow = useCallback(async () => {
-    setGoldenLoading(true);
-    try {
-      const resp = await api.get<{ items: TimeSlot[] }>('/api/predictions/ml/best-posting-times');
-      setGoldenSlots((resp.items ?? []).slice(0, 15));
-    } catch {
-      /* keep previous on error */
-    } finally {
-      setGoldenLoading(false);
-    }
+      return [];
+    });
   }, []);
 
   useEffect(() => {
-    fetchGoldenWindow();
-  }, [fetchGoldenWindow]);
+    if (!selectedDraftQuery.data) {
+      return;
+    }
 
-  /* ── Chat scroll ──────────────────────────────────────────── */
+    const normalizedDraft = normalizeDraft(selectedDraftQuery.data);
+
+    autoSaveSkipRef.current = true;
+    setActiveDraft(normalizedDraft);
+    setPrediction(null);
+    setBestTimes([]);
+    setChatInput('');
+    clearPendingUploads();
+    form.reset(toBriefValues(normalizedDraft));
+  }, [clearPendingUploads, form, selectedDraftQuery.data]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (!statusMessage) {
+      return;
+    }
 
-  /* ── AI Chat send ─────────────────────────────────────────── */
+    const timer = window.setTimeout(() => setStatusMessage(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [statusMessage]);
 
-  const handleSendChat = async () => {
-    const trimmed = chatInput.trim();
-    if (!trimmed || chatLoading) return;
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [activeDraft.chatHistory, chatIsThinking]);
 
-    const userMsg: ChatMsg = { role: 'user', content: trimmed };
-    setChatMessages((prev) => [...prev, userMsg]);
+  useEffect(() => {
+    const mediaItems = activeDraft.mediaItems;
+    if (mediaItems.length === 0) {
+      setPersistedPreviewUrls((prev) => {
+        Object.values(prev).forEach((url) => URL.revokeObjectURL(url));
+        return {};
+      });
+      return;
+    }
+
+    let disposed = false;
+    const createdUrls: string[] = [];
+
+    const loadPreviews = async () => {
+      const nextMap: Record<number, string> = {};
+
+      for (const item of mediaItems) {
+        try {
+          const blob = await api.getBlob(`/api/social-media-drafts/media/${item.mediaId}`);
+          const url = URL.createObjectURL(blob);
+          createdUrls.push(url);
+          nextMap[item.mediaId] = url;
+        } catch {
+          // Keep preview empty if the file can't be fetched.
+        }
+      }
+
+      if (disposed) {
+        createdUrls.forEach((url) => URL.revokeObjectURL(url));
+        return;
+      }
+
+      setPersistedPreviewUrls((prev) => {
+        Object.values(prev).forEach((url) => URL.revokeObjectURL(url));
+        return nextMap;
+      });
+    };
+
+    void loadPreviews();
+
+    return () => {
+      disposed = true;
+    };
+  }, [activeDraft.mediaItems]);
+
+  const persistDraft = useCallback(async (
+    draft: SocialMediaDraft,
+    options: { uploadPending: boolean; silent?: boolean },
+  ) => {
+    const payload = buildUpsertPayload(draft);
+    const savedDraft = draft.draftId > 0
+      ? await updateDraftMutation.mutateAsync({ draftId: draft.draftId, payload })
+      : await createDraftMutation.mutateAsync(payload);
+
+    let finalDraft = savedDraft;
+    if (options.uploadPending && pendingUploads.length > 0) {
+      setUploading(true);
+      const formData = new FormData();
+      pendingUploads.forEach((item) => formData.append('files', item.file));
+      finalDraft = await api.postForm<SocialMediaDraft>(`/api/social-media-drafts/${savedDraft.draftId}/attachments`, formData);
+      setUploading(false);
+      setPendingUploads((prev) => {
+        prev.forEach((item) => {
+          if (item.previewUrl) {
+            URL.revokeObjectURL(item.previewUrl);
+          }
+        });
+        return [];
+      });
+    }
+
+    queryClient.setQueryData<PagedResult<SocialMediaDraftSummary> | undefined>(['social-media-drafts'], (current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextSummary = toDraftSummary(finalDraft);
+      const existingIndex = current.items.findIndex((item) => item.draftId === nextSummary.draftId);
+      const nextItems = [...current.items];
+
+      if (existingIndex >= 0) {
+        nextItems[existingIndex] = nextSummary;
+      } else {
+        nextItems.unshift(nextSummary);
+      }
+
+      nextItems.sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+
+      return {
+        ...current,
+        items: nextItems,
+        totalCount: existingIndex >= 0 ? current.totalCount : current.totalCount + 1,
+      };
+    });
+
+    queryClient.setQueryData(['social-media-drafts', finalDraft.draftId], finalDraft);
+
+    const normalizedDraft = normalizeDraft(finalDraft);
+
+    autoSaveSkipRef.current = true;
+    setSelectedDraftId(normalizedDraft.draftId);
+
+    if (options.silent && !options.uploadPending) {
+      setActiveDraft((prev) => ({
+        ...prev,
+        draftId: normalizedDraft.draftId,
+        createdAt: normalizedDraft.createdAt,
+        updatedAt: normalizedDraft.updatedAt,
+        status: normalizedDraft.status,
+      }));
+    } else {
+      setActiveDraft(normalizedDraft);
+      form.reset(toBriefValues(normalizedDraft));
+    }
+
+    if (!options.silent) {
+      setStatusMessage('Draft saved.');
+    }
+
+    return finalDraft;
+  }, [createDraftMutation, form, pendingUploads, queryClient, updateDraftMutation]);
+
+  useEffect(() => {
+    if (autoSaveSkipRef.current) {
+      autoSaveSkipRef.current = false;
+      return;
+    }
+
+    if (activeDraft.draftId <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void persistDraft(activeDraft, { uploadPending: false, silent: true });
+    }, 300000);
+
+    return () => window.clearTimeout(timer);
+  }, [activeDraft, persistDraft]);
+
+  useEffect(() => () => {
+    pendingUploads.forEach((item) => {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    Object.values(persistedPreviewUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [pendingUploads, persistedPreviewUrls]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (selectedDraftId === null && activeDraft.draftId <= 0 && activeDraft.stage === 'brief') {
+        clearPendingUploads();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeDraft.draftId, activeDraft.stage, clearPendingUploads, selectedDraftId]);
+
+  const startNewPost = useCallback(() => {
+    setSelectedDraftId(null);
+    setPrediction(null);
+    setBestTimes([]);
+    setInsightError(null);
     setChatInput('');
-    setChatLoading(true);
+    setStatusMessage(null);
+    clearPendingUploads();
+    autoSaveSkipRef.current = true;
+    const nextDraft = createEmptyDraft();
+    setActiveDraft(nextDraft);
+    form.reset(toBriefValues(nextDraft));
+  }, [clearPendingUploads, form]);
+
+  const handleGenerate = form.handleSubmit(async (values) => {
+    const stageOneDraft: SocialMediaDraft = {
+      ...activeDraft,
+      ...values,
+      title: values.title.trim(),
+      stage: 'brief',
+    };
+
+    autoSaveSkipRef.current = true;
+    setActiveDraft(stageOneDraft);
 
     try {
-      const editorState = {
-        platform: store.platform,
-        headline: store.headline,
-        body: store.body,
-        mediaType: store.mediaType,
-        ctaType: store.ctaType,
-        contentTopic: store.contentTopic,
-        sentimentTone: store.sentimentTone,
-        captionLength: store.captionLength,
-        hashtags: store.hashtags,
-      };
-
-      const conversationHistory = chatMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const response = await api.post<AiChatResponse>('/api/ai/chat', {
-        message: trimmed,
-        editorState,
-        conversationHistory,
+      const response = await api.post<SocialDraftAiResponse>('/api/ai/social/generate', {
+        brief: toDraftAiState(stageOneDraft),
       });
 
-      const aiMsg: ChatMsg = {
-        role: 'assistant',
-        content: response.text,
-        commands: response.commands,
+      const assistantMessage: SocialMediaDraftChatMessage = { role: 'assistant', content: response.text };
+      const generatedDraft: SocialMediaDraft = {
+        ...mergeAiIntoDraft(stageOneDraft, response.draft),
+        chatHistory: [assistantMessage],
       };
-      setChatMessages((prev) => [...prev, aiMsg]);
 
-      // Apply commands to editor
-      if (response.commands && response.commands.length > 0) {
-        for (const cmd of response.commands) {
-          store.applyCommand(cmd);
-          setHighlightedField(cmd.action);
-        }
-        setAppliedNotice(true);
-        setTimeout(() => setAppliedNotice(false), 3000);
-        setTimeout(() => setHighlightedField(null), 2000);
+      autoSaveSkipRef.current = true;
+      setActiveDraft(generatedDraft);
+      setStatusMessage('AI generated a new post draft.');
+      setPrediction(null);
+      setBestTimes([]);
+      setInsightError(null);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to generate a draft right now.');
+    }
+  });
+
+  const handleExplicitSave = async () => {
+    const values = form.getValues();
+    const draftToSave: SocialMediaDraft = currentStage === 'brief'
+      ? {
+        ...activeDraft,
+        ...values,
+        title: values.title.trim(),
       }
-    } catch {
-      setChatMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' },
+      : activeDraft;
+
+    autoSaveSkipRef.current = true;
+    setActiveDraft(draftToSave);
+    await persistDraft(draftToSave, { uploadPending: true });
+  };
+
+  const handleRemovePersistedAttachment = async (mediaId: number) => {
+    if (activeDraft.draftId <= 0) {
+      return;
+    }
+
+    await api.delete<{ success: boolean }>(`/api/social-media-drafts/${activeDraft.draftId}/attachments/${mediaId}?confirm=true`);
+    const refreshed = await api.get<SocialMediaDraft>(`/api/social-media-drafts/${activeDraft.draftId}`);
+    autoSaveSkipRef.current = true;
+    setActiveDraft(normalizeDraft(refreshed));
+  };
+
+  const handleDeleteDraft = async () => {
+    if (activeDraft.draftId <= 0) {
+      return;
+    }
+
+    await deleteDraftMutation.mutateAsync(activeDraft.draftId);
+    setIsDeleteModalOpen(false);
+
+    queryClient.setQueryData<PagedResult<SocialMediaDraftSummary> | undefined>(['social-media-drafts'], (current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextItems = current.items.filter((item) => item.draftId !== activeDraft.draftId);
+      return {
+        ...current,
+        items: nextItems,
+        totalCount: Math.max(0, current.totalCount - (current.items.length === nextItems.length ? 0 : 1)),
+      };
+    });
+
+    queryClient.removeQueries({ queryKey: ['social-media-drafts', activeDraft.draftId] });
+    startNewPost();
+    setStatusMessage('Draft deleted.');
+  };
+
+  const handleUploadSelection = async (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const nextItems = Array.from(files).map((file) => ({
+      tempId: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
+      file,
+      previewUrl: file.type.startsWith('image/') || file.type.startsWith('video/') ? URL.createObjectURL(file) : undefined,
+      mediaKind: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file',
+    }));
+
+    setPendingUploads((prev) => [...prev, ...nextItems]);
+    setStatusMessage('Media added locally. Save the draft to persist it.');
+  };
+
+  const refreshInsights = async () => {
+    setInsightsLoading(true);
+    setInsightError(null);
+
+    try {
+      const [predictionResp, bestTimesResp] = await Promise.all([
+        api.post<{ items: MlSocialPostPrediction[] }>('/api/predictions/ml/social-lookup', {
+          platform: activeDraft.platform,
+          postType: activeDraft.postType,
+          mediaType: activeDraft.mediaType,
+          contentTopic: activeDraft.contentTopic,
+          sentimentTone: activeDraft.sentimentTone,
+          callToActionType: activeDraft.callToActionType,
+        }),
+        api.get<{ items: BestPostingTime[] }>('/api/predictions/ml/best-posting-times'),
       ]);
+
+      setPrediction(predictionResp.items?.[0] ?? null);
+      setBestTimes(bestTimesResp.items?.slice(0, 5) ?? []);
+
+      const bestSlot = bestTimesResp.items?.[0];
+      if (bestSlot) {
+        autoSaveSkipRef.current = true;
+        setActiveDraft((prev) => ({
+          ...prev,
+          scheduledDay: bestSlot.dayOfWeek,
+          scheduledHour: bestSlot.postHour,
+        }));
+      }
+    } catch (error) {
+      setInsightError(error instanceof Error ? error.message : 'Unable to refresh insights right now.');
     } finally {
-      setChatLoading(false);
+      setInsightsLoading(false);
     }
   };
 
-  /* ── Helpers ──────────────────────────────────────────────── */
+  const handleChatSend = async () => {
+    const trimmed = chatInput.trim();
+    if (!trimmed || chatIsThinking) {
+      return;
+    }
 
-  const fieldHighlightClass = (actions: string[]) =>
-    highlightedField && actions.includes(highlightedField)
-      ? 'ring-2 ring-golden-honey rounded-lg transition-all duration-500'
-      : '';
+    const userMessage: SocialMediaDraftChatMessage = { role: 'user', content: trimmed };
+    const nextHistory = [...activeDraft.chatHistory, userMessage];
+    autoSaveSkipRef.current = true;
+    setActiveDraft((prev) => ({ ...prev, chatHistory: nextHistory }));
+    setChatInput('');
+    setChatIsThinking(true);
 
-  /* ── Render ───────────────────────────────────────────────── */
+    try {
+      const response = await api.post<SocialDraftAiResponse>('/api/ai/social/refine', {
+        message: trimmed,
+        draft: toDraftAiState(activeDraft),
+        conversationHistory: activeDraft.chatHistory,
+      });
+
+      const assistantMessage: SocialMediaDraftChatMessage = { role: 'assistant', content: response.text };
+      autoSaveSkipRef.current = true;
+      setActiveDraft((prev) => ({
+        ...mergeAiIntoDraft(prev, response.draft),
+        chatHistory: [...nextHistory, assistantMessage],
+      }));
+      setStatusMessage('AI applied a new revision.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to refine the draft right now.');
+    } finally {
+      setChatIsThinking(false);
+    }
+  };
+
+  const handleChatInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void handleChatSend();
+    }
+  };
+
+  const combinedAttachments = useMemo(() => ([
+    ...activeDraft.mediaItems.map((item) => ({ ...item, previewUrl: persistedPreviewUrls[item.mediaId] })),
+    ...pendingUploads.map((item, index) => ({
+      mediaId: -(index + 1),
+      fileName: item.file.name,
+      contentType: item.file.type,
+      mediaKind: item.mediaKind,
+      fileSizeBytes: item.file.size,
+      uploadedAt: new Date().toISOString(),
+      previewUrl: item.previewUrl,
+      tempId: item.tempId,
+    })),
+  ]), [activeDraft.mediaItems, pendingUploads, persistedPreviewUrls]);
+
+  const draftList = draftsQuery.data?.items ?? [];
+  const currentStage = activeDraft.stage as Stage;
+  const performanceMetrics = useMemo(() => ([
+    {
+      label: 'Predicted Referrals',
+      value: prediction ? prediction.predictedDonationReferrals.toFixed(1) : '--',
+    },
+    {
+      label: 'Estimated Value',
+      value: prediction ? `PHP ${prediction.predictedEstimatedDonationValuePhp.toLocaleString()}` : '--',
+    },
+    {
+      label: 'Engagement',
+      value: prediction ? `${prediction.predictedEngagementRate.toFixed(2)}%` : '--',
+    },
+    {
+      label: 'Forwards',
+      value: prediction ? prediction.predictedForwards.toFixed(1) : '--',
+    },
+    {
+      label: 'Profile Visits',
+      value: prediction ? prediction.predictedProfileVisits.toFixed(1) : '--',
+    },
+    {
+      label: 'Impressions',
+      value: prediction ? prediction.predictedImpressions.toFixed(1) : '--',
+    },
+  ]), [prediction]);
+
+  const savedPostsCard = (
+    <Card className="flex h-full self-stretch flex-col space-y-4 p-0">
+      <div className="border-b border-slate-navy/10 px-5 py-5 dark:border-white/10">
+        <div className="min-w-0">
+          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Saved Posts</p>
+          <p className="mt-1 text-sm text-warm-gray">Resume any saved draft and keep working with AI.</p>
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-3 px-4 pb-4">
+        <button
+          type="button"
+          onClick={startNewPost}
+          className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedDraftId === null ? 'border-golden-honey bg-golden-honey/10' : 'border-slate-navy/10 bg-sky-blue/8 hover:border-golden-honey/40 hover:bg-sky-blue/12 dark:border-white/10 dark:bg-sky-blue/10 dark:hover:bg-sky-blue/15'}`}
+        >
+          <div className="min-w-0">
+            <p className="font-heading text-sm font-semibold text-slate-navy dark:text-white">New post</p>
+            <p className="mt-1 text-xs text-warm-gray">Start from a fresh brief</p>
+          </div>
+        </button>
+
+        {draftsQuery.isLoading ? (
+          <div className="flex items-center justify-center py-10"><Spinner size="lg" /></div>
+        ) : draftList.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-navy/15 px-4 py-8 text-center text-sm text-warm-gray dark:border-white/10 dark:text-white/60">
+            No saved drafts yet.
+          </div>
+        ) : draftList.map((draft) => (
+          <button
+            type="button"
+            key={draft.draftId}
+            onClick={() => setSelectedDraftId(draft.draftId)}
+            className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${selectedDraftId === draft.draftId ? draft.stage === 'brief' ? 'border-golden-honey bg-[linear-gradient(135deg,rgba(162,201,225,0.18),rgba(255,204,102,0.14))]' : 'border-golden-honey bg-golden-honey/10' : draft.stage === 'brief' ? 'border-sky-blue/40 bg-sky-blue/10 hover:border-sky-blue/60 hover:bg-sky-blue/14 dark:border-sky-blue/30 dark:bg-sky-blue/10 dark:hover:bg-sky-blue/14' : 'border-slate-navy/10 hover:border-golden-honey/40 hover:bg-slate-navy/5 dark:border-white/10 dark:hover:bg-white/5'}`}
+          >
+            <div className="min-w-0">
+              <p className="truncate font-heading text-sm font-semibold text-slate-navy dark:text-white">{draft.title}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-warm-gray">{describeDraft({ platform: draft.platform, mediaType: draft.mediaType, contentTopic: draft.contentTopic })}</p>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-warm-gray">
+              <span className="truncate">Updated {formatUpdatedAt(draft.updatedAt)}</span>
+              <span className="shrink-0">{draft.mediaCount} media</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
 
   return (
     <div>
       <PageHeader
-        title="Social Media Editor"
-        subtitle="AI-powered content creation and scheduling"
+        title="AI Post Builder"
+        subtitle="Build a draft brief, generate a post, then keep refining it with AI or direct edits."
         action={
-          <Button variant="ghost" size="sm" onClick={store.resetEditor}>
-            <RotateCcw size={16} />
-            Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            {currentStage === 'compose' && activeDraft.draftId > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="border border-slate-navy/10 text-warm-gray hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-white/10 dark:text-white/70 dark:hover:border-red-400/30 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+              >
+                <Trash2 size={16} />
+                Delete Draft
+              </Button>
+            )}
+            <Button size="sm" onClick={() => void handleExplicitSave()} loading={createDraftMutation.isPending || updateDraftMutation.isPending || uploading}>
+              <Save size={16} />
+              Save Draft
+            </Button>
+          </div>
         }
       />
 
-      {/* Applied notice */}
-      <AnimatePresence>
-        {appliedNotice && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-4 flex items-center gap-2 rounded-lg bg-sage-green/20 px-4 py-2 text-sm font-medium text-sage-green"
-          >
-            <Sparkles size={16} />
-            AI applied changes to your editor
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {statusMessage && (
+        <div className="mb-5 rounded-2xl border border-golden-honey/40 bg-golden-honey/10 px-4 py-3 text-sm text-slate-navy dark:text-white">
+          {statusMessage}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* ═══ LEFT PANEL: Editor ═══════════════════════════════ */}
-        <Card className="space-y-5">
-          {/* Platform Selector */}
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-navy dark:text-white">
-              Platform
-            </label>
-            <div className={`flex flex-wrap gap-2 ${fieldHighlightClass(['changePlatform'])}`}>
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => store.updateField('platform', p)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    store.platform === p
-                      ? 'bg-golden-honey text-slate-navy'
-                      : 'bg-slate-navy/5 text-warm-gray hover:bg-slate-navy/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[360px_minmax(0,1fr)]">
+        {savedPostsCard}
 
-          {/* Post Type */}
-          <SelectField
-            label="Post Type"
-            value={postType}
-            onChange={setPostType}
-            options={POST_TYPES}
-          />
-
-          {/* Media Type */}
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-navy dark:text-white">
-              Media Type
-            </label>
-            <div className={`flex flex-wrap gap-2 ${fieldHighlightClass(['setMediaType'])}`}>
-              {MEDIA_TYPES.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => store.updateField('mediaType', m)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    store.mediaType === m
-                      ? 'bg-sky-blue text-slate-navy'
-                      : 'bg-slate-navy/5 text-warm-gray hover:bg-slate-navy/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Headline */}
-          <div className={fieldHighlightClass(['updateHeadline'])}>
-            <Input
-              label="Headline"
-              placeholder="Enter your post headline..."
-              value={store.headline}
-              onChange={(e) => store.updateField('headline', e.target.value)}
-            />
-          </div>
-
-          {/* Caption / Body */}
-          <div className={`flex flex-col gap-1 ${fieldHighlightClass(['updateBody'])}`}>
-            <label className="text-sm font-medium text-slate-navy dark:text-white">Caption</label>
-            <textarea
-              rows={4}
-              placeholder="Write your caption..."
-              value={store.body}
-              onChange={(e) => store.updateField('body', e.target.value)}
-              className="w-full rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
-            />
-            <p className="text-right text-xs text-warm-gray">{store.captionLength} characters</p>
-          </div>
-
-          {/* CTA Type */}
-          <div className={fieldHighlightClass(['setCtaType'])}>
-            <SelectField
-              label="Call to Action"
-              value={store.ctaType}
-              onChange={(v) => store.updateField('ctaType', v)}
-              options={CTA_TYPES}
-              labelMap={CTA_LABELS}
-            />
-          </div>
-
-          {/* Content Topic */}
-          <div className={fieldHighlightClass(['setContentTopic'])}>
-            <SelectField
-              label="Content Topic"
-              value={store.contentTopic}
-              onChange={(v) => store.updateField('contentTopic', v)}
-              options={CONTENT_TOPICS}
-            />
-          </div>
-
-          {/* Sentiment Tone */}
-          <div className={fieldHighlightClass(['setSentimentTone'])}>
-            <SelectField
-              label="Sentiment Tone"
-              value={store.sentimentTone}
-              onChange={(v) => store.updateField('sentimentTone', v)}
-              options={SENTIMENT_TONES}
-            />
-          </div>
-
-          {/* Hashtags */}
-          <Input
-            label="Hashtags"
-            placeholder="#NewDawn #EndTrafficking..."
-            value={store.hashtags}
-            onChange={(e) => store.updateField('hashtags', e.target.value)}
-          />
-        </Card>
-
-        {/* ═══ RIGHT PANEL: AI Chat + Predictions ══════════════ */}
         <div className="space-y-6">
-          {/* ── AI Chat ──────────────────────────────────────── */}
-          <Card className="flex h-[420px] flex-col">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles size={18} className="text-golden-honey" />
-              <h2 className="font-heading text-lg font-semibold text-slate-navy dark:text-white">
-                AI Assistant
-              </h2>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-              {chatMessages.length === 0 && (
-                <div className="flex h-full items-center justify-center text-center text-sm text-warm-gray">
-                  <div>
-                    <Sparkles size={28} className="mx-auto mb-2 text-golden-honey/50" />
-                    <p>Ask me to write a headline, draft a caption,</p>
-                    <p>suggest improvements, or optimize your post.</p>
-                  </div>
-                </div>
-              )}
-              {chatMessages.map((msg, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-golden-honey text-slate-navy'
-                        : 'bg-sky-blue/10 text-slate-navy dark:text-white'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    {msg.commands && msg.commands.length > 0 && (
-                      <p className="mt-1.5 flex items-center gap-1 text-xs font-medium opacity-70">
-                        <Sparkles size={10} />
-                        {msg.commands.length} change{msg.commands.length > 1 ? 's' : ''} applied
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className="rounded-xl bg-sky-blue/10 px-4 py-3">
-                    <Spinner size="sm" />
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                placeholder="Ask the AI assistant..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendChat();
-                  }
-                }}
-                className="flex-1 rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-slate-navy dark:text-white"
-              />
-              <Button size="sm" onClick={handleSendChat} loading={chatLoading} disabled={!chatInput.trim()}>
-                <Send size={16} />
+        {currentStage === 'compose' && (
+          <Card className="space-y-4 bg-gradient-to-r from-sky-blue/12 via-white to-golden-honey/12 dark:from-sky-blue/10 dark:via-slate-navy/70 dark:to-golden-honey/10">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Performance & Timing</p>
+                <p className="mt-1 text-sm text-warm-gray">Refresh ML-backed performance predictions and let AI choose a suggested posting time.</p>
+              </div>
+              <Button onClick={() => void refreshInsights()} loading={insightsLoading} className="self-start lg:self-auto">
+                <WandSparkles size={16} />
+                AI Suggest Best Time
               </Button>
             </div>
-          </Card>
 
-          {/* ── Predictions ─────────────────────────────────── */}
-          <Card>
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingUp size={18} className="text-sky-blue" />
-              <h2 className="font-heading text-lg font-semibold text-slate-navy dark:text-white">
-                Predicted Performance
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <PredictionCard
-                label="Donation Referrals"
-                value={predictions?.predictedDonationReferrals ?? null}
-                icon={Heart}
-                loading={predictionsLoading}
-              />
-              <PredictionCard
-                label="Est. Donation Value"
-                value={predictions?.predictedEstimatedDonationValuePhp ?? null}
-                icon={DollarSign}
-                suffix="PHP"
-                loading={predictionsLoading}
-              />
-              <PredictionCard
-                label="Engagement Rate"
-                value={predictions?.predictedEngagementRate ?? null}
-                icon={TrendingUp}
-                suffix="%"
-                loading={predictionsLoading}
-              />
-              <PredictionCard
-                label="Forward Count"
-                value={predictions?.predictedForwards ?? null}
-                icon={Share2}
-                loading={predictionsLoading}
-              />
-              <PredictionCard
-                label="Profile Visits"
-                value={predictions?.predictedProfileVisits ?? null}
-                icon={Eye}
-                loading={predictionsLoading}
-              />
-              <PredictionCard
-                label="Impressions"
-                value={predictions?.predictedImpressions ?? null}
-                icon={Users}
-                loading={predictionsLoading}
-              />
+            {insightError && <p className="text-sm text-red-600">{insightError}</p>}
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_260px]">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {performanceMetrics.map((metric) => (
+                  <div key={metric.label} className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
+                    <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
+                    <p className="mt-2 font-heading text-2xl font-semibold text-slate-navy dark:text-white">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-navy dark:text-white">
+                  <CalendarClock size={16} />
+                  Suggested Times
+                </div>
+                <div className="mt-3 space-y-2">
+                  {bestTimes.length === 0 ? (
+                    <p className="text-sm text-warm-gray">Run the insight refresh once you like the generated post.</p>
+                  ) : bestTimes.map((slot) => (
+                    <button
+                      type="button"
+                      key={`${slot.dayOfWeek}-${slot.postHour}`}
+                      onClick={() => setActiveDraft((prev) => ({ ...prev, scheduledDay: slot.dayOfWeek, scheduledHour: slot.postHour }))}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors ${activeDraft.scheduledDay === slot.dayOfWeek && activeDraft.scheduledHour === slot.postHour ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-slate-navy hover:bg-slate-navy/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'}`}
+                    >
+                      <span>{slot.dayOfWeek} {formatHour(slot.postHour)}</span>
+                      <span className="text-xs">#{slot.rank}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
+        )}
+
+            {currentStage === 'compose' ? (
+              <>
+                <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+                  <div className="space-y-6">
+                    <Card className="space-y-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">Stage 2: Refine the Post</p>
+                          <p className="mt-1 text-sm text-warm-gray">Edit the generated content directly or use chat to revise it.</p>
+                        </div>
+                        <StagePill active>Stage 2</StagePill>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Input label="Draft title" value={activeDraft.title} onChange={(event) => setActiveDraft((prev) => ({ ...prev, title: event.target.value }))} />
+                        <Input label="Headline" value={activeDraft.headline} onChange={(event) => setActiveDraft((prev) => ({ ...prev, headline: event.target.value }))} />
+                        <SelectField label="Platform" value={activeDraft.platform} options={PLATFORMS} onChange={(value) => setActiveDraft((prev) => ({ ...prev, platform: value }))} />
+                        <SelectField label="Media type" value={activeDraft.mediaType} options={MEDIA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, mediaType: value }))} />
+                        <SelectField label="Post type" value={activeDraft.postType} options={POST_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, postType: value }))} />
+                        <SelectField label="Call to action" value={activeDraft.callToActionType} options={CTA_TYPES} onChange={(value) => setActiveDraft((prev) => ({ ...prev, callToActionType: value }))} />
+                      </div>
+
+                      <RichTextEditor
+                        label="Post body"
+                        value={activeDraft.body}
+                        onChange={(value) => setActiveDraft((prev) => ({ ...prev, body: normalizeRichTextHtml(value) }))}
+                        placeholder="Write the main body of the post..."
+                      />
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Input label="Hashtags" value={activeDraft.hashtags} onChange={(event) => setActiveDraft((prev) => ({ ...prev, hashtags: event.target.value }))} />
+                        <Input label="CTA text" value={activeDraft.ctaText} onChange={(event) => setActiveDraft((prev) => ({ ...prev, ctaText: event.target.value }))} />
+                        <Input label="Website link" value={activeDraft.websiteUrl} onChange={(event) => setActiveDraft((prev) => ({ ...prev, websiteUrl: event.target.value }))} />
+                        <Input label="Audience" value={activeDraft.audience} onChange={(event) => setActiveDraft((prev) => ({ ...prev, audience: event.target.value }))} />
+                        <Input label="Campaign name" value={activeDraft.campaignName} onChange={(event) => setActiveDraft((prev) => ({ ...prev, campaignName: event.target.value }))} />
+                      </div>
+
+                      <label className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-slate-navy dark:text-white">Additional notes</span>
+                        <textarea
+                          rows={4}
+                          value={activeDraft.additionalInstructions}
+                          onChange={(event) => setActiveDraft((prev) => ({ ...prev, additionalInstructions: event.target.value }))}
+                          className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
+                        />
+                      </label>
+
+                      {combinedAttachments.length > 0 && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {combinedAttachments.map((item) => (
+                            <div key={item.mediaId} className="rounded-2xl border border-slate-navy/10 bg-white p-3 dark:border-white/10 dark:bg-slate-navy/70">
+                              {item.mediaKind === 'image' && item.previewUrl && <img src={item.previewUrl} alt={item.fileName} className="h-40 w-full rounded-xl object-cover" />}
+                              {item.mediaKind === 'video' && item.previewUrl && <video src={item.previewUrl} controls className="h-40 w-full rounded-xl object-cover bg-black" />}
+                              {item.mediaKind === 'file' && <div className="flex h-40 items-center justify-center rounded-xl bg-slate-navy/5 text-sm text-warm-gray dark:bg-white/5">{item.fileName}</div>}
+                              <div className="mt-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-slate-navy dark:text-white">{item.fileName}</p>
+                                  <p className="text-xs text-warm-gray">{Math.round(item.fileSizeBytes / 1024)} KB</p>
+                                </div>
+                                {item.mediaId > 0 && (
+                                  <button type="button" onClick={() => void handleRemovePersistedAttachment(item.mediaId)} className="rounded-full p-2 text-warm-gray hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+
+                  <div className="space-y-6">
+                    <Card className="space-y-5 bg-gradient-to-br from-white via-coral-pink/12 to-sky-blue/14 dark:from-slate-navy/70 dark:via-coral-pink/10 dark:to-sky-blue/10">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Platform Preview</p>
+                          <p className="mt-1 text-sm text-warm-gray">Styled to feel native to the selected platform, but every field stays editable.</p>
+                        </div>
+                        <div className="text-right text-xs text-warm-gray">
+                          {activeDraft.scheduledDay && activeDraft.scheduledHour !== null ? (
+                            <span>Suggested slot: {activeDraft.scheduledDay} {formatHour(activeDraft.scheduledHour)}</span>
+                          ) : (
+                            <span>Choose a time after refreshing insights.</span>
+                          )}
+                        </div>
+                      </div>
+                      <SocialDraftPreview draft={activeDraft} attachments={combinedAttachments} />
+                    </Card>
+
+                    <Card className="space-y-3">
+                      <div className="flex items-center gap-2 text-slate-navy dark:text-white">
+                        <RefreshCcw size={17} />
+                        <p className="font-heading text-base font-semibold">Draft status</p>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-2xl bg-slate-navy/5 p-4 text-sm text-slate-navy dark:bg-white/5 dark:text-white/80">
+                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">Saved</p>
+                          <p className="mt-2 font-medium">{activeDraft.draftId > 0 ? 'Persisted draft' : 'Not saved yet'}</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-navy/5 p-4 text-sm text-slate-navy dark:bg-white/5 dark:text-white/80">
+                          <p className="text-xs uppercase tracking-[0.18em] text-warm-gray">Last updated</p>
+                          <p className="mt-2 font-medium">{formatUpdatedAt(activeDraft.updatedAt)}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+
+                <Card className="overflow-hidden border border-slate-navy/10 bg-gradient-to-br from-white via-sky-blue/6 to-coral-pink/10 p-0 dark:border-white/10 dark:from-slate-navy/80 dark:via-slate-navy/70 dark:to-sky-blue/8">
+                  <div className="border-b border-slate-navy/10 px-6 py-5 dark:border-white/10">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-center gap-3 text-slate-navy dark:text-white">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-golden-honey/20 text-golden-honey-text dark:text-golden-honey">
+                          <MessageSquareText size={18} />
+                        </div>
+                        <div>
+                          <p className="font-heading text-lg font-semibold">AI Refine Chat</p>
+                          <p className="text-sm text-warm-gray">Ask for rewrites, tone shifts, CTA changes, or platform-specific edits.</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-warm-gray">Press Enter to send. Shift+Enter for a new line.</p>
+                    </div>
+                  </div>
+
+                  <div className="max-h-[34rem] min-h-[24rem] space-y-4 overflow-y-auto bg-white/70 px-6 py-6 dark:bg-slate-navy/40">
+                    {activeDraft.chatHistory.length === 0 && !chatIsThinking ? (
+                      <div className="rounded-3xl border border-dashed border-slate-navy/15 bg-white/80 px-5 py-8 text-sm text-warm-gray dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+                        Ask AI to tighten the caption, shift the tone, rewrite the CTA, adapt this into a Reel hook, or make it sound more donor-facing.
+                      </div>
+                    ) : (
+                      <>
+                        {activeDraft.chatHistory.map((message, index) => (
+                          <div key={`${message.role}-${index}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
+                            <div className={`max-w-[min(85%,56rem)] rounded-[1.75rem] px-5 py-4 text-sm leading-7 shadow-sm ${message.role === 'assistant' ? 'border border-slate-navy/10 bg-white text-slate-navy dark:border-white/10 dark:bg-slate-navy dark:text-white' : 'bg-golden-honey text-slate-navy'}`}>
+                              {message.role === 'assistant' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">AI Assistant</p>}
+                              {message.role === 'user' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-navy/60">You</p>}
+                              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {chatIsThinking && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[min(85%,56rem)] rounded-[1.75rem] border border-slate-navy/10 bg-white px-5 py-4 text-sm text-slate-navy shadow-sm dark:border-white/10 dark:bg-slate-navy dark:text-white">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">AI Assistant</p>
+                              <div className="flex items-center gap-3">
+                                <div className="flex gap-1.5">
+                                  <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey [animation-delay:-0.2s]" />
+                                  <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey [animation-delay:-0.1s]" />
+                                  <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-golden-honey" />
+                                </div>
+                                <span className="text-warm-gray dark:text-white/70">Editing your draft and applying changes...</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  <div className="border-t border-slate-navy/10 bg-white/90 px-6 py-5 dark:border-white/10 dark:bg-slate-navy/70">
+                    <div className="rounded-[1.75rem] border border-slate-navy/12 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-navy">
+                      <textarea
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        onKeyDown={handleChatInputKeyDown}
+                        placeholder="Tell AI how to revise this draft..."
+                        rows={1}
+                        disabled={chatIsThinking}
+                        className="max-h-40 min-h-[5.5rem] w-full resize-y border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-navy placeholder:text-warm-gray/60 focus:outline-none dark:text-white"
+                      />
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-navy/10 px-2 pt-3 dark:border-white/10">
+                        <p className="text-xs text-warm-gray">Examples: “Make it more donor-focused”, “Shorten this for X”, “Write a stronger hook”.</p>
+                        <Button onClick={() => void handleChatSend()} disabled={!chatInput.trim()} loading={chatIsThinking}>
+                          <Sparkles size={16} />
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">Stage 1: Build the Brief</p>
+                    <p className="mt-1 text-sm text-warm-gray">Answer the questions AI needs before it drafts a post.</p>
+                  </div>
+                  <StagePill active>Stage 1</StagePill>
+                </div>
+                <Card className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input label="Draft title" error={form.formState.errors.title?.message} {...form.register('title')} />
+                    <Input label="Audience" error={form.formState.errors.audience?.message} {...form.register('audience')} />
+                    <SelectField label="Platform" value={form.watch('platform')} options={PLATFORMS} onChange={(value) => form.setValue('platform', value as BriefValues['platform'], { shouldValidate: true })} />
+                    <SelectField label="Post type" value={form.watch('postType')} options={POST_TYPES} onChange={(value) => form.setValue('postType', value as BriefValues['postType'], { shouldValidate: true })} />
+                    <SelectField label="Media type" value={form.watch('mediaType')} options={MEDIA_TYPES} onChange={(value) => form.setValue('mediaType', value as BriefValues['mediaType'], { shouldValidate: true })} helper="Choose the format you want the generated composer to mimic." />
+                    <SelectField label="Sentiment" value={form.watch('sentimentTone')} options={SENTIMENT_TONES} onChange={(value) => form.setValue('sentimentTone', value as BriefValues['sentimentTone'], { shouldValidate: true })} />
+                    <SelectField label="Call to action" value={form.watch('callToActionType')} options={CTA_TYPES} onChange={(value) => form.setValue('callToActionType', value as BriefValues['callToActionType'], { shouldValidate: true })} />
+                    <SelectField label="Content topic" value={form.watch('contentTopic')} options={CONTENT_TOPICS} onChange={(value) => form.setValue('contentTopic', value as BriefValues['contentTopic'], { shouldValidate: true })} />
+                    <Input label="Campaign name" {...form.register('campaignName')} />
+                    <Input label="Hashtags wanted (optional)" {...form.register('hashtags')} />
+                  </div>
+
+                  <label className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-slate-navy dark:text-white">Additional instructions</span>
+                    <textarea
+                      rows={5}
+                      {...form.register('additionalInstructions')}
+                      className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
+                      placeholder="What should the AI emphasize, avoid, or include?"
+                    />
+                  </label>
+
+                  {needsVisualMedia(form.watch('mediaType')) && (
+                    <div className="space-y-3 rounded-[1.5rem] border border-dashed border-slate-navy/15 bg-slate-navy/5 p-5 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex items-center gap-2 text-slate-navy dark:text-white">
+                        <ImagePlus size={18} />
+                        <p className="font-heading text-base font-semibold">Add media</p>
+                      </div>
+                      <p className="text-sm text-warm-gray">Upload the image or video you want attached to this post. It will stay local until you save the draft.</p>
+                      <input
+                        type="file"
+                        accept={form.watch('mediaType') === 'Video' || form.watch('mediaType') === 'Reel' ? 'video/*' : 'image/*,video/*'}
+                        multiple={form.watch('mediaType') === 'Carousel'}
+                        onChange={(event) => void handleUploadSelection(event.target.files)}
+                        className="block w-full text-sm text-warm-gray file:mr-4 file:rounded-full file:border-0 file:bg-golden-honey file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-navy hover:file:bg-golden-honey/90"
+                      />
+
+                      {combinedAttachments.length > 0 && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {combinedAttachments.map((item) => (
+                            <div key={item.mediaId} className="rounded-2xl border border-slate-navy/10 bg-white p-3 dark:border-white/10 dark:bg-slate-navy/70">
+                              {item.mediaKind === 'image' && item.previewUrl && <img src={item.previewUrl} alt={item.fileName} className="h-40 w-full rounded-xl object-cover" />}
+                              {item.mediaKind === 'video' && item.previewUrl && <video src={item.previewUrl} controls className="h-40 w-full rounded-xl object-cover bg-black" />}
+                              {item.mediaKind === 'file' && <div className="flex h-40 items-center justify-center rounded-xl bg-slate-navy/5 text-sm text-warm-gray dark:bg-white/5">{item.fileName}</div>}
+                              <div className="mt-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-slate-navy dark:text-white">{item.fileName}</p>
+                                  <p className="text-xs text-warm-gray">{Math.round(item.fileSizeBytes / 1024)} KB</p>
+                                </div>
+                                {item.mediaId > 0 ? (
+                                  <button type="button" onClick={() => void handleRemovePersistedAttachment(item.mediaId)} className="rounded-full p-2 text-warm-gray hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                                    <Trash2 size={16} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingUploads((prev) => {
+                                      if (!("tempId" in item)) {
+                                        return prev;
+                                      }
+                                      const target = prev.find((pending) => pending.tempId === item.tempId);
+                                      if (target?.previewUrl) {
+                                        URL.revokeObjectURL(target.previewUrl);
+                                      }
+                                      return prev.filter((pending) => pending.tempId !== item.tempId);
+                                    })}
+                                    className="rounded-full p-2 text-warm-gray hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={() => void handleGenerate()}>
+                      <Sparkles size={16} />
+                      Generate Post
+                    </Button>
+                    <Button variant="ghost" onClick={() => void handleExplicitSave()} loading={createDraftMutation.isPending || updateDraftMutation.isPending || uploading}>
+                      <Save size={16} />
+                      Save Draft First
+                    </Button>
+                  </div>
+                </Card>
+
+                <Card className="space-y-4 bg-gradient-to-br from-sky-blue/15 via-white to-coral-pink/20 dark:from-sky-blue/10 dark:via-slate-navy/60 dark:to-coral-pink/10">
+                  <div>
+                    <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">What happens next</p>
+                    <p className="mt-1 text-sm text-warm-gray">AI uses your answers to build a first draft that still stays editable.</p>
+                  </div>
+                  <div className="space-y-3 text-sm text-slate-navy dark:text-white/90">
+                    <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
+                      <p className="font-medium">1. AI drafts the post</p>
+                      <p className="mt-1 text-warm-gray">Headline, caption, CTA, and hashtags are generated from your brief.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
+                      <p className="font-medium">2. You edit everything directly</p>
+                      <p className="mt-1 text-warm-gray">The generated layout behaves like a platform-specific composer, not a locked preview.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/80 p-4 dark:bg-slate-navy/60">
+                      <p className="font-medium">3. AI keeps collaborating</p>
+                      <p className="mt-1 text-warm-gray">Use the chat in stage 2 to tighten wording, change tone, or try a different angle.</p>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
         </div>
       </div>
 
-      {/* ═══ BOTTOM BAR: Golden Window ═══════════════════════════ */}
-      <Card className="mt-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-golden-honey" />
-            <h2 className="font-heading text-lg font-semibold text-slate-navy dark:text-white">
-              Best Posting Times
-            </h2>
-          </div>
-          {store.scheduledDay && store.scheduledHour !== null && (
-            <div className="flex items-center gap-2 rounded-lg bg-sage-green/15 px-3 py-1.5 text-sm font-medium text-sage-green">
-              <CalendarCheck size={16} />
-              Scheduled: {store.scheduledDay} at {formatHour(store.scheduledHour)}
-            </div>
-          )}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (!deleteDraftMutation.isPending) {
+            setIsDeleteModalOpen(false);
+          }
+        }}
+        title="Delete Draft"
+        onConfirm={() => void handleDeleteDraft()}
+        confirmText={deleteDraftMutation.isPending ? 'Deleting...' : 'Delete Draft'}
+        confirmVariant="danger"
+      >
+        <div className="space-y-3 text-sm text-slate-navy dark:text-white/85">
+          <p>Delete this saved draft?</p>
+          <p className="text-warm-gray dark:text-white/65">This will remove the draft and any uploaded media attached to it. This action cannot be undone.</p>
         </div>
-
-        {goldenLoading ? (
-          <div className="flex items-center justify-center py-6">
-            <Spinner size="md" />
-          </div>
-        ) : goldenSlots.length === 0 ? (
-          <p className="py-4 text-center text-sm text-warm-gray">
-            No scheduling data available yet. Adjust your post settings above.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {goldenSlots.map((slot, i) => {
-              const isSelected =
-                store.scheduledDay === slot.dayOfWeek && store.scheduledHour === slot.postHour;
-              const isTop3 = i < 3;
-
-              return (
-                <motion.button
-                  key={`${slot.dayOfWeek}-${slot.postHour}`}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    store.updateField('scheduledDay', slot.dayOfWeek);
-                    store.updateField('scheduledHour', slot.postHour);
-                  }}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isSelected
-                      ? 'ring-2 ring-slate-navy bg-golden-honey text-slate-navy dark:ring-white'
-                      : isTop3
-                        ? 'bg-golden-honey/80 text-slate-navy hover:bg-golden-honey'
-                        : 'bg-sky-blue/20 text-slate-navy hover:bg-sky-blue/30 dark:text-white'
-                  }`}
-                >
-                  <span className="font-semibold">{slot.dayOfWeek.slice(0, 3)}</span>{' '}
-                  {formatHour(slot.postHour)}
-                  <span className="ml-1.5 text-xs opacity-70">
-                    {Math.round(slot.predictedEstimatedDonationValuePhp).toLocaleString()} PHP
-                  </span>
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+      </Modal>
     </div>
   );
 }

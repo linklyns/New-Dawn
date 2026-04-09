@@ -317,7 +317,7 @@ export function SocialAnalyticsPage() {
         subtitle="Content performance and engagement insights"
         action={
           <Link to="/admin/social/editor">
-            <Button variant="primary">Open Social Editor</Button>
+            <Button variant="primary">Create Post</Button>
           </Link>
         }
       />
