@@ -54,8 +54,8 @@ function AllocationForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData>({
-    resolver: zodResolver(allocationSchema as z.ZodType<AllocationFormData>),
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData, any, AllocationFormData>({
+    resolver: zodResolver(allocationSchema),
     defaultValues: { allocationDate: new Date().toISOString().slice(0, 10) },
   });
 
