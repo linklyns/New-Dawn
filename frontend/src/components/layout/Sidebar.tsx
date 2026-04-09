@@ -30,6 +30,13 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   roles?: string[];
+  exactMatch?: boolean;
+  secondaryAction?: {
+    to: string;
+    label: string;
+    icon: React.ReactNode;
+    badgeText?: string;
+  };
 }
 
 interface NavGroup {
@@ -78,8 +85,18 @@ const navGroups: NavGroup[] = [
     roles: ['Admin', 'Staff'],
     items: [
       { to: '/admin/reports', label: 'Reports', icon: <BarChart3 size={18} /> },
-      { to: '/admin/social', label: 'Social Media', icon: <Share2 size={18} /> },
-      { to: '/admin/social/editor', label: 'Social Editor', icon: <Sparkles size={18} /> },
+      {
+        to: '/admin/social',
+        label: 'Social Media',
+        icon: <Share2 size={18} />,
+        exactMatch: true,
+        secondaryAction: {
+          to: '/admin/social/editor',
+          label: 'Open Social Editor',
+          icon: <Sparkles size={16} />,
+          badgeText: 'AI',
+        },
+      },
     ],
   },
   {
@@ -104,9 +121,12 @@ export function Sidebar() {
     setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
-  const isActive = (to: string) => {
-    if (to === '/admin') return location.pathname === '/admin';
-    return location.pathname.startsWith(to);
+  const isActive = (item: NavItem) => {
+    if (item.exactMatch || item.to === '/admin') {
+      return location.pathname === item.to;
+    }
+
+    return location.pathname.startsWith(item.to);
   };
 
   const renderNav = () => (
@@ -130,21 +150,47 @@ export function Sidebar() {
               </button>
             )}
             {!collapsed[group.label] &&
-              visibleItems.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive(item.to)
-                      ? 'bg-sky-blue/20 text-sky-blue-text dark:text-sky-blue'
-                      : 'text-slate-navy hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </Link>
-              ))}
+              visibleItems.map((item) => {
+                const active = isActive(item);
+                const secondaryActive = item.secondaryAction?.to === location.pathname;
+
+                return (
+                  <div key={item.to} className="flex items-center gap-2">
+                    <Link
+                      to={item.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? 'bg-sky-blue/20 text-sky-blue-text dark:text-sky-blue'
+                          : 'text-slate-navy hover:bg-slate-navy/5 dark:text-white dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                    {item.secondaryAction && (
+                      <Link
+                        to={item.secondaryAction.to}
+                        onClick={() => setMobileOpen(false)}
+                        aria-label={item.secondaryAction.label}
+                        title={item.secondaryAction.label}
+                        className={`flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-2.5 transition-all lg:h-9 lg:min-w-9 lg:px-2 ${
+                          secondaryActive
+                            ? 'border-golden-honey/70 bg-golden-honey text-slate-navy shadow-sm'
+                            : 'border-golden-honey/35 bg-golden-honey/10 text-golden-honey-text hover:border-golden-honey/60 hover:bg-golden-honey/20 dark:border-golden-honey/30 dark:bg-golden-honey/10 dark:text-golden-honey'
+                        }`}
+                      >
+                        {item.secondaryAction.icon}
+                        {item.secondaryAction.badgeText && (
+                          <span className="font-heading text-[10px] font-semibold uppercase tracking-[0.18em] lg:text-[9px]">
+                            {item.secondaryAction.badgeText}
+                          </span>
+                        )}
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         );
       })}

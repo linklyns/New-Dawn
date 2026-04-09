@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Donation> Donations => Set<Donation>();
     public DbSet<DonationAllocation> DonationAllocations => Set<DonationAllocation>();
     public DbSet<SocialMediaPost> SocialMediaPosts => Set<SocialMediaPost>();
+    public DbSet<SocialMediaDraft> SocialMediaDrafts => Set<SocialMediaDraft>();
+    public DbSet<SocialMediaDraftMedia> SocialMediaDraftMedia => Set<SocialMediaDraftMedia>();
     public DbSet<ProcessRecording> ProcessRecordings => Set<ProcessRecording>();
     public DbSet<HomeVisitation> HomeVisitations => Set<HomeVisitation>();
     public DbSet<EducationRecord> EducationRecords => Set<EducationRecord>();
@@ -197,6 +199,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         // SocialMediaPosts indexes
         builder.Entity<SocialMediaPost>()
             .HasIndex(p => p.Platform);
+
+        builder.Entity<SocialMediaDraft>()
+            .HasOne(d => d.CreatedBy)
+            .WithMany()
+            .HasForeignKey(d => d.CreatedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<SocialMediaDraftMedia>()
+            .HasOne(m => m.Draft)
+            .WithMany(d => d.MediaItems)
+            .HasForeignKey(m => m.DraftId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SocialMediaDraft>()
+            .HasIndex(d => d.CreatedById);
+
+        builder.Entity<SocialMediaDraft>()
+            .HasIndex(d => d.UpdatedAt);
 
         // EducationRecords indexes
         builder.Entity<EducationRecord>()
