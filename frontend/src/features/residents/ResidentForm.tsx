@@ -58,7 +58,7 @@ const residentSchema = z.object({
   reintegrationType: z.string().nullable().optional(),
   reintegrationStatus: z.string().nullable().optional(),
   initialRiskLevel: z.string().min(1, 'Required'),
-  currentRiskLevel: z.string().min(1, 'Required'),
+  currentRiskLevel: z.string().optional().default(''),
   dateEnrolled: z.string().optional().default(''),
   dateClosed: z.string().nullable().optional(),
   notesRestricted: z.string().nullable().optional(),
@@ -295,19 +295,15 @@ export function ResidentForm({
             <option value="Medium">Medium</option>
             <option value="Low">Low</option>
           </SelectField>
-          <SelectField
-            label="Current Risk Level"
-            error={errors.currentRiskLevel?.message}
-            disabled
-            title="Set automatically by ML model"
-            {...register('currentRiskLevel')}
-          >
-            <option value="">Select...</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </SelectField>
+          <input type="hidden" {...register('currentRiskLevel')} />
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-navy dark:text-white">
+              Current Risk Level
+            </label>
+            <div className="rounded-lg border border-slate-navy/10 bg-slate-navy/5 px-3 py-2 text-sm text-slate-navy dark:border-white/10 dark:bg-white/5 dark:text-white">
+              {watch('currentRiskLevel') || 'Will update after the nightly ML refresh'}
+            </div>
+          </div>
           <p className="text-xs text-warm-gray -mt-3 col-span-full">Current Risk Level is set by the ML model and updated nightly.</p>
         </div>
 

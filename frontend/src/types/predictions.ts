@@ -77,6 +77,7 @@ export interface RiskPrediction {
   internalCode: string;
   caseControlNo: string;
   predictedRiskScore: number;
+  riskScoreMax: number;
   predictedRiskLevel: string;
   confidence: string;
   topRiskFactor1: string;

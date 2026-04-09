@@ -23,7 +23,7 @@ import { Modal } from '../../components/ui/Modal';
 import { ResidentForm } from './ResidentForm';
 import type { ResidentFormData } from './ResidentForm';
 import type { Resident, Safehouse } from '../../types/models';
-import type { RiskPrediction, ReintegrationFactor } from '../../types/predictions';
+import type { RiskPrediction } from '../../types/predictions';
 
 type Tab = 'overview' | 'family' | 'admission' | 'case';
 
@@ -95,6 +95,10 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'case', label: 'Case Management' },
 ];
 
+function formatRiskScore(score: number, maxScore: number): string {
+  return `${score.toFixed(2)} / ${maxScore.toFixed(2)}`;
+}
+
 export function ResidentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,13 +126,6 @@ export function ResidentDetail() {
     enabled: !isCreateMode && !!id,
     staleTime: 5 * 60 * 1000,
   });
-
-  const { data: reintegrationResp } = useQuery({
-    queryKey: ['reintegration-factors'],
-    queryFn: () => api.get<{ items: ReintegrationFactor[] }>('/api/predictions/ml/reintegration-factors'),
-    staleTime: 5 * 60 * 1000,
-  });
-  const reintegrationFactors = reintegrationResp?.items;
 
   const safehouseMap = new Map(
     (safehousesData?.items ?? []).map((s) => [s.safehouseId, s.name]),
@@ -219,7 +216,10 @@ export function ResidentDetail() {
         )}
 
         <ResidentForm
-          defaultValues={isCreateMode ? undefined : resident}
+          defaultValues={isCreateMode ? undefined : {
+            ...resident,
+            currentRiskLevel: riskPrediction?.predictedRiskLevel ?? resident?.currentRiskLevel ?? '',
+          }}
           onSubmit={(data) => {
             if (isCreateMode) {
               createMutation.mutate(data);
@@ -242,6 +242,10 @@ export function ResidentDetail() {
 
   // View mode (resident is guaranteed loaded here)
   const r = resident!;
+  const currentRiskLevel = riskPrediction?.predictedRiskLevel ?? r.currentRiskLevel;
+  const riskScore = riskPrediction
+    ? formatRiskScore(riskPrediction.predictedRiskScore, riskPrediction.riskScoreMax)
+    : '--';
   const activeSubCats = Object.entries(SUB_CAT_LABELS).filter(
     ([key]) => r[key as keyof Resident] === true,
   );
@@ -369,69 +373,15 @@ export function ResidentDetail() {
               <InfoRow
                 label="Current Risk Level"
                 value={
-                  <Badge variant={riskVariant(r.currentRiskLevel)}>
-                    {r.currentRiskLevel}
+                  <Badge variant={riskVariant(currentRiskLevel)}>
+                    {currentRiskLevel}
                   </Badge>
                 }
               />
+              <InfoRow label="Risk Score" value={riskScore} />
             </div>
+            <p className="mt-3 text-xs text-warm-gray">Current Risk Level is set by the ML model and updated nightly.</p>
           </Card>
-
-          {/* ML Risk Assessment */}
-          {riskPrediction && (
-            <Card>
-              <h3 className="mb-3 font-heading text-base font-semibold text-slate-navy dark:text-white">
-                ML Risk Assessment
-              </h3>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <InfoRow
-                  label="Predicted Risk"
-                  value={
-                    <Badge variant={riskVariant(riskPrediction.predictedRiskLevel)}>
-                      {riskPrediction.predictedRiskLevel}
-                    </Badge>
-                  }
-                />
-                <InfoRow label="Risk Score" value={riskPrediction.predictedRiskScore.toFixed(2)} />
-                <InfoRow label="Confidence" value={riskPrediction.confidence} />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Top Factors</span>
-                  <span className="text-sm text-slate-navy dark:text-white">
-                    {riskPrediction.topRiskFactor1}
-                  </span>
-                  {riskPrediction.topRiskFactor2 && (
-                    <span className="text-xs text-warm-gray">{riskPrediction.topRiskFactor2}</span>
-                  )}
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-warm-gray">Predicted by ML model — updated nightly</p>
-            </Card>
-          )}
-
-          {/* Reintegration Insights */}
-          {reintegrationFactors && reintegrationFactors.length > 0 && (
-            <Card>
-              <h3 className="mb-3 font-heading text-base font-semibold text-slate-navy dark:text-white">
-                Reintegration Insights
-              </h3>
-              <p className="mb-3 text-xs text-warm-gray">
-                Key factors influencing reintegration outcomes across all residents
-              </p>
-              <div className="space-y-2">
-                {reintegrationFactors.slice(0, 5).map((f) => (
-                  <div key={f.feature} className="flex items-center justify-between rounded-lg border border-slate-navy/5 px-3 py-2 dark:border-white/5">
-                    <div>
-                      <span className="text-sm font-medium text-slate-navy dark:text-white">{f.feature}</span>
-                      <p className="text-xs text-warm-gray">{f.plainLanguageInterpretation}</p>
-                    </div>
-                    <Badge variant={f.effectDirection === 'Positive' ? 'success' : f.effectDirection === 'Negative' ? 'danger' : 'neutral'}>
-                      {f.effectDirection}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
       )}
 

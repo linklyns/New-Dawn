@@ -151,6 +151,7 @@ public class RiskPredictionDto
     public string InternalCode { get; set; } = string.Empty;
     public string CaseControlNo { get; set; } = string.Empty;
     public double PredictedRiskScore { get; set; }
+    public double RiskScoreMax { get; set; } = 4;
     public string PredictedRiskLevel { get; set; } = string.Empty;
     public string Confidence { get; set; } = string.Empty;
     public string TopRiskFactor1 { get; set; } = string.Empty;
