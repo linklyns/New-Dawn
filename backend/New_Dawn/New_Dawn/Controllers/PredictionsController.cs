@@ -262,7 +262,9 @@ public class PredictionsController(AppDbContext db, CsvPredictionService csv) : 
     {
         var rows = csv.LookupSocialPredictions(
             request.Platform, request.PostType, request.MediaType,
-            request.ContentTopic, request.SentimentTone, request.CallToActionType);
+            request.ContentTopic, request.SentimentTone, request.CallToActionType,
+            request.HasCallToAction, request.FeaturesResidentStory,
+            request.IsBosted, request.BoostBudgetPhp);
 
         var result = rows.Select(r => new MlSocialPostPredictionDto
         {
@@ -272,6 +274,10 @@ public class PredictionsController(AppDbContext db, CsvPredictionService csv) : 
             ContentTopic = r.GetValueOrDefault("content_topic", ""),
             SentimentTone = r.GetValueOrDefault("sentiment_tone", ""),
             CallToActionType = r.GetValueOrDefault("call_to_action_type", ""),
+            HasCallToAction = r.GetValueOrDefault("has_call_to_action", ""),
+            FeaturesResidentStory = r.GetValueOrDefault("features_resident_story", ""),
+            IsBosted = r.GetValueOrDefault("is_boosted", ""),
+            BoostBudgetPhpBin = r.GetValueOrDefault("boost_budget_php_bin", ""),
             PredictedDonationReferrals = ParseDouble(r, "predicted_donation_referrals"),
             PredictedEstimatedDonationValuePhp = ParseDouble(r, "predicted_estimated_donation_value_php"),
             PredictedForwards = ParseDouble(r, "predicted_forwards"),
@@ -283,12 +289,27 @@ public class PredictionsController(AppDbContext db, CsvPredictionService csv) : 
         return Ok(new { items = result, totalCount = result.Count });
     }
 
-    [HttpGet("ml/best-posting-times")]
-    public IActionResult GetBestPostingTimes()
+    [HttpPost("ml/best-posting-times")]
+    public IActionResult GetBestPostingTimes([FromBody] MlBestPostingTimesRequest? request)
     {
-        var rows = csv.GetBestPostingTimes();
+        var rows = csv.LookupBestPostingTimes(
+            request?.Platform, request?.PostType, request?.MediaType,
+            request?.ContentTopic, request?.SentimentTone, request?.CallToActionType,
+            request?.HasCallToAction, request?.FeaturesResidentStory,
+            request?.IsBosted, request?.BoostBudgetPhp);
+
         var result = rows.Select(r => new BestPostingTimeDto
         {
+            Platform = r.GetValueOrDefault("platform", ""),
+            PostType = r.GetValueOrDefault("post_type", ""),
+            MediaType = r.GetValueOrDefault("media_type", ""),
+            ContentTopic = r.GetValueOrDefault("content_topic", ""),
+            SentimentTone = r.GetValueOrDefault("sentiment_tone", ""),
+            CallToActionType = r.GetValueOrDefault("call_to_action_type", ""),
+            HasCallToAction = r.GetValueOrDefault("has_call_to_action", ""),
+            FeaturesResidentStory = r.GetValueOrDefault("features_resident_story", ""),
+            IsBosted = r.GetValueOrDefault("is_boosted", ""),
+            BoostBudgetPhpBin = r.GetValueOrDefault("boost_budget_php_bin", ""),
             DayOfWeek = r.GetValueOrDefault("day_of_week", ""),
             PostHour = ParseInt(r, "post_hour"),
             PredictedEstimatedDonationValuePhp = ParseDouble(r, "predicted_estimated_donation_value_php"),

@@ -1,10 +1,18 @@
-"""Pipeline 3 — Social Media Best Posting Times.
+"""Pipeline 3 -- Social Media Best Posting Times (Conditioned Lookup).
 
-Trains a regression model on estimated_donation_value_php using post features
-including day_of_week and post_hour, then generates ranked predictions for all
-168 day/hour combos (7 × 24) to identify when fundraising posts perform best.
+Trains a regression model on estimated_donation_value_php using all post
+features including day_of_week and post_hour, then generates a conditioned
+lookup table: for each unique combination of post attributes seen in the
+historical data the model predicts all 168 day/hour combinations and returns
+the top 5 ranked slots.
 
-Outputs best_posting_times.csv.
+This replaces the earlier global 168-row ranking with a table that lets the
+frontend select optimal posting times based on the specific content being
+scheduled (same feature dimensions as the social_post_predictions lookup).
+
+Outputs:
+  best_posting_times.csv  -- long-format, N_combos x 5 rows
+  (relies on boost_bin_thresholds.json already written by Pipeline 02)
 """
 import os, sys, warnings
 warnings.filterwarnings('ignore')
@@ -21,9 +29,10 @@ import joblib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import (load_csv, save_pipeline_output, evaluate_regressors,
-                       feature_importance_report, get_models_path)
+                       feature_importance_report, get_models_path,
+                       bin_boost_budget)
 
-# ── Constants ──────────────────────────────────────────────────────────────
+# -- Constants --------------------------------------------------------------
 
 FEATURE_COLS = [
     'platform', 'day_of_week', 'post_hour', 'post_type', 'media_type',
@@ -47,6 +56,14 @@ DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 DAY_ABBREV = {'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed',
               'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat', 'Sunday': 'Sun'}
 
+# Conditioning categoricals (all post-attribute dims used in social lookup,
+# minus day_of_week and post_hour which are the output dimensions)
+COND_CAT_COLS = [
+    'platform', 'post_type', 'media_type', 'content_topic', 'sentiment_tone',
+    'has_call_to_action', 'call_to_action_type', 'features_resident_story',
+    'is_boosted', 'boost_budget_php_bin',
+]
+
 
 def prepare_data(posts):
     """Clean data for this pipeline."""
@@ -64,7 +81,7 @@ def prepare_data(posts):
 
     df[TARGET] = pd.to_numeric(df[TARGET], errors='coerce').fillna(0)
 
-    # Standardize day names — data has abbreviations like "Thursday"
+    # Standardize day names
     day_map_full = {
         'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
         'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday',
@@ -72,6 +89,9 @@ def prepare_data(posts):
         'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday',
     }
     df['day_of_week'] = df['day_of_week'].map(day_map_full).fillna(df['day_of_week'])
+
+    # Boost budget bin (conditioning dimension for the time lookup)
+    df['boost_budget_php_bin'], _ = bin_boost_budget(df['boost_budget_php'])
 
     return df
 
@@ -94,7 +114,7 @@ def train_model(X, y):
         'LightGBM': LGBMRegressor(n_estimators=200, random_state=42, verbose=-1),
     }
 
-    print("\n── Cross-validation comparison (KFold=5) ──")
+    print("\n-- Cross-validation comparison (KFold=5) --")
     results = evaluate_regressors(X, y, models, cv=5)
     print(results.to_string(index=False))
 
@@ -110,7 +130,7 @@ def train_model(X, y):
     }
 
     if best_name in param_grids:
-        print(f"\n── Tuning {best_name} ──")
+        print(f"\n-- Tuning {best_name} --")
         grid = GridSearchCV(best_model, param_grids[best_name], cv=5,
                             scoring='neg_mean_squared_error', n_jobs=-1, verbose=0)
         grid.fit(X, y)
@@ -123,10 +143,10 @@ def train_model(X, y):
 
 
 def generate_time_predictions(model, df, feature_names):
-    """Generate predictions for all 168 day/hour combos.
-    
-    For each day/hour combo, hold other features at their most common
-    values (mode for categorical, median for numeric) and predict.
+    """(Legacy) Generate predictions for all 168 day/hour combos globally.
+
+    Kept for notebook visualisation cells.
+    All conditioning features held at mode/median.
     """
     # Base row: mode/median of all features
     base = {}
@@ -167,24 +187,127 @@ def generate_time_predictions(model, df, feature_names):
     result = result.merge(hist, on=['day_of_week', 'post_hour'], how='left')
     result['historical_post_count'] = result['historical_post_count'].fillna(0).astype(int)
 
-    # Confidence based on sample size
     result['confidence_indicator'] = pd.cut(
         result['historical_post_count'],
         bins=[-1, 2, 5, 1000],
         labels=['Low', 'Medium', 'High']
     )
 
-    # Rank by predicted value
     result = result.sort_values('predicted_estimated_donation_value_php', ascending=False)
     result['rank'] = range(1, len(result) + 1)
 
     return result
 
 
-# ── Public entry point ────────────────────────────────────────────────────
+def generate_conditioned_time_predictions(model, df, feature_names):
+    """Generate top-5 posting-time slots per unique post-attribute combination.
+
+    For each unique observed combination of COND_CAT_COLS in the historical
+    data, we predict estimated_donation_value_php for all 168 day x hour
+    slots (holding the numeric auxiliaries at their dataset medians) and
+    return the top 5 ranked slots per combination.
+
+    Args:
+        model: trained sklearn estimator
+        df: prepared DataFrame (must have 'boost_budget_php_bin' column)
+        feature_names: column names from model training (used to align OHE)
+
+    Returns:
+        DataFrame with COND_CAT_COLS + rank/day/hour/prediction columns
+    """
+    # Numeric auxiliaries: hold at global medians
+    num_base = {col: df[col].median() for col in NUM_COLS if col != 'post_hour'}
+
+    # Bin-median map for boost_budget_php
+    bin_medians = (
+        df[df['boost_budget_php'] > 0]
+        .groupby('boost_budget_php_bin')['boost_budget_php']
+        .median()
+        .to_dict()
+    )
+    bin_medians['none'] = 0.0
+
+    # Historical post count per day/hour (global, used for confidence)
+    hist_counts = (
+        df.groupby(['day_of_week', 'post_hour'])
+        .size()
+        .reset_index(name='historical_post_count')
+    )
+
+    # Unique observed conditioning combos
+    observed_combos = df[COND_CAT_COLS].drop_duplicates().reset_index(drop=True)
+    print(f"  Conditioning combos: {len(observed_combos)}")
+
+    all_rows = []
+
+    for _, cond_row in observed_combos.iterrows():
+        # Build 168 synthetic rows for this combination
+        rows = []
+        for day in DAYS_ORDER:
+            for hour in range(24):
+                row = cond_row.to_dict()
+                row['day_of_week'] = day
+                row['post_hour'] = hour
+                # Map boost bin -> raw PHP for model
+                row['boost_budget_php'] = bin_medians.get(row['boost_budget_php_bin'], 0.0)
+                # Remaining numerics at global median
+                for col, val in num_base.items():
+                    if col not in ('boost_budget_php',):
+                        row[col] = val
+                rows.append(row)
+
+        slot_df = pd.DataFrame(rows)
+
+        # Encode via OHE on CAT_COLS (standard model encoding)
+        slot_cat = [c for c in CAT_COLS if c in slot_df.columns]
+        slot_encoded = pd.get_dummies(
+            slot_df[slot_cat + NUM_COLS], columns=slot_cat, drop_first=False, dtype=int
+        )
+        for col in feature_names:
+            if col not in slot_encoded.columns:
+                slot_encoded[col] = 0
+        slot_encoded = slot_encoded[feature_names].replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        preds = np.clip(model.predict(slot_encoded), 0, None)
+
+        result = slot_df[['day_of_week', 'post_hour']].copy()
+        result['predicted_estimated_donation_value_php'] = preds.round(2)
+        result = result.merge(hist_counts, on=['day_of_week', 'post_hour'], how='left')
+        result['historical_post_count'] = result['historical_post_count'].fillna(0).astype(int)
+
+        result['confidence_indicator'] = pd.cut(
+            result['historical_post_count'],
+            bins=[-1, 2, 5, 1000],
+            labels=['Low', 'Medium', 'High']
+        ).astype(str)
+
+        # Top 5 slots for this combination
+        top5 = (
+            result.sort_values('predicted_estimated_donation_value_php', ascending=False)
+            .head(5)
+            .reset_index(drop=True)
+        )
+        top5['rank'] = range(1, 6)
+
+        # Attach conditioning key columns
+        for col in COND_CAT_COLS:
+            top5[col] = cond_row[col]
+
+        all_rows.append(top5)
+
+    output = pd.concat(all_rows, ignore_index=True)
+
+    # Reorder: key columns first, then time, then predictions
+    key_cols = COND_CAT_COLS + ['rank', 'day_of_week', 'post_hour',
+                                  'predicted_estimated_donation_value_php',
+                                  'historical_post_count', 'confidence_indicator']
+    return output[key_cols]
+
+
+# -- Public entry point ----------------------------------------------------
 
 def run(posts=None):
-    """Full pipeline → best_posting_times.csv."""
+    """Full pipeline -> best_posting_times.csv."""
     print("=" * 60)
     print("Pipeline 3: Best Posting Times")
     print("=" * 60)
@@ -214,18 +337,20 @@ def run(posts=None):
     path = os.path.join(get_models_path(), 'best_posting_times_model.pkl')
     joblib.dump(model, path)
 
-    # 6. Generate time predictions
-    print("\n── Generating 168 day/hour predictions ──")
-    output = generate_time_predictions(model, df, feature_names)
+    # 6. Generate conditioned time predictions (top 5 per post-attribute combo)
+    print("\n-- Generating conditioned day/hour predictions --")
+    output = generate_conditioned_time_predictions(model, df, feature_names)
 
     # 7. Save
     save_pipeline_output(output, 'best_posting_times.csv')
 
-    print(f"\nTop 10 posting times:")
-    top10 = output.head(10)[['rank', 'day_of_week', 'post_hour',
-                              'predicted_estimated_donation_value_php',
-                              'historical_post_count', 'confidence_indicator']]
-    print(top10.to_string(index=False))
+    n_combos = output.groupby(COND_CAT_COLS).ngroups if len(output) > 0 else 0
+    print(f"\nLookup table: {len(output)} rows ({n_combos} combinations x 5 slots each)")
+    print("\nSample (first combination's top 5):")
+    first_combo = output.head(5)
+    print(first_combo[['rank', 'day_of_week', 'post_hour',
+                         'predicted_estimated_donation_value_php',
+                         'historical_post_count', 'confidence_indicator']].to_string(index=False))
     print("Pipeline 3 complete.\n")
 
     return output, model

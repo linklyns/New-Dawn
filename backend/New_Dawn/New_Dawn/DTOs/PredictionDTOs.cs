@@ -73,6 +73,25 @@ public class MlSocialPostLookupRequest
     public string? ContentTopic { get; set; }
     public string? SentimentTone { get; set; }
     public string? CallToActionType { get; set; }
+    // Extended lookup dimensions — used when provided, dropped in relaxation when absent
+    public string? HasCallToAction { get; set; }
+    public string? FeaturesResidentStory { get; set; }
+    public string? IsBosted { get; set; }
+    public decimal? BoostBudgetPhp { get; set; }
+}
+
+public class MlBestPostingTimesRequest
+{
+    public string? Platform { get; set; }
+    public string? PostType { get; set; }
+    public string? MediaType { get; set; }
+    public string? ContentTopic { get; set; }
+    public string? SentimentTone { get; set; }
+    public string? CallToActionType { get; set; }
+    public string? HasCallToAction { get; set; }
+    public string? FeaturesResidentStory { get; set; }
+    public string? IsBosted { get; set; }
+    public decimal? BoostBudgetPhp { get; set; }
 }
 
 public class MlSocialPostPredictionDto
@@ -83,6 +102,10 @@ public class MlSocialPostPredictionDto
     public string ContentTopic { get; set; } = string.Empty;
     public string SentimentTone { get; set; } = string.Empty;
     public string CallToActionType { get; set; } = string.Empty;
+    public string HasCallToAction { get; set; } = string.Empty;
+    public string FeaturesResidentStory { get; set; } = string.Empty;
+    public string IsBosted { get; set; } = string.Empty;
+    public string BoostBudgetPhpBin { get; set; } = string.Empty;
     public double PredictedDonationReferrals { get; set; }
     public double PredictedEstimatedDonationValuePhp { get; set; }
     public double PredictedForwards { get; set; }
@@ -93,6 +116,16 @@ public class MlSocialPostPredictionDto
 
 public class BestPostingTimeDto
 {
+    public string Platform { get; set; } = string.Empty;
+    public string PostType { get; set; } = string.Empty;
+    public string MediaType { get; set; } = string.Empty;
+    public string ContentTopic { get; set; } = string.Empty;
+    public string SentimentTone { get; set; } = string.Empty;
+    public string CallToActionType { get; set; } = string.Empty;
+    public string HasCallToAction { get; set; } = string.Empty;
+    public string FeaturesResidentStory { get; set; } = string.Empty;
+    public string IsBosted { get; set; } = string.Empty;
+    public string BoostBudgetPhpBin { get; set; } = string.Empty;
     public string DayOfWeek { get; set; } = string.Empty;
     public int PostHour { get; set; }
     public double PredictedEstimatedDonationValuePhp { get; set; }
