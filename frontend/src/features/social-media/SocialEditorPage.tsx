@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, ImagePlus, MessageSquareText, RefreshCcw, Save, Sparkles, Trash2, WandSparkles } from 'lucide-react';
+import { BarChart2, CalendarClock, ImagePlus, MessageSquareText, RefreshCcw, Save, Sparkles, Trash2, WandSparkles } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -277,13 +277,15 @@ export function SocialEditorPage() {
   const [persistedPreviewUrls, setPersistedPreviewUrls] = useState<Record<number, string>>({});
   const [prediction, setPrediction] = useState<MlSocialPostPrediction | null>(null);
   const [bestTimes, setBestTimes] = useState<BestPostingTime[]>([]);
-  const [insightError, setInsightError] = useState<string | null>(null);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
+  const [timesError, setTimesError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatIsThinking, setChatIsThinking] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [timesLoading, setTimesLoading] = useState(false);
   const autoSaveSkipRef = useRef(true);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -519,7 +521,8 @@ export function SocialEditorPage() {
     setSelectedDraftId(null);
     setPrediction(null);
     setBestTimes([]);
-    setInsightError(null);
+    setPerformanceError(null);
+    setTimesError(null);
     setChatInput('');
     setStatusMessage(null);
     clearPendingUploads();
@@ -556,7 +559,8 @@ export function SocialEditorPage() {
       setStatusMessage('AI generated a new post draft.');
       setPrediction(null);
       setBestTimes([]);
-      setInsightError(null);
+      setPerformanceError(null);
+      setTimesError(null);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Unable to generate a draft right now.');
     }
@@ -630,36 +634,43 @@ export function SocialEditorPage() {
     setStatusMessage('Media added locally. Save the draft to persist it.');
   };
 
-  const refreshInsights = async () => {
-    setInsightsLoading(true);
-    setInsightError(null);
+  const buildLookupPayload = () => ({
+    platform: activeDraft.platform,
+    postType: activeDraft.postType,
+    mediaType: activeDraft.mediaType,
+    contentTopic: activeDraft.contentTopic,
+    sentimentTone: activeDraft.sentimentTone,
+    callToActionType: activeDraft.callToActionType,
+    hasCallToAction: activeDraft.callToActionType && activeDraft.callToActionType !== 'None' ? 'Yes' : 'No',
+  });
 
+  const fetchPerformance = async () => {
+    setPerformanceLoading(true);
+    setPerformanceError(null);
     try {
-      const [predictionResp, bestTimesResp] = await Promise.all([
-        api.post<{ items: MlSocialPostPrediction[] }>('/api/predictions/ml/social-lookup', {
-          platform: activeDraft.platform,
-          postType: activeDraft.postType,
-          mediaType: activeDraft.mediaType,
-          contentTopic: activeDraft.contentTopic,
-          sentimentTone: activeDraft.sentimentTone,
-          callToActionType: activeDraft.callToActionType,
-          hasCallToAction: activeDraft.callToActionType && activeDraft.callToActionType !== 'None' ? 'Yes' : 'No',
-        }),
-        api.post<{ items: BestPostingTime[] }>('/api/predictions/ml/best-posting-times', {
-          platform: activeDraft.platform,
-          postType: activeDraft.postType,
-          mediaType: activeDraft.mediaType,
-          contentTopic: activeDraft.contentTopic,
-          sentimentTone: activeDraft.sentimentTone,
-          callToActionType: activeDraft.callToActionType,
-          hasCallToAction: activeDraft.callToActionType && activeDraft.callToActionType !== 'None' ? 'Yes' : 'No',
-        }),
-      ]);
+      const resp = await api.post<{ items: MlSocialPostPrediction[] }>(
+        '/api/predictions/ml/social-lookup',
+        buildLookupPayload(),
+      );
+      setPrediction(resp.items?.[0] ?? null);
+    } catch (error) {
+      setPerformanceError(error instanceof Error ? error.message : 'Unable to load performance predictions.');
+    } finally {
+      setPerformanceLoading(false);
+    }
+  };
 
-      setPrediction(predictionResp.items?.[0] ?? null);
-      setBestTimes(bestTimesResp.items?.slice(0, 5) ?? []);
-
-      const bestSlot = bestTimesResp.items?.[0];
+  const fetchBestTimes = async () => {
+    setTimesLoading(true);
+    setTimesError(null);
+    try {
+      const resp = await api.post<{ items: BestPostingTime[] }>(
+        '/api/predictions/ml/best-posting-times',
+        buildLookupPayload(),
+      );
+      const slots = resp.items?.slice(0, 5) ?? [];
+      setBestTimes(slots);
+      const bestSlot = slots[0];
       if (bestSlot) {
         autoSaveSkipRef.current = true;
         setActiveDraft((prev) => ({
@@ -669,9 +680,9 @@ export function SocialEditorPage() {
         }));
       }
     } catch (error) {
-      setInsightError(error instanceof Error ? error.message : 'Unable to refresh insights right now.');
+      setTimesError(error instanceof Error ? error.message : 'Unable to load suggested times.');
     } finally {
-      setInsightsLoading(false);
+      setTimesLoading(false);
     }
   };
 
@@ -732,38 +743,56 @@ export function SocialEditorPage() {
 
   const draftList = draftsQuery.data?.items ?? [];
   const currentStage = activeDraft.stage as Stage;
-  const performanceMetrics = useMemo(() => ([
-    {
-      label: 'Predicted Referrals',
-      value: prediction ? prediction.predictedDonationReferrals.toFixed(1) : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedDonationReferrals,
-    },
-    {
-      label: 'Estimated Value',
-      value: prediction ? `PHP ${prediction.predictedEstimatedDonationValuePhp.toLocaleString()}` : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEstimatedDonationValuePhp,
-    },
-    {
-      label: 'Engagement',
-      value: prediction ? `${prediction.predictedEngagementRate.toFixed(2)}%` : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEngagementRate,
-    },
-    {
-      label: 'Forwards',
-      value: prediction ? prediction.predictedForwards.toFixed(1) : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedForwards,
-    },
-    {
-      label: 'Profile Visits',
-      value: prediction ? prediction.predictedProfileVisits.toFixed(1) : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedProfileVisits,
-    },
-    {
-      label: 'Impressions',
-      value: prediction ? prediction.predictedImpressions.toFixed(1) : '--',
-      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedImpressions,
-    },
-  ]), [prediction]);
+  const performanceMetrics = useMemo(() => {
+    const selectedSlot = bestTimes.find(
+      (t) => t.dayOfWeek === activeDraft.scheduledDay && t.postHour === activeDraft.scheduledHour,
+    );
+    const isTimeAdjusted = selectedSlot != null;
+    const estimatedValue = isTimeAdjusted
+      ? `PHP ${Math.round(selectedSlot.predictedEstimatedDonationValuePhp).toLocaleString()}`
+      : prediction
+        ? `PHP ${Math.round(prediction.predictedEstimatedDonationValuePhp).toLocaleString()}`
+        : '--';
+
+    return [
+      {
+        label: 'Predicted Referrals',
+        value: prediction ? prediction.predictedDonationReferrals.toFixed(1) : '--',
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedDonationReferrals,
+        timeAdjusted: false,
+      },
+      {
+        label: 'Estimated Value',
+        value: estimatedValue,
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEstimatedDonationValuePhp,
+        timeAdjusted: isTimeAdjusted,
+      },
+      {
+        label: 'Engagement',
+        value: prediction ? `${prediction.predictedEngagementRate.toFixed(2)}%` : '--',
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEngagementRate,
+        timeAdjusted: false,
+      },
+      {
+        label: 'Forwards',
+        value: prediction ? prediction.predictedForwards.toFixed(1) : '--',
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedForwards,
+        timeAdjusted: false,
+      },
+      {
+        label: 'Profile Visits',
+        value: prediction ? prediction.predictedProfileVisits.toFixed(1) : '--',
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedProfileVisits,
+        timeAdjusted: false,
+      },
+      {
+        label: 'Impressions',
+        value: prediction ? prediction.predictedImpressions.toFixed(1) : '--',
+        description: PREDICTION_FEATURE_DESCRIPTIONS.predictedImpressions,
+        timeAdjusted: false,
+      },
+    ];
+  }, [activeDraft.scheduledDay, activeDraft.scheduledHour, bestTimes, prediction]);
 
   const savedPostsCard = (
     <Card className="flex h-full self-stretch flex-col space-y-4 p-0">
@@ -854,21 +883,35 @@ export function SocialEditorPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">Performance & Timing</p>
-                <p className="mt-1 text-sm text-warm-gray">Refresh ML-backed performance predictions and let AI choose a suggested posting time.</p>
+                <p className="mt-1 text-sm text-warm-gray">Predict content performance, or let AI suggest optimal posting times. Select a time slot to see a time-adjusted value estimate.</p>
               </div>
-              <Button onClick={() => void refreshInsights()} loading={insightsLoading} className="self-start lg:self-auto">
-                <WandSparkles size={16} />
-                AI Suggest Best Time
-              </Button>
+              <div className="flex shrink-0 gap-2 self-start lg:self-auto">
+                <Button variant="ghost" onClick={() => void fetchPerformance()} loading={performanceLoading} className="border border-slate-navy/15 dark:border-white/15">
+                  <BarChart2 size={16} />
+                  Predict Performance
+                </Button>
+                <Button onClick={() => void fetchBestTimes()} loading={timesLoading}>
+                  <WandSparkles size={16} />
+                  Suggest Times
+                </Button>
+              </div>
             </div>
 
-            {insightError && <p className="text-sm text-red-600">{insightError}</p>}
+            {performanceError && <p className="text-sm text-red-600">{performanceError}</p>}
+            {timesError && <p className="text-sm text-red-600">{timesError}</p>}
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_260px]">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {performanceMetrics.map((metric) => (
                   <div key={metric.label} className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
-                    <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
+                      {metric.timeAdjusted && (
+                        <span className="shrink-0 rounded-full bg-sky-blue/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-navy dark:bg-sky-blue/25 dark:text-sky-blue">
+                          time-adjusted
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-2 font-heading text-2xl font-semibold text-slate-navy dark:text-white">{metric.value}</p>
                     {metric.description && <p className="mt-1 text-xs text-warm-gray">{metric.description}</p>}
                   </div>
