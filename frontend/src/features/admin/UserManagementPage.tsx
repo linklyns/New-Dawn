@@ -52,9 +52,9 @@ export function UserManagementPage() {
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
       api.put(`/api/users/${userId}/role`, { role }),
     onMutate: async ({ userId, role }) => {
-      await queryClient.cancelQueries({ queryKey: ['users', page] });
-      const previous = queryClient.getQueryData<UsersResponse>(['users', page]);
-      queryClient.setQueryData<UsersResponse>(['users', page], (old) => {
+      await queryClient.cancelQueries({ queryKey: ['users'] });
+      const previous = queryClient.getQueryData<UsersResponse>(['users']);
+      queryClient.setQueryData<UsersResponse>(['users'], (old) => {
         if (!old) return old;
         return {
           ...old,
@@ -66,7 +66,7 @@ export function UserManagementPage() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['users', page], context.previous);
+        queryClient.setQueryData(['users'], context.previous);
       }
     },
     onSettled: () => {
