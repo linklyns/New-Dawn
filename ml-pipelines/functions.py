@@ -45,6 +45,58 @@ def save_pipeline_output(df, filename):
 
 
 # ---------------------------------------------------------------------------
+# Boost budget binning (shared by Pipeline 02 & 03)
+# ---------------------------------------------------------------------------
+
+def bin_boost_budget(series):
+    """Bin boost_budget_php into 4 ordered categories.
+
+    Bins:
+      - "none"   : value == 0
+      - "low"    : 0 < value <= Q1 of non-zero values
+      - "medium" : Q1 < value <= Q3 of non-zero values
+      - "high"   : value > Q3 of non-zero values
+
+    Returns:
+        (binned_series, {'q1': float, 'q3': float})
+        If there are no non-zero values, every row is "none" and q1=q3=0.
+    """
+    import json as _json
+
+    s = pd.to_numeric(series, errors='coerce').fillna(0)
+    nonzero = s[s > 0]
+
+    if len(nonzero) == 0:
+        return s.map(lambda _: 'none'), {'q1': 0.0, 'q3': 0.0}
+
+    q1 = float(nonzero.quantile(0.25))
+    q3 = float(nonzero.quantile(0.75))
+
+    def _label(v):
+        if v == 0:
+            return 'none'
+        elif v <= q1:
+            return 'low'
+        elif v <= q3:
+            return 'medium'
+        else:
+            return 'high'
+
+    return s.map(_label), {'q1': q1, 'q3': q3}
+
+
+def save_boost_bin_thresholds(thresholds):
+    """Persist boost-bin thresholds as JSON so the backend can load them."""
+    import json as _json
+    out = os.path.join(get_models_path(), 'boost_bin_thresholds.json')
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, 'w') as f:
+        _json.dump(thresholds, f)
+    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Saved boost thresholds → {out}")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Model evaluation (Ch. 10-12)
 # ---------------------------------------------------------------------------
 

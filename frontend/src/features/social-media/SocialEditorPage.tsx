@@ -15,6 +15,7 @@ import { api } from '../../lib/api';
 import { normalizeRichTextHtml, richTextToPlainText } from '../../lib/richText';
 import type { PagedResult } from '../../types/api';
 import type { BestPostingTime, MlSocialPostPrediction } from '../../types/predictions';
+import { PREDICTION_FEATURE_DESCRIPTIONS } from '../../types/predictions';
 import type { SocialMediaDraft, SocialMediaDraftChatMessage, SocialMediaDraftSummary } from '../../types/models';
 import { SocialDraftPreview } from './SocialDraftPreview';
 
@@ -642,8 +643,17 @@ export function SocialEditorPage() {
           contentTopic: activeDraft.contentTopic,
           sentimentTone: activeDraft.sentimentTone,
           callToActionType: activeDraft.callToActionType,
+          hasCallToAction: activeDraft.callToActionType && activeDraft.callToActionType !== 'None' ? 'Yes' : 'No',
         }),
-        api.get<{ items: BestPostingTime[] }>('/api/predictions/ml/best-posting-times'),
+        api.post<{ items: BestPostingTime[] }>('/api/predictions/ml/best-posting-times', {
+          platform: activeDraft.platform,
+          postType: activeDraft.postType,
+          mediaType: activeDraft.mediaType,
+          contentTopic: activeDraft.contentTopic,
+          sentimentTone: activeDraft.sentimentTone,
+          callToActionType: activeDraft.callToActionType,
+          hasCallToAction: activeDraft.callToActionType && activeDraft.callToActionType !== 'None' ? 'Yes' : 'No',
+        }),
       ]);
 
       setPrediction(predictionResp.items?.[0] ?? null);
@@ -726,26 +736,32 @@ export function SocialEditorPage() {
     {
       label: 'Predicted Referrals',
       value: prediction ? prediction.predictedDonationReferrals.toFixed(1) : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedDonationReferrals,
     },
     {
       label: 'Estimated Value',
       value: prediction ? `PHP ${prediction.predictedEstimatedDonationValuePhp.toLocaleString()}` : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEstimatedDonationValuePhp,
     },
     {
       label: 'Engagement',
       value: prediction ? `${prediction.predictedEngagementRate.toFixed(2)}%` : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedEngagementRate,
     },
     {
       label: 'Forwards',
       value: prediction ? prediction.predictedForwards.toFixed(1) : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedForwards,
     },
     {
       label: 'Profile Visits',
       value: prediction ? prediction.predictedProfileVisits.toFixed(1) : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedProfileVisits,
     },
     {
       label: 'Impressions',
       value: prediction ? prediction.predictedImpressions.toFixed(1) : '--',
+      description: PREDICTION_FEATURE_DESCRIPTIONS.predictedImpressions,
     },
   ]), [prediction]);
 
@@ -854,6 +870,7 @@ export function SocialEditorPage() {
                   <div key={metric.label} className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
                     <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
                     <p className="mt-2 font-heading text-2xl font-semibold text-slate-navy dark:text-white">{metric.value}</p>
+                    {metric.description && <p className="mt-1 text-xs text-warm-gray">{metric.description}</p>}
                   </div>
                 ))}
               </div>

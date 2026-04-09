@@ -28,7 +28,8 @@ import joblib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import (load_csv, save_pipeline_output, evaluate_regressors,
-                       feature_importance_report, get_models_path)
+                       feature_importance_report, get_models_path,
+                       bin_boost_budget, save_boost_bin_thresholds)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -53,6 +54,11 @@ CAT_COLS = [
 NUM_COLS = ['caption_length', 'num_hashtags', 'mentions_count',
             'boost_budget_php', 'post_hour']
 
+# Lookup-specific columns: same as CAT_COLS + boost_budget_php_bin;
+# day_of_week stays; boost_budget_php removed from numerics (replaced by bin)
+LOOKUP_CAT_COLS = CAT_COLS + ['boost_budget_php_bin']
+LOOKUP_NUM_COLS = ['caption_length', 'num_hashtags', 'mentions_count', 'post_hour']
+
 
 def prepare_data(posts):
     """Clean and prepare social media post data."""
@@ -73,6 +79,9 @@ def prepare_data(posts):
 
     for target in TARGETS:
         df[target] = pd.to_numeric(df[target], errors='coerce').fillna(0)
+
+    # Compute boost budget bin (used as a lookup dimension)
+    df['boost_budget_php_bin'], _ = bin_boost_budget(df['boost_budget_php'])
 
     return df
 
@@ -125,44 +134,40 @@ def train_target_model(X, y, target_name):
     return best_model, results, best_name
 
 
-def generate_lookup_combos(df):
+def generate_lookup_combos(df, bin_medians):
     """Generate realistic feature combinations from historical data.
-    
-    Strategy: take unique values observed for each categorical feature and
-    combine with representative numeric values. Filter to combos where at
-    least 2 individual feature values are commonly observed together.
-    """
-    cat_uniques = {}
-    for col in CAT_COLS:
-        vals = df[col].value_counts()
-        # Keep values that appear in ≥ 2% of posts (avoid ultra-rare combos)
-        common = vals[vals >= max(2, len(df) * 0.02)].index.tolist()
-        if not common:
-            common = vals.head(5).index.tolist()
-        cat_uniques[col] = common
 
-    # Representative numeric values
+    Strategy: unique observed LOOKUP_CAT_COLS combinations (including
+    boost_budget_php_bin) crossed with representative values of the four
+    remaining numeric features. boost_budget_php is substituted using the
+    per-bin median so the underlying continuous model still receives a
+    plausible numeric value.
+
+    Args:
+        df: prepared DataFrame (must have 'boost_budget_php_bin' column)
+        bin_medians: dict mapping bin label → median raw PHP amount
+    """
+    # Representative numeric values (3 percentiles each)
     num_representatives = {}
-    for col in NUM_COLS:
+    for col in LOOKUP_NUM_COLS:
         vals = df[col].dropna()
-        # Use 3 representative values: 25th, 50th, 75th percentile
         num_representatives[col] = sorted(vals.quantile([0.25, 0.5, 0.75]).unique().tolist())
 
-    # Build combos — limit to manageable size
-    # Start with observed categorical combos from actual posts
-    observed = df[CAT_COLS].drop_duplicates()
-    print(f"  Observed categorical combos: {len(observed)}")
+    # Unique observed combos of all lookup categoricals
+    observed = df[LOOKUP_CAT_COLS].drop_duplicates()
+    print(f"  Observed lookup categorical combos: {len(observed)}")
 
     # Cross with representative numeric values
     rows = []
     for _, cat_row in observed.iterrows():
-        for num_combo in product(*[num_representatives[c] for c in NUM_COLS]):
+        for num_combo in product(*[num_representatives[c] for c in LOOKUP_NUM_COLS]):
             row = cat_row.to_dict()
-            for i, col in enumerate(NUM_COLS):
+            for i, col in enumerate(LOOKUP_NUM_COLS):
                 row[col] = num_combo[i]
+            # Map bin → representative raw PHP value for model input
+            row['boost_budget_php'] = bin_medians.get(row['boost_budget_php_bin'], 0.0)
             rows.append(row)
 
-    # If too many rows, sample down
     combo_df = pd.DataFrame(rows)
     if len(combo_df) > 50000:
         combo_df = combo_df.sample(50000, random_state=42)
@@ -212,11 +217,24 @@ def run(posts=None):
         path = os.path.join(get_models_path(), f'social_{target}_model.pkl')
         joblib.dump(model, path)
 
-    # 4. Generate realistic combos
-    print("\n── Generating lookup combinations ──")
-    combos = generate_lookup_combos(df)
+    # 4. Compute boost bin thresholds and medians
+    _, thresholds = bin_boost_budget(df['boost_budget_php'])
+    save_boost_bin_thresholds(thresholds)
+    bin_medians = (
+        df[df['boost_budget_php'] > 0]
+        .groupby('boost_budget_php_bin')['boost_budget_php']
+        .median()
+        .to_dict()
+    )
+    bin_medians['none'] = 0.0
+    print(f"  Boost bin thresholds: q1={thresholds['q1']:.0f}, q3={thresholds['q3']:.0f}")
+    print(f"  Boost bin medians: {bin_medians}")
 
-    # 5. Encode combos and predict
+    # 5. Generate realistic combos
+    print("\n── Generating lookup combinations ──")
+    combos = generate_lookup_combos(df, bin_medians)
+
+    # 6. Encode combos and predict
     combo_encoded, _ = encode_features(combos)
     # Align columns with training data
     for col in feature_names:
@@ -229,7 +247,9 @@ def run(posts=None):
         preds = np.clip(preds, 0, None)  # no negative predictions
         combos[f'predicted_{target}'] = preds.round(4)
 
-    # 6. Save
+    # 7. Save
+    # Keep lookup key columns + predicted columns (drop raw boost_budget_php
+    # since the bin column is the canonical lookup key)
     save_pipeline_output(combos, 'social_post_predictions.csv')
 
     print(f"\nLookup table: {len(combos)} rows × {len(combos.columns)} cols")
