@@ -315,10 +315,10 @@ s1 = add_rounded_rect(slide, sx, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
 add_shape(slide, sx, sol_y, sol_w, Inches(0.06), fill=SAGE_GREEN)
 add_text(slide, "Caseload Intelligence", sx + Inches(0.3), sol_y + Inches(0.3),
          Inches(3), Inches(0.5), font_size=20, color=SAGE_GREEN, bold=True)
-add_text(slide, "ML-powered risk prediction and causal reintegration analysis so no girl goes unnoticed.",
+add_text(slide, "ML risk prediction flags at-risk residents before they regress. Causal analysis identifies which factors actually drive successful reintegration. Automated notifications alert staff to forgotten cases.",
          sx + Inches(0.3), sol_y + Inches(0.9),
          Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
-add_text(slide, "Risk Prediction + Reintegration Causal",
+add_text(slide, "Risk Prediction + Reintegration Causal + Notifications",
          sx + Inches(0.3), sol_y + Inches(2.3),
          Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
 
@@ -328,10 +328,10 @@ s2 = add_rounded_rect(slide, s2x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
 add_shape(slide, s2x, sol_y, sol_w, Inches(0.06), fill=SKY_BLUE)
 add_text(slide, "AI Social Editor", s2x + Inches(0.3), sol_y + Inches(0.3),
          Inches(3), Inches(0.5), font_size=20, color=SKY_BLUE, bold=True)
-add_text(slide, "Real-time ML predictions show expected donations and engagement as staff craft posts. Optimal posting times maximize impact.",
+add_text(slide, "AI generates and refines social media posts via interactive chat. ML predicts donations, engagement, and reach in real time. Optimal posting times maximize fundraising. Save drafts, upload media, preview per platform.",
          s2x + Inches(0.3), sol_y + Inches(0.9),
          Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
-add_text(slide, "Social Referrals + Best Posting Times",
+add_text(slide, "AI Generation + Referral Predictions + Best Posting Times",
          s2x + Inches(0.3), sol_y + Inches(2.3),
          Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
 
@@ -341,10 +341,10 @@ s3 = add_rounded_rect(slide, s3x, sol_y, sol_w, sol_h, fill=SLATE_NAVY)
 add_shape(slide, s3x, sol_y, sol_w, Inches(0.06), fill=GOLDEN_HONEY)
 add_text(slide, "Donor Intelligence", s3x + Inches(0.3), sol_y + Inches(0.3),
          Inches(3), Inches(0.5), font_size=20, color=GOLDEN_HONEY, bold=True)
-add_text(slide, "ML predicts which donors are likely to give again with explainable reasons, so staff can prioritize outreach.",
+add_text(slide, "ML predicts which donors are likely to give again within 6 months, with SHAP-driven reasons explaining each score. Automated alerts flag declining donors so staff can act before they lapse.",
          s3x + Inches(0.3), sol_y + Inches(0.9),
          Inches(3), Inches(1.5), font_size=14, color=DIM_TEXT)
-add_text(slide, "Donor Likelihood Prediction",
+add_text(slide, "Donor Likelihood Prediction + Decline Notifications",
          s3x + Inches(0.3), sol_y + Inches(2.3),
          Inches(3), Inches(0.5), font_size=11, color=MED_GRAY)
 
@@ -401,9 +401,9 @@ add_text(slide, "AUTH & ADMIN", c1x + Inches(0.25), col_top + Inches(3.4),
 
 admin_items = [
     "Login with Google OAuth; show MFA setup in profile",
-    "Admin Dashboard -- active residents, donations, interventions overview",
-    "Role-based access: Admin sees all, Donor sees own data only",
-    "Delete confirmation modals, pagination on every list",
+    "Admin Dashboard -- residents, donations, OKR metric, reintegration insights",
+    "Notification bell -- alerts for at-risk donors, forgotten cases, milestones",
+    "Role-based access, delete confirmations, pagination on every list",
 ]
 add_numbered_list(slide, admin_items, c1x + Inches(0.25), col_top + Inches(3.8),
                   Inches(3.4), Inches(2.3),
@@ -458,11 +458,11 @@ add_text(slide, "AI SOCIAL EDITOR", c3x + Inches(0.25), col_top + Inches(0.2),
          Inches(2.2), Inches(0.35), font_size=12, color=SKY_BLUE, bold=True)
 
 social_items = [
-    "Build a post: pick platform, type, media, topic, sentiment, CTA",
-    "Watch 6 prediction cards update live (referrals, value, engagement...)",
-    "Change platform or CTA -- narrate how predictions shift",
-    "Show Best Posting Times -- top 15 optimal day/hour slots",
-    "Click an optimal slot to auto-schedule the post",
+    "Fill out a brief (platform, topic, CTA, tone) then AI generates the post",
+    "Refine via AI chat -- ask it to adjust tone, add hashtags, etc.",
+    "Upload media and see platform-specific previews (IG Reel, TikTok, etc.)",
+    "Predict Performance: 6 ML metrics update (referrals, value, engagement...)",
+    "Suggest Times: ML-ranked optimal day/hour slots, click to schedule",
 ]
 add_numbered_list(slide, social_items, c3x + Inches(0.25), col_top + Inches(0.6),
                   Inches(3.4), Inches(2.6),
