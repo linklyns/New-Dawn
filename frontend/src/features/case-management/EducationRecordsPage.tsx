@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -24,6 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { EducationRecord } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -53,6 +55,15 @@ function completionVariant(s: string): 'neutral' | 'warning' | 'success' {
   }
 }
 
+function translateCompletionStatus(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'NotStarted': return t('caseManagement.notStarted');
+    case 'InProgress': return t('caseManagement.inProgress');
+    case 'Completed': return t('caseManagement.completed');
+    default: return value;
+  }
+}
+
 const educationSchema = z.object({
   recordDate: z.string().min(1, 'Required'),
   educationLevel: z.string().min(1, 'Required'),
@@ -70,6 +81,7 @@ export function EducationRecordsPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<EducationRecord | null>(null);
@@ -136,11 +148,13 @@ export function EducationRecordsPage() {
   function openCreate() {
     setEditingRecord(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(rec: EducationRecord) {
     setEditingRecord(rec);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: EducationFormData) {
@@ -161,27 +175,27 @@ export function EducationRecordsPage() {
   const columns = [
     {
       key: 'recordDate',
-      header: 'Date',
+      header: t('common.date'),
       render: (row: Record<string, unknown>) => formatDate(row.recordDate as string),
     },
-    { key: 'educationLevel', header: 'Level' },
-    { key: 'schoolName', header: 'School' },
+    { key: 'educationLevel', header: t('caseManagement.educationLevel') },
+    { key: 'schoolName', header: t('caseManagement.schoolName') },
     {
       key: 'attendanceRate',
-      header: 'Attendance %',
+      header: t('caseManagement.attendancePercent'),
       render: (row: Record<string, unknown>) => `${row.attendanceRate}%`,
     },
     {
       key: 'progressPercent',
-      header: 'Progress %',
+      header: t('caseManagement.progressPercent'),
       render: (row: Record<string, unknown>) => `${row.progressPercent}%`,
     },
     {
       key: 'completionStatus',
-      header: 'Status',
+      header: t('common.status'),
       render: (row: Record<string, unknown>) => (
         <Badge variant={completionVariant(row.completionStatus as string)}>
-          {row.completionStatus as string}
+          {translateCompletionStatus(t, row.completionStatus as string)}
         </Badge>
       ),
     },
@@ -204,12 +218,12 @@ export function EducationRecordsPage() {
   return (
     <div>
       <PageHeader
-        title="Education Records"
-        subtitle="Track education progress and enrollment"
+        title={t('caseManagement.educationRecords')}
+        subtitle={t('caseManagement.progressPercent')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Record
+            {t('caseManagement.addRecord')}
           </Button>
         }
       />
@@ -217,20 +231,20 @@ export function EducationRecordsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-[200px] flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
           <input
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            placeholder="Search any field…"
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select className={selectClass} style={{ maxWidth: 180 }} value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value)}>
-          <option value="">All statuses</option>
-          {completionStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+          <option value="">{t('common.all')} {t('common.status').toLowerCase()}</option>
+          {completionStatuses.map((status) => <option key={status} value={status}>{translateCompletionStatus(t, status)}</option>)}
         </select>
         <button
           className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
@@ -241,14 +255,14 @@ export function EducationRecordsPage() {
           onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'asc' ? '↑' : '↓'}
+          {t('common.date')} {sortDir === 'asc' ? '↑' : '↓'}
         </button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingRecord ? 'Edit Record' : 'New Record'}
+            {editingRecord ? `${t('common.edit')} ${t('caseManagement.educationRecords')}` : t('caseManagement.newRecord')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -271,7 +285,7 @@ export function EducationRecordsPage() {
       {chartData.length > 1 && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Progress Over Time
+            {t('caseManagement.progressPercent')}
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
@@ -285,7 +299,7 @@ export function EducationRecordsPage() {
                 stroke="#38bdf8"
                 strokeWidth={2}
                 dot={{ r: 4 }}
-                name="Progress %"
+                name={t('caseManagement.progressPercent')}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -297,7 +311,7 @@ export function EducationRecordsPage() {
           columns={columns}
           data={records as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No education records found."
+          emptyMessage={t('common.noData')}
           page={page}
           totalPages={data?.totalPages ?? 1}
           onPageChange={setPage}
@@ -307,13 +321,13 @@ export function EducationRecordsPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Education Record"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.educationRecords')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.educationRecordId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this education record? This action cannot be undone.
+          {t('common.delete')} {t('caseManagement.educationRecords').toLowerCase()}? This action cannot be undone.
         </p>
       </Modal>
     </div>
@@ -333,6 +347,7 @@ function EducationForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -356,15 +371,15 @@ function EducationForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Record Date"
+          label={t('caseManagement.recordDate')}
           type="date"
           error={errors.recordDate?.message}
           {...register('recordDate')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Education Level</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.educationLevel')}</label>
           <select className={selectClass} {...register('educationLevel')}>
-            <option value="">Select...</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
             {educationLevels.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
@@ -374,35 +389,35 @@ function EducationForm({
           )}
         </div>
         <Input
-          label="School Name"
+          label={t('caseManagement.schoolName')}
           error={errors.schoolName?.message}
           {...register('schoolName')}
         />
         <Input
-          label="Enrollment Status"
+          label={t('caseManagement.enrollmentStatus')}
           error={errors.enrollmentStatus?.message}
           {...register('enrollmentStatus')}
         />
         <Input
-          label="Attendance Rate (0-100)"
+          label={t('caseManagement.attendancePercent')}
           type="number"
           step="any"
           error={errors.attendanceRate?.message}
           {...register('attendanceRate')}
         />
         <Input
-          label="Progress Percent (0-100)"
+          label={t('caseManagement.progressPercent')}
           type="number"
           step="any"
           error={errors.progressPercent?.message}
           {...register('progressPercent')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Completion Status</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.completionStatus')}</label>
           <select className={selectClass} {...register('completionStatus')}>
-            <option value="">Select...</option>
-            {completionStatuses.map((s) => (
-              <option key={s} value={s}>{s}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {completionStatuses.map((status) => (
+              <option key={status} value={status}>{translateCompletionStatus(t, status)}</option>
             ))}
           </select>
           {errors.completionStatus?.message && (
@@ -412,16 +427,16 @@ function EducationForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Notes</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('common.notes')}</label>
         <textarea className={textareaClass} rows={3} {...register('notes')} />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Record' : 'Save Record'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.educationRecords')}` : `${t('common.save')} ${t('caseManagement.educationRecords')}`}
         </Button>
       </div>
     </form>

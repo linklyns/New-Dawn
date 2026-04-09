@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
 import { ArrowUpDown, Plus, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
+import { formatLocalizedCurrency, formatLocalizedDate, resolveUserPreferences } from '../../lib/locale';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Table } from '../../components/ui/Table';
@@ -28,25 +29,38 @@ const programAreas = [
   'Legal', 'Reintegration', 'Operations', 'Other',
 ] as const;
 
-function formatDate(d: string | null | undefined): string {
-  if (!d) return '--';
-  try {
-    return format(parseISO(d), 'MMM d, yyyy');
-  } catch {
-    return d;
+function getProgramAreaLabel(area: string, t: (key: string) => string): string {
+  switch (area) {
+    case 'Education': return t('donors.educationProgram');
+    case 'Health': return t('donors.healthProgram');
+    case 'Livelihood': return t('donors.livelihood');
+    case 'Psychosocial': return t('donors.psychosocial');
+    case 'Legal': return t('donors.legal');
+    case 'Reintegration': return t('donors.reintegrationProgram');
+    case 'Operations': return t('donors.operations');
+    case 'Other': return t('donors.otherProgram');
+    default: return area;
   }
 }
 
-const allocationSchema = z.object({
-  donationId: z.number().min(1, 'Required'),
-  safehouseId: z.number().min(1, 'Required'),
-  programArea: z.string().min(1, 'Required'),
-  amountAllocated: z.number().min(0.01, 'Must be > 0'),
-  allocationDate: z.string().min(1, 'Required'),
-  allocationNotes: z.string(),
-});
-type AllocationFormData = z.infer<typeof allocationSchema>;
+function formatDate(d: string | null | undefined): string {
+  return formatLocalizedDate(d);
+}
+
 type SortKey = 'date' | 'amount' | 'program' | 'safehouse';
+
+function createAllocationSchema(t: (key: string) => string) {
+  return z.object({
+    donationId: z.number().min(1, t('common.required')),
+    safehouseId: z.number().min(1, t('common.required')),
+    programArea: z.string().min(1, t('common.required')),
+    amountAllocated: z.number().min(0.01, 'Must be > 0'),
+    allocationDate: z.string().min(1, t('common.required')),
+    allocationNotes: z.string(),
+  });
+}
+
+type AllocationFormData = z.infer<ReturnType<typeof createAllocationSchema>>;
 
 function AllocationForm({
   safehouses, onSubmit, onCancel, isSubmitting,
@@ -56,6 +70,9 @@ function AllocationForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
+  const allocationSchema = useMemo(() => createAllocationSchema(t), [t]);
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AllocationFormData>({
     resolver: zodResolver(allocationSchema),
     defaultValues: { allocationDate: new Date().toISOString().slice(0, 10), allocationNotes: '' },
@@ -78,7 +95,7 @@ function AllocationForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Donation</label>
+          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('donors.donation')}</label>
           <select
             className={selectClass}
             {...register('donationId', {
@@ -94,7 +111,7 @@ function AllocationForm({
             <option value="">Select donation...</option>
             {(unallocatedDonations ?? []).map((d) => (
               <option key={d.donationId} value={d.donationId}>
-                #{d.donationId} — PHP {d.remaining.toLocaleString()} left
+                #{d.donationId} — {formatLocalizedCurrency(d.remaining, preferences, { maximumFractionDigits: 2 })} left
                 {d.campaignName ? ` (${d.campaignName})` : ''}
               </option>
             ))}
@@ -112,19 +129,19 @@ function AllocationForm({
           {errors.safehouseId && <p className="mt-1 text-xs text-red-500">{errors.safehouseId.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Program Area</label>
+          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('donors.programArea')}</label>
           <select className={selectClass} {...register('programArea')}>
             <option value="">Select area...</option>
-            {programAreas.map((a) => <option key={a} value={a}>{a}</option>)}
+            {programAreas.map((a) => <option key={a} value={a}>{getProgramAreaLabel(a, t)}</option>)}
           </select>
           {errors.programArea && <p className="mt-1 text-xs text-red-500">{errors.programArea.message}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">
-            Amount (PHP)
+            {t('donors.amountAllocated')} ({preferences.preferredCurrency})
             {selectedDonation && (
               <span className="ml-1 font-normal text-warm-gray dark:text-white/50">
-                max {selectedDonation.remaining.toLocaleString()}
+                max {formatLocalizedCurrency(selectedDonation.remaining, preferences, { maximumFractionDigits: 2 })}
               </span>
             )}
           </label>
@@ -132,26 +149,29 @@ function AllocationForm({
           {errors.amountAllocated && <p className="mt-1 text-xs text-red-500">{errors.amountAllocated.message}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Allocation Date</label>
+          <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('donors.allocationDate')}</label>
           <Input type="date" {...register('allocationDate')} />
           {errors.allocationDate && <p className="mt-1 text-xs text-red-500">{errors.allocationDate.message}</p>}
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">Notes</label>
+        <label className="mb-1 block text-xs font-medium text-slate-navy dark:text-white">{t('common.notes')}</label>
         <textarea className={textareaClass} rows={2} placeholder="Optional notes..." {...register('allocationNotes')} />
       </div>
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" size="sm" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Allocation'}</Button>
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit" size="sm" disabled={isSubmitting}>{isSubmitting ? `${t('common.save')}...` : t('common.save')}</Button>
       </div>
     </form>
   );
 }
 
 export function AllocationsList() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const userRole = useAuthStore((s) => s.user?.role);
+  const user = useAuthStore((s) => s.user);
+  const userRole = user?.role;
+  const preferences = resolveUserPreferences(user);
   const isAdmin = userRole === 'Admin';
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -257,7 +277,7 @@ export function AllocationsList() {
   const columns = [
     {
       key: 'donationId',
-      header: <span className="flex items-center">Donation <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('donors.donation')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => `#${row.donationId}`,
     },
     {
@@ -270,21 +290,22 @@ export function AllocationsList() {
     },
     {
       key: 'programArea',
-      header: <span className="flex items-center">Program Area <SortBtn col="program" /></span>,
+      header: <span className="flex items-center">{t('donors.programArea')} <SortBtn col="program" /></span>,
+      render: (row: Record<string, unknown>) => getProgramAreaLabel(String(row.programArea), t),
     },
     {
       key: 'amountAllocated',
-      header: <span className="flex items-center">Amount <SortBtn col="amount" /></span>,
-      render: (row: Record<string, unknown>) => `PHP ${Number(row.amountAllocated).toLocaleString()}`,
+      header: <span className="flex items-center">{t('donors.amountAllocated')} <SortBtn col="amount" /></span>,
+      render: (row: Record<string, unknown>) => formatLocalizedCurrency(Number(row.amountAllocated), preferences, { maximumFractionDigits: 2 }),
     },
     {
       key: 'allocationDate',
-      header: <span className="flex items-center">Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('common.date')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.allocationDate as string),
     },
     {
       key: 'allocationNotes',
-      header: 'Notes',
+      header: t('common.notes'),
       render: (row: Record<string, unknown>) => {
         const notes = row.allocationNotes as string | null;
         if (!notes) return '--';
@@ -296,11 +317,8 @@ export function AllocationsList() {
   return (
     <div>
       <PageHeader
-        title="Donation Allocations"
-        subtitle={isAdmin
-          ? 'How donations are distributed across safehouses and programs'
-          : 'See how your donations are being allocated to safehouses and programs'
-        }
+        title={t('donors.allocationsTitle')}
+        subtitle={t('donors.allocationsSubtitle')}
       />
 
       {/* Funds still to allocate */}
@@ -308,13 +326,13 @@ export function AllocationsList() {
         <Card className="mb-6 flex items-center justify-between border-golden-honey/40 bg-golden-honey/5 dark:border-golden-honey/30 dark:bg-golden-honey/5">
           <div>
             <p className="text-sm font-semibold text-slate-navy dark:text-white">
-              Funds Still to Allocate
+              {t('donors.unallocated')}
             </p>
-            <p className="text-2xl font-bold text-golden-honey">PHP {unallocated.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-golden-honey">{formatLocalizedCurrency(unallocated, preferences, { maximumFractionDigits: 2 })}</p>
           </div>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus size={14} />
-            Allocate
+            {t('donors.newAllocation')}
           </Button>
         </Card>
       )}
@@ -326,7 +344,7 @@ export function AllocationsList() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Search any field (e.g. Education, #42)"
+              placeholder={t('donors.searchAllocations')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -336,8 +354,8 @@ export function AllocationsList() {
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
           >
-            <option value="">All Program Areas</option>
-            {programAreas.map((a) => <option key={a} value={a}>{a}</option>)}
+            <option value="">{t('common.all')}</option>
+            {programAreas.map((a) => <option key={a} value={a}>{getProgramAreaLabel(a, t)}</option>)}
           </select>
         </div>
 
@@ -345,7 +363,7 @@ export function AllocationsList() {
           columns={columns as Parameters<typeof Table>[0]['columns']}
           data={processed as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No allocations found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={data?.totalPages ?? 1}
@@ -357,7 +375,7 @@ export function AllocationsList() {
       </Card>
 
       {isAdmin && (
-        <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title="New Allocation" size="lg" hideFooter>
+        <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title={t('donors.newAllocation')} size="lg" hideFooter>
           {createMutation.isError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
               {(createMutation.error as Error).message}

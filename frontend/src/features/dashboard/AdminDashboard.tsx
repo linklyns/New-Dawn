@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -18,6 +19,8 @@ import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import type { ReintegrationFactor } from '../../types/predictions';
+import { useAuthStore } from '../../stores/authStore';
+import { formatLocalizedCurrency, formatLocalizedNumber, resolveUserPreferences } from '../../lib/locale';
 
 interface SafehouseResidentCount {
   safehouseId: number;
@@ -182,38 +185,38 @@ function buildReintegrationExplanation(factor: ReintegrationFactor): ReactNode {
 
 const quickNavItems = [
   {
-    title: 'Residents',
-    description: 'View and manage resident caseload',
+    titleKey: 'dashboard.residentsNav',
+    descriptionKey: 'dashboard.residentsNavDesc',
     path: '/admin/residents',
     icon: Users,
   },
   {
-    title: 'Supporters',
-    description: 'Manage donors and supporters',
+    titleKey: 'dashboard.supportersNav',
+    descriptionKey: 'dashboard.supportersNavDesc',
     path: '/admin/supporters',
     icon: UserPlus,
   },
   {
-    title: 'Donations',
-    description: 'Track donations and allocations',
+    titleKey: 'dashboard.donationsNav',
+    descriptionKey: 'dashboard.donationsNavDesc',
     path: '/admin/donations',
     icon: DollarSign,
   },
   {
-    title: 'Reports',
-    description: 'View analytics and reports',
+    titleKey: 'dashboard.reportsNav',
+    descriptionKey: 'dashboard.reportsNavDesc',
     path: '/admin/reports',
     icon: BarChart3,
   },
   {
-    title: 'Social Media',
-    description: 'Social media analytics dashboard',
+    titleKey: 'dashboard.socialMediaNav',
+    descriptionKey: 'dashboard.socialMediaNavDesc',
     path: '/admin/social',
     icon: Share2,
   },
   {
-    title: 'Social Editor',
-    description: 'Create and schedule posts',
+    titleKey: 'dashboard.socialEditorNav',
+    descriptionKey: 'dashboard.socialEditorNavDesc',
     path: '/admin/social/editor',
     icon: Sparkles,
   },
@@ -221,6 +224,8 @@ const quickNavItems = [
 
 export function AdminDashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -246,16 +251,16 @@ export function AdminDashboard() {
   if (isError && isForbidden) {
     return (
       <div>
-        <PageHeader title="Dashboard" subtitle="Overview of operations" />
+        <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-slate-navy/10 bg-white p-12 dark:border-white/10 dark:bg-dark-surface">
           <div className="rounded-full bg-golden-honey/20 p-4">
             <BarChart3 size={32} className="text-golden-honey" />
           </div>
           <h2 className="font-heading text-lg font-semibold text-slate-navy dark:text-white">
-            Staff or Admin Access Required
+            {t('dashboard.staffAccessRequired')}
           </h2>
           <p className="text-sm text-warm-gray">
-            The operations dashboard is available to staff and admin users.
+            {t('dashboard.staffAccessDescription')}
           </p>
         </div>
       </div>
@@ -265,13 +270,13 @@ export function AdminDashboard() {
   if (isError) {
     return (
       <div>
-        <PageHeader title="Dashboard" subtitle="Overview of operations" />
+        <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 p-12 dark:border-red-800 dark:bg-red-900/20">
           <p className="text-red-600 dark:text-red-400">
-            Failed to load dashboard data: {(error as Error).message}
+            {t('dashboard.failedLoad', { message: (error as Error).message })}
           </p>
           <Button variant="secondary" onClick={() => refetch()}>
-            Retry
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -287,7 +292,7 @@ export function AdminDashboard() {
 
   const summaryCards = [
     {
-      label: 'Active Residents',
+      label: t('dashboard.activeResidents'),
       value: totalActiveResidents,
       subValue: undefined as string | undefined,
       icon: Users,
@@ -295,15 +300,15 @@ export function AdminDashboard() {
       border: 'border-l-4 border-l-sky-blue',
     },
     {
-      label: 'Donations',
-      value: data?.recentDonations?.count ?? 0,
-      subValue: `$${(data?.recentDonations?.total ?? 0).toLocaleString()}`,
+      label: t('dashboard.donationsLabel'),
+      value: formatLocalizedNumber(data?.recentDonations?.count ?? 0, preferences),
+      subValue: formatLocalizedCurrency(data?.recentDonations?.total ?? 0, preferences, { maximumFractionDigits: 0 }),
       icon: DollarSign,
       accent: 'bg-sage-green/20 text-sage-green-text dark:text-sage-green',
       border: 'border-l-4 border-l-sage-green',
     },
     {
-      label: 'Open Interventions',
+      label: t('dashboard.openInterventions'),
       value: data?.openInterventionPlans ?? 0,
       subValue: undefined as string | undefined,
       icon: Target,
@@ -311,7 +316,7 @@ export function AdminDashboard() {
       border: 'border-l-4 border-l-golden-honey',
     },
     {
-      label: 'Safehouses',
+      label: t('dashboard.safehousesLabel'),
       value: safehouseCount,
       subValue: undefined as string | undefined,
       icon: Home,
@@ -325,7 +330,7 @@ export function AdminDashboard() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Overview of operations" />
+      <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
 
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -341,7 +346,7 @@ export function AdminDashboard() {
                   </p>
                   {card.subValue && (
                     <p className="mt-0.5 text-sm font-medium text-warm-gray">
-                      {card.subValue} total
+                      {card.subValue} {t('common.total')}
                     </p>
                   )}
                 </div>
@@ -356,7 +361,7 @@ export function AdminDashboard() {
 
       {/* Quick Navigation */}
       <h2 className="mb-4 font-heading text-lg font-semibold text-slate-navy dark:text-white">
-        Quick Navigation
+        {t('dashboard.quickNav')}
       </h2>
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {quickNavItems.map((item) => {
@@ -369,9 +374,9 @@ export function AdminDashboard() {
                 </div>
                 <div>
                   <h3 className="font-heading text-sm font-semibold text-slate-navy dark:text-white">
-                    {item.title}
+                    {t(item.titleKey)}
                   </h3>
-                  <p className="text-xs text-warm-gray">{item.description}</p>
+                  <p className="text-xs text-warm-gray">{t(item.descriptionKey)}</p>
                 </div>
               </div>
             </Card>
@@ -406,7 +411,7 @@ export function AdminDashboard() {
       {reintegrationFactors.length > 0 && (
         <Card className="mt-6">
           <h3 className="mb-2 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Reintegration Insights
+            {t('dashboard.reintegrationInsights')}
           </h3>
           <p className="mb-4 text-sm text-warm-gray">
             General patterns from the reintegration model across all residents.

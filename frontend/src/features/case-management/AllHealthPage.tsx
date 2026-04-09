@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { getPageSizeOptions } from '../../lib/pagination';
@@ -34,6 +35,7 @@ type SortKey = 'date' | 'health';
 
 export function AllHealthPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
@@ -94,7 +96,7 @@ export function AllHealthPage() {
   const columns = [
     {
       key: 'residentId',
-      header: 'Resident',
+      header: t('caseManagement.resident'),
       render: (row: Record<string, unknown>) => {
         const residentId = Number(row.residentId ?? 0);
         const resident = residentMap.get(residentId);
@@ -108,12 +110,12 @@ export function AllHealthPage() {
     },
     {
       key: 'recordDate',
-      header: <span className="flex items-center">Date <SortBtn col="date" /></span>,
+      header: <span className="flex items-center">{t('common.date')} <SortBtn col="date" /></span>,
       render: (row: Record<string, unknown>) => formatDate(row.recordDate as string),
     },
     {
       key: 'generalHealthScore',
-      header: <span className="flex items-center">Health <SortBtn col="health" /></span>,
+      header: <span className="flex items-center">{t('caseManagement.generalHealth')} <SortBtn col="health" /></span>,
       render: (row: Record<string, unknown>) => (
         <Badge variant={healthScoreVariant(row.generalHealthScore as number)}>
           {String(row.generalHealthScore)}/10
@@ -122,38 +124,38 @@ export function AllHealthPage() {
     },
     {
       key: 'nutritionScore',
-      header: 'Nutrition',
+      header: t('caseManagement.nutritionScore'),
       render: (row: Record<string, unknown>) => `${row.nutritionScore}/10`,
     },
     {
       key: 'sleepQualityScore',
-      header: 'Sleep',
+      header: t('caseManagement.sleepQualityScore'),
       render: (row: Record<string, unknown>) => `${row.sleepQualityScore}/10`,
     },
     {
       key: 'bmi',
-      header: 'BMI',
+      header: t('caseManagement.bmi'),
       render: (row: Record<string, unknown>) => Number(row.bmi).toFixed(1),
     },
     {
       key: 'medicalCheckupDone',
-      header: 'Medical',
+      header: t('caseManagement.medical'),
       render: (row: Record<string, unknown>) =>
-        row.medicalCheckupDone ? <Badge variant="success">Done</Badge> : <span className="text-warm-gray">--</span>,
+        row.medicalCheckupDone ? <Badge variant="success">{t('common.yes')}</Badge> : <span className="text-warm-gray">--</span>,
     },
     {
       key: 'psychologicalCheckupDone',
-      header: 'Psych',
+      header: t('caseManagement.psychologicalCheckup'),
       render: (row: Record<string, unknown>) =>
-        row.psychologicalCheckupDone ? <Badge variant="success">Done</Badge> : <span className="text-warm-gray">--</span>,
+        row.psychologicalCheckupDone ? <Badge variant="success">{t('common.yes')}</Badge> : <span className="text-warm-gray">--</span>,
     },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Health & Wellbeing"
-        subtitle="All health records across residents"
+        title={t('caseManagement.allHealth')}
+        subtitle={t('caseManagement.healthRecords')}
       />
 
       <Card>
@@ -162,7 +164,7 @@ export function AllHealthPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-              placeholder="Smart search (e.g. LS-0001, 8)"
+                placeholder={t('common.search')}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
@@ -173,7 +175,7 @@ export function AllHealthPage() {
           columns={columns}
           data={processed.slice((page - 1) * pageSize, page * pageSize) as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          emptyMessage="No health records found."
+          emptyMessage={t('common.noData')}
           page={page}
           pageSize={pageSize}
           totalPages={Math.max(1, Math.ceil(processed.length / pageSize))}

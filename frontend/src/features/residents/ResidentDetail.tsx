@@ -13,6 +13,7 @@ import {
   Target,
   AlertTriangle,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -67,39 +68,22 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function BoolBadge({ value, label }: { value: boolean; label: string }) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex items-center gap-2">
-      <Badge variant={value ? 'success' : 'neutral'}>{value ? 'Yes' : 'No'}</Badge>
+      <Badge variant={value ? 'success' : 'neutral'}>{value ? t('common.yes') : t('common.no')}</Badge>
       <span className="text-sm text-slate-navy dark:text-white">{label}</span>
     </div>
   );
 }
-
-const SUB_CAT_LABELS: Record<string, string> = {
-  subCatOrphaned: 'Orphaned',
-  subCatTrafficked: 'Trafficked',
-  subCatChildLabor: 'Child Labor',
-  subCatPhysicalAbuse: 'Physical Abuse',
-  subCatSexualAbuse: 'Sexual Abuse',
-  subCatOsaec: 'OSAEC',
-  subCatCicl: 'CICL',
-  subCatAtRisk: 'At Risk',
-  subCatStreetChild: 'Street Child',
-  subCatChildWithHiv: 'Child with HIV',
-};
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'family', label: 'Family & Background' },
-  { key: 'admission', label: 'Admission & Referral' },
-  { key: 'case', label: 'Case Management' },
-];
 
 function formatRiskScore(score: number, maxScore: number): string {
   return `${score.toFixed(2)} / ${maxScore.toFixed(2)}`;
 }
 
 export function ResidentDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -108,6 +92,26 @@ export function ResidentDetail() {
   const [isEditing, setIsEditing] = useState(isCreateMode);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const subCatLabels: Record<string, string> = {
+    subCatOrphaned: t('residents.orphaned'),
+    subCatTrafficked: t('residents.trafficked'),
+    subCatChildLabor: t('residents.childLabor'),
+    subCatPhysicalAbuse: t('residents.physicalAbuse'),
+    subCatSexualAbuse: t('residents.sexualAbuse'),
+    subCatOsaec: t('residents.osaec'),
+    subCatCicl: t('residents.cicl'),
+    subCatAtRisk: t('residents.atRisk'),
+    subCatStreetChild: t('residents.streetChild'),
+    subCatChildWithHiv: t('residents.childWithHiv'),
+  };
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'overview', label: t('residents.overview') },
+    { key: 'family', label: t('residents.familyBackground') },
+    { key: 'admission', label: t('residents.admissionReferral') },
+    { key: 'case', label: t('residents.caseManagement') },
+  ];
 
   const { data: resident, isLoading, isError, error } = useQuery({
     queryKey: ['resident', id],
@@ -182,13 +186,13 @@ export function ResidentDetail() {
   if (!isCreateMode && isError) {
     return (
       <div>
-        <PageHeader title="Resident Detail" />
+        <PageHeader title={t('nav.residents')} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 p-12 dark:border-red-800 dark:bg-red-900/20">
           <p className="text-red-600 dark:text-red-400">
             Failed to load resident: {(error as Error).message}
           </p>
           <Button variant="ghost" onClick={() => navigate(-1)}>
-            Back
+            {t('common.back')}
           </Button>
         </div>
       </div>
@@ -200,7 +204,7 @@ export function ResidentDetail() {
     return (
       <div>
         <PageHeader
-          title={isCreateMode ? 'New Resident' : `Edit ${resident?.internalCode ?? ''}`}
+          title={isCreateMode ? t('residents.addResident') : `${t('common.edit')} ${resident?.internalCode ?? ''}`}
           subtitle={isCreateMode ? 'Create a new resident record' : `Editing ${resident?.caseControlNo ?? ''}`}
         />
         <div className="mb-4">
@@ -216,7 +220,7 @@ export function ResidentDetail() {
             }}
           >
             <ArrowLeft size={16} />
-            {isCreateMode ? 'Back to Residents' : 'Cancel Edit'}
+            {isCreateMode ? t('common.back') : t('common.cancel')}
           </Button>
         </div>
 
@@ -257,17 +261,17 @@ export function ResidentDetail() {
   const riskScore = riskPrediction
     ? formatRiskScore(riskPrediction.predictedRiskScore, riskPrediction.riskScoreMax)
     : '--';
-  const activeSubCats = Object.entries(SUB_CAT_LABELS).filter(
+  const activeSubCats = Object.entries(subCatLabels).filter(
     ([key]) => r[key as keyof Resident] === true,
   );
 
   const caseLinks = [
-    { label: 'Process Recordings', path: `/admin/case/${r.residentId}/recordings`, icon: FileText },
-    { label: 'Home Visits', path: `/admin/case/${r.residentId}/visits`, icon: Home },
-    { label: 'Education Records', path: `/admin/case/${r.residentId}/education`, icon: GraduationCap },
-    { label: 'Health Records', path: `/admin/case/${r.residentId}/health`, icon: HeartPulse },
-    { label: 'Intervention Plans', path: `/admin/case/${r.residentId}/interventions`, icon: Target },
-    { label: 'Incident Reports', path: `/admin/case/${r.residentId}/incidents`, icon: AlertTriangle },
+    { label: t('caseManagement.processRecordings'), path: `/admin/case/${r.residentId}/recordings`, icon: FileText },
+    { label: t('caseManagement.homeVisitations'), path: `/admin/case/${r.residentId}/visits`, icon: Home },
+    { label: t('caseManagement.educationRecords'), path: `/admin/case/${r.residentId}/education`, icon: GraduationCap },
+    { label: t('caseManagement.healthRecords'), path: `/admin/case/${r.residentId}/health`, icon: HeartPulse },
+    { label: t('caseManagement.interventionPlans'), path: `/admin/case/${r.residentId}/interventions`, icon: Target },
+    { label: t('caseManagement.incidentReports'), path: `/admin/case/${r.residentId}/incidents`, icon: AlertTriangle },
   ];
 
   return (
@@ -279,11 +283,11 @@ export function ResidentDetail() {
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
               <Pencil size={16} />
-              Edit
+              {t('common.edit')}
             </Button>
             <Button variant="danger" size="sm" onClick={() => setDeleteModalOpen(true)}>
               <Trash2 size={16} />
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         }
@@ -293,13 +297,13 @@ export function ResidentDetail() {
       <div className="mb-6">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
       </div>
 
       {/* Tabs */}
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-navy/10 dark:border-white/10">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -325,10 +329,10 @@ export function ResidentDetail() {
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <InfoRow label="Sex" value={r.sex} />
-                <InfoRow label="Date of Birth" value={formatDate(r.dateOfBirth)} />
-                <InfoRow label="Birth Status" value={r.birthStatus} />
-                <InfoRow label="Place of Birth" value={r.placeOfBirth} />
-                <InfoRow label="Religion" value={r.religion} />
+                <InfoRow label={t('residents.dateOfBirth')} value={formatDate(r.dateOfBirth)} />
+                <InfoRow label={t('residents.birthStatus')} value={r.birthStatus} />
+                <InfoRow label={t('residents.placeOfBirth')} value={r.placeOfBirth} />
+                <InfoRow label={t('residents.religion')} value={r.religion} />
               </div>
             </Card>
 
@@ -338,15 +342,15 @@ export function ResidentDetail() {
                 Case Information
               </h3>
               <div className="grid grid-cols-2 gap-4">
-                <InfoRow label="Case Control No." value={r.caseControlNo} />
-                <InfoRow label="Internal Code" value={r.internalCode} />
+                <InfoRow label={t('residents.caseControlNo')} value={r.caseControlNo} />
+                <InfoRow label={t('residents.internalCode')} value={r.internalCode} />
                 <InfoRow
-                  label="Case Status"
-                  value={<Badge variant={statusVariant(r.caseStatus)}>{r.caseStatus}</Badge>}
+                  label={t('residents.caseStatus')}
+                  value={<Badge variant={statusVariant(r.caseStatus)}>{r.caseStatus === 'Active' ? t('common.active') : r.caseStatus === 'Closed' ? t('common.closed') : r.caseStatus === 'Transferred' ? t('residents.transferred') : r.caseStatus}</Badge>}
                 />
-                <InfoRow label="Case Category" value={r.caseCategory} />
+                <InfoRow label={t('residents.caseCategory')} value={r.caseCategory} />
                 <InfoRow
-                  label="Safehouse"
+                  label={t('residents.safehouse')}
                   value={safehouseMap.get(r.safehouseId) ?? `#${r.safehouseId}`}
                 />
               </div>
@@ -374,18 +378,18 @@ export function ResidentDetail() {
             </h3>
             <div className="flex gap-6">
               <InfoRow
-                label="Initial Risk Level"
+                label={t('residents.initialRiskLevel')}
                 value={
                   <Badge variant={riskVariant(r.initialRiskLevel)}>
-                    {r.initialRiskLevel}
+                    {r.initialRiskLevel === 'Critical' ? t('caseManagement.critical') : r.initialRiskLevel === 'High' ? t('caseManagement.high') : r.initialRiskLevel === 'Medium' ? t('caseManagement.medium') : r.initialRiskLevel === 'Low' ? t('caseManagement.low') : r.initialRiskLevel}
                   </Badge>
                 }
               />
               <InfoRow
-                label="Current Risk Level"
+                label={t('residents.currentRiskLevel')}
                 value={
                   <Badge variant={riskVariant(currentRiskLevel)}>
-                    {currentRiskLevel}
+                    {currentRiskLevel === 'Critical' ? t('caseManagement.critical') : currentRiskLevel === 'High' ? t('caseManagement.high') : currentRiskLevel === 'Medium' ? t('caseManagement.medium') : currentRiskLevel === 'Low' ? t('caseManagement.low') : currentRiskLevel}
                   </Badge>
                 }
               />
@@ -404,11 +408,11 @@ export function ResidentDetail() {
               Disability Information
             </h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <BoolBadge value={r.isPwd} label="Person with Disability" />
-              {r.isPwd && <InfoRow label="PWD Type" value={r.pwdType} />}
-              <BoolBadge value={r.hasSpecialNeeds} label="Has Special Needs" />
+              <BoolBadge value={r.isPwd} label={t('residents.pwd')} />
+              {r.isPwd && <InfoRow label={t('residents.pwdType')} value={r.pwdType} />}
+              <BoolBadge value={r.hasSpecialNeeds} label={t('residents.specialNeeds')} />
               {r.hasSpecialNeeds && (
-                <InfoRow label="Special Needs Diagnosis" value={r.specialNeedsDiagnosis} />
+                <InfoRow label={t('residents.specialNeedsDiagnosis')} value={r.specialNeedsDiagnosis} />
               )}
             </div>
           </Card>
@@ -419,11 +423,11 @@ export function ResidentDetail() {
               Family Profile
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <BoolBadge value={r.familyIs4ps} label="4Ps Beneficiary" />
-              <BoolBadge value={r.familySoloParent} label="Solo Parent" />
-              <BoolBadge value={r.familyIndigenous} label="Indigenous" />
-              <BoolBadge value={r.familyParentPwd} label="Parent is PWD" />
-              <BoolBadge value={r.familyInformalSettler} label="Informal Settler" />
+              <BoolBadge value={r.familyIs4ps} label={t('residents.fourPs')} />
+              <BoolBadge value={r.familySoloParent} label={t('residents.soloParent')} />
+              <BoolBadge value={r.familyIndigenous} label={t('residents.indigenous')} />
+              <BoolBadge value={r.familyParentPwd} label={t('residents.parentWithPwd')} />
+              <BoolBadge value={r.familyInformalSettler} label={t('residents.informalSettler')} />
             </div>
           </Card>
         </div>
@@ -432,20 +436,20 @@ export function ResidentDetail() {
       {activeTab === 'admission' && (
         <Card>
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            Admission & Referral Details
+            {t('residents.admissionReferral')}
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoRow label="Date of Admission" value={formatDate(r.dateOfAdmission)} />
-            <InfoRow label="Age Upon Admission" value={r.ageUponAdmission} />
-            <InfoRow label="Present Age" value={r.presentAge} />
-            <InfoRow label="Length of Stay" value={r.lengthOfStay} />
-            <InfoRow label="Referral Source" value={r.referralSource} />
+            <InfoRow label={t('residents.dateOfAdmission')} value={formatDate(r.dateOfAdmission)} />
+            <InfoRow label={t('residents.ageUponAdmission')} value={r.ageUponAdmission} />
+            <InfoRow label={t('residents.presentAge')} value={r.presentAge} />
+            <InfoRow label={t('residents.lengthOfStay')} value={r.lengthOfStay} />
+            <InfoRow label={t('residents.referralSource')} value={r.referralSource} />
             <InfoRow label="Referring Agency / Person" value={r.referringAgencyPerson} />
-            <InfoRow label="Date COLB Registered" value={formatDate(r.dateColbRegistered)} />
-            <InfoRow label="Date COLB Obtained" value={formatDate(r.dateColbObtained)} />
-            <InfoRow label="Assigned Social Worker" value={r.assignedSocialWorker} />
+            <InfoRow label={t('residents.dateColbRegistered')} value={formatDate(r.dateColbRegistered)} />
+            <InfoRow label={t('residents.dateColbObtained')} value={formatDate(r.dateColbObtained)} />
+            <InfoRow label={t('residents.assignedSocialWorker')} value={r.assignedSocialWorker} />
             <InfoRow label="Date Enrolled" value={formatDate(r.dateEnrolled)} />
-            <InfoRow label="Date Closed" value={formatDate(r.dateClosed)} />
+            <InfoRow label={t('residents.dateClosed')} value={formatDate(r.dateClosed)} />
           </div>
         </Card>
       )}
@@ -460,7 +464,7 @@ export function ResidentDetail() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <InfoRow label="Initial Case Assessment" value={r.initialCaseAssessment} />
               <InfoRow
-                label="Date Case Study Prepared"
+                label={t('residents.dateCaseStudy')}
                 value={formatDate(r.dateCaseStudyPrepared)}
               />
             </div>
@@ -472,9 +476,9 @@ export function ResidentDetail() {
               Reintegration
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InfoRow label="Reintegration Type" value={r.reintegrationType} />
+              <InfoRow label={t('residents.reintegrationType')} value={r.reintegrationType} />
               <InfoRow
-                label="Reintegration Status"
+                label={t('residents.reintegrationStatus')}
                 value={
                   r.reintegrationStatus ? (
                     <Badge
@@ -527,7 +531,7 @@ export function ResidentDetail() {
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Resident"
-        confirmText="Delete"
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteMutation.mutate()}
       >

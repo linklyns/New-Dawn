@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { getPageSizeOptions } from '../../lib/pagination';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -56,6 +57,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export function ResidentsList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [page, setPage] = useState(1);
@@ -105,42 +107,56 @@ export function ResidentsList() {
   const columns = [
     {
       key: 'internalCode',
-      header: 'Internal Code',
+      header: t('residents.internalCode'),
     },
     {
       key: 'caseControlNo',
-      header: 'Case Control No.',
+      header: t('residents.caseControlNo'),
     },
     {
       key: 'safehouseId',
-      header: 'Safehouse',
+      header: t('residents.safehouse'),
       render: (row: Resident) => safehouseMap.get(row.safehouseId) ?? `#${row.safehouseId}`,
     },
     {
       key: 'caseStatus',
-      header: 'Status',
+      header: t('common.status'),
       render: (row: Resident) => (
         <Badge variant={statusBadgeVariant(row.caseStatus)}>
-          {row.caseStatus}
+          {row.caseStatus === 'Active'
+            ? t('common.active')
+            : row.caseStatus === 'Closed'
+              ? t('common.closed')
+              : row.caseStatus === 'Transferred'
+                ? t('residents.transferred')
+                : row.caseStatus}
         </Badge>
       ),
     },
     {
       key: 'currentRiskLevel',
-      header: 'Risk Level',
+      header: t('residents.riskLevel'),
       render: (row: Resident) => (
         <Badge variant={riskBadgeVariant(row.currentRiskLevel)}>
-          {row.currentRiskLevel}
+          {row.currentRiskLevel === 'Critical'
+            ? t('caseManagement.critical')
+            : row.currentRiskLevel === 'High'
+              ? t('caseManagement.high')
+              : row.currentRiskLevel === 'Medium'
+                ? t('caseManagement.medium')
+                : row.currentRiskLevel === 'Low'
+                  ? t('caseManagement.low')
+                  : row.currentRiskLevel}
         </Badge>
       ),
     },
     {
       key: 'caseCategory',
-      header: 'Category',
+      header: t('residents.category'),
     },
     {
       key: 'dateOfAdmission',
-      header: 'Admission Date',
+      header: t('residents.admissionDate'),
       render: (row: Resident) => formatDate(row.dateOfAdmission),
     },
   ];
@@ -148,12 +164,12 @@ export function ResidentsList() {
   return (
     <div>
       <PageHeader
-        title="Caseload Inventory"
-        subtitle="Manage resident cases"
+        title={t('residents.title')}
+        subtitle={t('residents.subtitle')}
         action={
           <Button onClick={() => navigate('/admin/residents/new')}>
             <Plus size={16} />
-            Add Resident
+            {t('residents.addResident')}
           </Button>
         }
       />
@@ -163,7 +179,7 @@ export function ResidentsList() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-navy dark:text-white">
-              Case Status
+              {t('residents.caseStatus')}
             </label>
             <select
               className={selectClass}
@@ -173,16 +189,16 @@ export function ResidentsList() {
                 resetPage();
               }}
             >
-              <option value="">All</option>
-              <option value="Active">Active</option>
-              <option value="Closed">Closed</option>
-              <option value="Transferred">Transferred</option>
+              <option value="">{t('common.all')}</option>
+              <option value="Active">{t('common.active')}</option>
+              <option value="Closed">{t('common.closed')}</option>
+              <option value="Transferred">{t('residents.transferred')}</option>
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-navy dark:text-white">
-              Safehouse
+              {t('residents.safehouse')}
             </label>
             <select
               className={selectClass}
@@ -192,7 +208,7 @@ export function ResidentsList() {
                 resetPage();
               }}
             >
-              <option value="">All</option>
+              <option value="">{t('common.all')}</option>
               {(safehousesData?.items ?? []).map((s) => (
                 <option key={s.safehouseId} value={String(s.safehouseId)}>
                   {s.name}
@@ -203,7 +219,7 @@ export function ResidentsList() {
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-navy dark:text-white">
-              Case Category
+              {t('residents.caseCategory')}
             </label>
             <select
               className={selectClass}
@@ -213,18 +229,18 @@ export function ResidentsList() {
                 resetPage();
               }}
             >
-              <option value="">All</option>
+              <option value="">{t('common.all')}</option>
               <option value="Neglected">Neglected</option>
               <option value="Surrendered">Surrendered</option>
               <option value="Abandoned">Abandoned</option>
-              <option value="CICL">CICL</option>
-              <option value="Trafficked">Trafficked</option>
+              <option value="CICL">{t('residents.cicl')}</option>
+              <option value="Trafficked">{t('residents.trafficked')}</option>
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-navy dark:text-white">
-              Risk Level
+              {t('residents.riskLevel')}
             </label>
             <select
               className={selectClass}
@@ -234,17 +250,17 @@ export function ResidentsList() {
                 resetPage();
               }}
             >
-              <option value="">All</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
+              <option value="">{t('common.all')}</option>
+              <option value="Critical">{t('caseManagement.critical')}</option>
+              <option value="High">{t('caseManagement.high')}</option>
+              <option value="Medium">{t('caseManagement.medium')}</option>
+              <option value="Low">{t('caseManagement.low')}</option>
             </select>
           </div>
 
           <div className="min-w-[200px]">
             <Input
-              label="Search"
+              label={t('common.search')}
               placeholder="Smart search (e.g. LS 001, 1)"
               value={search}
               onChange={(e) => {

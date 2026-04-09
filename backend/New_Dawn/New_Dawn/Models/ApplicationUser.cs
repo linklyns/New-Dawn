@@ -8,6 +8,12 @@ public class ApplicationUser : IdentityUser
     [Column("display_name")]
     public string DisplayName { get; set; } = string.Empty;
 
+    [Column("preferred_language")]
+    public string PreferredLanguage { get; set; } = "en";
+
+    [Column("preferred_currency")]
+    public string PreferredCurrency { get; set; } = "PHP";
+
     [Column("linked_supporter_id")]
     public int? LinkedSupporterId { get; set; }
 

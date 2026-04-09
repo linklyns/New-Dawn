@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart,
   Bar,
@@ -23,6 +24,13 @@ import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
 import { useThemeStore } from '../../stores/themeStore';
 import { formatSafehouseName } from '../../lib/formatters';
+import { useAuthStore } from '../../stores/authStore';
+import {
+  formatLocalizedCurrency,
+  formatLocalizedDate,
+  formatLocalizedPercent,
+  resolveUserPreferences,
+} from '../../lib/locale';
 
 /* ── API Response Types ──────────────────────────────────────── */
 
@@ -118,11 +126,6 @@ const DARK_TOOLTIP_STYLE = {
   color: '#e2e8f0',
 };
 
-const MONTH_NAMES = [
-  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 /* ── Stat Card Helper ────────────────────────────────────────── */
 
 function StatBox({ label, value }: { label: string; value: string | number }) {
@@ -148,7 +151,9 @@ const getDarkMode = (mode: string) => {
 /* ── Component ───────────────────────────────────────────────── */
 
 export function ReportsPage() {
+  const { t } = useTranslation();
   const themeMode = useThemeStore((s) => s.mode);
+  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
   const isDark = getDarkMode(themeMode);
   const chartTheme = useMemo(
     () => ({
@@ -206,7 +211,7 @@ export function ReportsPage() {
   const totalResidents = safehouseData.reduce((s, sh) => s + sh.activeResidents, 0);
 
   const donationChartData = (donationTrends.data ?? []).map((d) => ({
-    label: `${MONTH_NAMES[d.month]} ${d.year}`,
+    label: formatLocalizedDate(new Date(d.year, d.month - 1, 1), preferences, { month: 'short', year: 'numeric' }),
     total: Math.round(d.total),
     count: d.count,
   }));
@@ -221,11 +226,11 @@ export function ReportsPage() {
   const avgDonation = totalDonationCount > 0 ? totalDonationsThisYear / totalDonationCount : 0;
 
   const healthChartData = (healthTrends.data ?? []).map((h) => ({
-    label: `${MONTH_NAMES[h.month]} ${h.year}`,
-    'General Health': +h.avgGeneralHealth.toFixed(1),
-    Nutrition: +h.avgNutrition.toFixed(1),
-    'Sleep Quality': +h.avgSleepQuality.toFixed(1),
-    'Energy Level': +h.avgEnergyLevel.toFixed(1),
+    label: formatLocalizedDate(new Date(h.year, h.month - 1, 1), preferences, { month: 'short', year: 'numeric' }),
+    [t('reports.generalHealth')]: +h.avgGeneralHealth.toFixed(1),
+    [t('reports.nutrition')]: +h.avgNutrition.toFixed(1),
+    [t('reports.sleepQuality')]: +h.avgSleepQuality.toFixed(1),
+    [t('reports.energyLevel')]: +h.avgEnergyLevel.toFixed(1),
   }));
   const latestHealth = healthTrends.data?.at(-1);
   const firstHealth = healthTrends.data?.at(0);
@@ -253,7 +258,7 @@ export function ReportsPage() {
   return (
     <div>
       <PageHeader
-        title="Reports & Analytics"
+        title={t('reports.title')}
         subtitle="Organizational performance insights"
       />
 
@@ -288,7 +293,7 @@ export function ReportsPage() {
                       />
                       <Bar
                         dataKey="activeResidents"
-                        name="Active Residents"
+                        name={t('dashboard.activeResidents')}
                         fill={COLORS.skyBlue}
                         radius={[4, 4, 0, 0]}
                         barSize={40}
@@ -331,28 +336,28 @@ export function ReportsPage() {
                       <Legend wrapperStyle={{ color: chartTheme.textColor }} />
                       <Line
                         type="monotone"
-                        dataKey="General Health"
+                        dataKey={t('reports.generalHealth')}
                         stroke={COLORS.sageGreen}
                         strokeWidth={2}
                         dot={false}
                       />
                       <Line
                         type="monotone"
-                        dataKey="Nutrition"
+                        dataKey={t('reports.nutrition')}
                         stroke={COLORS.skyBlue}
                         strokeWidth={2}
                         dot={false}
                       />
                       <Line
                         type="monotone"
-                        dataKey="Sleep Quality"
+                        dataKey={t('reports.sleepQuality')}
                         stroke={COLORS.goldenHoney}
                         strokeWidth={2}
                         dot={false}
                       />
                       <Line
                         type="monotone"
-                        dataKey="Energy Level"
+                        dataKey={t('reports.energyLevel')}
                         stroke={COLORS.energyLevel}
                         strokeWidth={3}
                         dot={false}
@@ -389,17 +394,17 @@ export function ReportsPage() {
                       <YAxis
                         domain={[0, 100]}
                         tick={{ fill: chartTheme.textColor, fontSize: 12 }}
-                        tickFormatter={(v: number) => `${v}%`}
+                        tickFormatter={(v: number) => formatLocalizedPercent(v, preferences)}
                       />
                       <Tooltip
                         contentStyle={chartTheme.tooltipStyle}
                         labelStyle={{ color: chartTheme.textColor }}
                         itemStyle={{ color: chartTheme.textColor }}
-                        formatter={(v) => `${v}%`}
+                        formatter={(v) => formatLocalizedPercent(Number(v), preferences)}
                       />
                       <Bar
                         dataKey="avgProgressPercent"
-                        name="Avg Progress"
+                        name={t('reports.averageProgress')}
                         fill={COLORS.sageGreen}
                         radius={[4, 4, 0, 0]}
                         barSize={40}
@@ -418,7 +423,7 @@ export function ReportsPage() {
           {/* ── Donation Trends ──────────────────────────────── */}
           <Card>
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-              Donation Trends
+              {t('reports.donationTrends')}
             </h2>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
@@ -435,7 +440,7 @@ export function ReportsPage() {
                         contentStyle={chartTheme.tooltipStyle}
                         labelStyle={{ color: chartTheme.textColor }}
                         itemStyle={{ color: chartTheme.textColor }}
-                        formatter={(v) => `₱${v}`}
+                        formatter={(v) => formatLocalizedCurrency(Number(v), preferences, { maximumFractionDigits: 0 })}
                       />
                       <Area
                         type="monotone"
@@ -453,11 +458,11 @@ export function ReportsPage() {
               <div className="flex flex-col gap-4">
                 <StatBox
                   label="Total (12 Months)"
-                  value={`₱${Math.round(totalDonationsThisYear).toLocaleString()}`}
+                  value={formatLocalizedCurrency(Math.round(totalDonationsThisYear), preferences, { maximumFractionDigits: 0 })}
                 />
                 <StatBox
                   label="Avg Per Donation"
-                  value={`₱${Math.round(avgDonation).toLocaleString()}`}
+                  value={formatLocalizedCurrency(Math.round(avgDonation), preferences, { maximumFractionDigits: 0 })}
                 />
               </div>
             </div>
@@ -468,7 +473,7 @@ export function ReportsPage() {
             {/* Reintegration Rates */}
             <Card>
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
-                Reintegration Rates
+                {t('reports.reintegrationRates')}
               </h2>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -482,7 +487,7 @@ export function ReportsPage() {
                       type="number"
                       domain={[0, 100]}
                       tick={{ fill: chartTheme.textColor, fontSize: 12 }}
-                      tickFormatter={(v: number) => `${v}%`}
+                      tickFormatter={(v: number) => formatLocalizedPercent(v, preferences)}
                     />
                     <YAxis
                       type="category"
@@ -494,7 +499,7 @@ export function ReportsPage() {
                       contentStyle={chartTheme.tooltipStyle}
                       labelStyle={{ color: chartTheme.textColor }}
                       itemStyle={{ color: chartTheme.textColor }}
-                      formatter={(v) => `${v}%`}
+                      formatter={(v) => formatLocalizedPercent(Number(v), preferences)}
                     />
                     <Bar
                       dataKey="completionRate"

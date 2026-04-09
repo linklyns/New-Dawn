@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Search, ArrowUpDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { smartMatch } from '../../lib/smartSearch';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -15,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { scrollPageToTop } from '../../lib/scroll';
 import type { HomeVisitation } from '../../types/models';
 import type { PagedResult } from '../../types/api';
 
@@ -57,6 +59,35 @@ function cooperationVariant(c: string): 'success' | 'neutral' | 'danger' {
   }
 }
 
+function translateVisitType(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Routine Follow-Up': return t('caseManagement.routineFollowUp');
+    case 'Post-Placement Monitoring': return t('caseManagement.postPlacement');
+    case 'Reintegration Assessment': return t('caseManagement.reintegrationAssessment');
+    case 'Emergency': return t('caseManagement.emergency');
+    default: return value;
+  }
+}
+
+function translateOutcome(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Favorable': return t('caseManagement.favorable');
+    case 'Unfavorable': return t('caseManagement.unfavorable');
+    case 'Inconclusive': return t('caseManagement.inconclusive');
+    case 'Needs Improvement': return t('caseManagement.needsImprovement');
+    default: return value;
+  }
+}
+
+function translateCooperation(t: (key: string) => string, value: string): string {
+  switch (value) {
+    case 'Cooperative': return t('caseManagement.cooperative');
+    case 'Neutral': return t('caseManagement.neutral');
+    case 'Uncooperative': return t('caseManagement.uncooperative');
+    default: return value;
+  }
+}
+
 const visitSchema = z.object({
   visitDate: z.string().min(1, 'Required'),
   socialWorker: z.string().min(1, 'Required'),
@@ -78,6 +109,7 @@ export function HomeVisitationsPage() {
   const { residentId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -147,11 +179,13 @@ export function HomeVisitationsPage() {
   function openCreate() {
     setEditingVisit(null);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function openEdit(v: HomeVisitation) {
     setEditingVisit(v);
     setFormOpen(true);
+    scrollPageToTop();
   }
 
   function handleFormSubmit(formData: VisitFormData) {
@@ -165,12 +199,12 @@ export function HomeVisitationsPage() {
   return (
     <div>
       <PageHeader
-        title="Home Visitations"
-        subtitle="Track home visit records"
+        title={t('caseManagement.homeVisitations')}
+        subtitle={t('caseManagement.allVisitations')}
         action={
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} />
-            Add Visit
+            {t('caseManagement.addVisitation')}
           </Button>
         }
       />
@@ -178,24 +212,24 @@ export function HomeVisitationsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back
+          {t('common.back')}
         </Button>
         <div className="relative min-w-[200px] flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
           <input
             className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            placeholder="Search any field…"
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select className={selectClass} style={{ maxWidth: 200 }} value={visitTypeFilter} onChange={(e) => setVisitTypeFilter(e.target.value)}>
-          <option value="">All visit types</option>
-          {visitTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+          <option value="">{t('common.all')} {t('caseManagement.visitType').toLowerCase()}</option>
+          {visitTypes.map((visitType) => <option key={visitType} value={visitType}>{translateVisitType(t, visitType)}</option>)}
         </select>
         <select className={selectClass} style={{ maxWidth: 170 }} value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)}>
-          <option value="">All outcomes</option>
-          {outcomeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+          <option value="">{t('common.all')} {t('caseManagement.outcome').toLowerCase()}</option>
+          {outcomeOptions.map((outcome) => <option key={outcome} value={outcome}>{translateOutcome(t, outcome)}</option>)}
         </select>
         <button
           className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
@@ -206,14 +240,14 @@ export function HomeVisitationsPage() {
           onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
         >
           <ArrowUpDown size={14} />
-          Date {sortDir === 'asc' ? '↑' : '↓'}
+          {t('common.date')} {sortDir === 'asc' ? '↑' : '↓'}
         </button>
       </div>
 
       {formOpen && (
         <Card className="mb-6">
           <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
-            {editingVisit ? 'Edit Visit' : 'New Visit'}
+            {editingVisit ? `${t('common.edit')} ${t('caseManagement.homeVisitations')}` : t('caseManagement.addVisitation')}
           </h3>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -238,7 +272,7 @@ export function HomeVisitationsPage() {
         </div>
       ) : visits.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-warm-gray">
-          No home visitations found.
+          {t('common.noData')}
         </div>
       ) : (
         <div className="space-y-4">
@@ -255,8 +289,8 @@ export function HomeVisitationsPage() {
                       {formatDate(v.visitDate)}
                     </span>
                     <span className="text-sm text-warm-gray">{v.socialWorker}</span>
-                    <Badge variant="info">{v.visitType}</Badge>
-                    <Badge variant={outcomeVariant(v.visitOutcome)}>{v.visitOutcome}</Badge>
+                    <Badge variant="info">{translateVisitType(t, v.visitType)}</Badge>
+                    <Badge variant={outcomeVariant(v.visitOutcome)}>{translateOutcome(t, v.visitOutcome)}</Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -287,32 +321,32 @@ export function HomeVisitationsPage() {
                   <div className="mt-4 space-y-3 border-t border-slate-navy/10 pt-4 dark:border-white/10">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
-                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Location Visited</span>
+                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{t('caseManagement.locationVisited')}</span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">{v.locationVisited}</p>
                       </div>
                       <div>
-                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Family Members Present</span>
+                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{t('caseManagement.familyMembersPresent')}</span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">{v.familyMembersPresent || '--'}</p>
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Purpose</span>
+                      <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{t('caseManagement.purposeOfVisit')}</span>
                       <p className="mt-1 text-sm text-slate-navy dark:text-white">{v.purpose}</p>
                     </div>
                     <div>
-                      <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Observations</span>
+                      <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{t('caseManagement.observations')}</span>
                       <p className="mt-1 text-sm text-slate-navy dark:text-white">{v.observations}</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <Badge variant={cooperationVariant(v.familyCooperationLevel)}>
-                        {v.familyCooperationLevel}
+                        {translateCooperation(t, v.familyCooperationLevel)}
                       </Badge>
-                      {v.safetyConcernsNoted && <Badge variant="danger">Safety Concerns</Badge>}
-                      {v.followUpNeeded && <Badge variant="warning">Follow-Up Needed</Badge>}
+                      {v.safetyConcernsNoted && <Badge variant="danger">{t('caseManagement.safetyConcerns')}</Badge>}
+                      {v.followUpNeeded && <Badge variant="warning">{t('caseManagement.followUpNeeded')}</Badge>}
                     </div>
                     {v.followUpNotes && (
                       <div>
-                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">Follow-Up Notes</span>
+                        <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{t('caseManagement.followUpNotes')}</span>
                         <p className="mt-1 text-sm text-slate-navy dark:text-white">{v.followUpNotes}</p>
                       </div>
                     )}
@@ -327,13 +361,13 @@ export function HomeVisitationsPage() {
       <Modal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete Visit"
-        confirmText="Delete"
+        title={`${t('common.delete')} ${t('caseManagement.homeVisitations')}`}
+        confirmText={t('common.delete')}
         confirmVariant="danger"
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.visitationId)}
       >
         <p className="text-sm text-warm-gray">
-          Are you sure you want to delete this visit from{' '}
+          {t('common.delete')} {t('caseManagement.homeVisitations').toLowerCase()} {t('common.date').toLowerCase()}{' '}
           {deleteTarget ? formatDate(deleteTarget.visitDate) : ''}? This action cannot be undone.
         </p>
       </Modal>
@@ -354,6 +388,7 @@ function VisitForm({
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -383,22 +418,22 @@ function VisitForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Input
-          label="Visit Date"
+          label={t('caseManagement.visitDate')}
           type="date"
           error={errors.visitDate?.message}
           {...register('visitDate')}
         />
         <Input
-          label="Social Worker"
+          label={t('caseManagement.socialWorker')}
           error={errors.socialWorker?.message}
           {...register('socialWorker')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Visit Type</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.visitType')}</label>
           <select className={selectClass} {...register('visitType')}>
-            <option value="">Select...</option>
-            {visitTypes.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {visitTypes.map((visitType) => (
+              <option key={visitType} value={visitType}>{translateVisitType(t, visitType)}</option>
             ))}
           </select>
           {errors.visitType?.message && (
@@ -406,20 +441,20 @@ function VisitForm({
           )}
         </div>
         <Input
-          label="Location Visited"
+          label={t('caseManagement.locationVisited')}
           error={errors.locationVisited?.message}
           {...register('locationVisited')}
         />
         <Input
-          label="Family Members Present"
+          label={t('caseManagement.familyMembersPresent')}
           {...register('familyMembersPresent')}
         />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Cooperation Level</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.familyCooperation')}</label>
           <select className={selectClass} {...register('familyCooperationLevel')}>
-            <option value="">Select...</option>
-            {cooperationLevels.map((l) => (
-              <option key={l} value={l}>{l}</option>
+            <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+            {cooperationLevels.map((level) => (
+              <option key={level} value={level}>{translateCooperation(t, level)}</option>
             ))}
           </select>
           {errors.familyCooperationLevel?.message && (
@@ -430,14 +465,14 @@ function VisitForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Purpose</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.purposeOfVisit')}</label>
           <textarea className={textareaClass} rows={3} {...register('purpose')} />
           {errors.purpose?.message && (
             <p className="text-xs text-red-600">{errors.purpose.message}</p>
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Observations</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.observations')}</label>
           <textarea className={textareaClass} rows={3} {...register('observations')} />
           {errors.observations?.message && (
             <p className="text-xs text-red-600">{errors.observations.message}</p>
@@ -453,7 +488,7 @@ function VisitForm({
             checked={watch('safetyConcernsNoted')}
             onChange={(e) => setValue('safetyConcernsNoted', e.target.checked)}
           />
-          Safety Concerns Noted
+          {t('caseManagement.safetyConcerns')}
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-navy dark:text-white">
           <input
@@ -462,23 +497,23 @@ function VisitForm({
             checked={watch('followUpNeeded')}
             onChange={(e) => setValue('followUpNeeded', e.target.checked)}
           />
-          Follow-Up Needed
+          {t('caseManagement.followUpNeeded')}
         </label>
       </div>
 
       {watch('followUpNeeded') && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-navy dark:text-white">Follow-Up Notes</label>
+          <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.followUpNotes')}</label>
           <textarea className={textareaClass} rows={2} {...register('followUpNotes')} />
         </div>
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-navy dark:text-white">Visit Outcome</label>
+        <label className="text-sm font-medium text-slate-navy dark:text-white">{t('caseManagement.visitOutcome')}</label>
         <select className={selectClass} {...register('visitOutcome')}>
-          <option value="">Select...</option>
-          {outcomeOptions.map((o) => (
-            <option key={o} value={o}>{o}</option>
+          <option value="">{t('common.select', { defaultValue: 'Select...' })}</option>
+          {outcomeOptions.map((outcome) => (
+            <option key={outcome} value={outcome}>{translateOutcome(t, outcome)}</option>
           ))}
         </select>
         {errors.visitOutcome?.message && (
@@ -488,10 +523,10 @@ function VisitForm({
 
       <div className="flex justify-end gap-3">
         <Button variant="ghost" type="button" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" loading={isSubmitting}>
-          {defaultValues ? 'Update Visit' : 'Save Visit'}
+          {defaultValues ? `${t('common.edit')} ${t('caseManagement.homeVisitations')}` : `${t('common.save')} ${t('caseManagement.homeVisitations')}`}
         </Button>
       </div>
     </form>
