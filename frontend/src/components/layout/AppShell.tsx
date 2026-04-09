@@ -38,8 +38,7 @@ export function AppShell({ variant }: AppShellProps) {
       {/* Main content area offset by sidebar */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-white/65 bg-white/90 pl-16 pr-6 py-3 backdrop-blur-sm lg:pl-6 dark:border-white/10 dark:bg-dark-surface">
-          {user?.role === 'Admin' && <NotificationBell />}
+        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-slate-navy/10 bg-white pl-16 pr-6 py-3 lg:pl-6 dark:border-white/10 dark:bg-dark-surface">
           {user && (
             <Link to="/admin/profile" className="flex items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-sky-blue/10 dark:hover:bg-white/10">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-sky-blue/35 to-sage-green/35 text-sky-blue-text dark:bg-sky-blue/12 dark:text-sky-blue">
@@ -50,6 +49,7 @@ export function AppShell({ variant }: AppShellProps) {
               </span>
             </Link>
           )}
+          {user && <NotificationBell />}
           <button
             onClick={logout}
             className="rounded-xl p-2 text-slate-navy hover:bg-sky-blue/10 dark:text-white dark:hover:bg-white/10"

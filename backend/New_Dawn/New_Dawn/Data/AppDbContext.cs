@@ -238,5 +238,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .HasIndex(n => n.CreatedAt);
         builder.Entity<Notification>()
             .HasIndex(n => n.Type);
+        builder.Entity<Notification>()
+            .HasIndex(n => n.UserId);
+        builder.Entity<Notification>()
+            .HasIndex(n => n.TargetRole);
     }
 }
