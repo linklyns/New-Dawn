@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace New_Dawn.Models;
 
@@ -54,5 +55,6 @@ public class ProcessRecording
 
     // Navigation properties
     [ForeignKey("ResidentId")]
+    [ValidateNever]
     public Resident Resident { get; set; } = null!;
 }

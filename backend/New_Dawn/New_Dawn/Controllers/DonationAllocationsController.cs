@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using New_Dawn.Data;
@@ -11,29 +13,52 @@ namespace New_Dawn.Controllers;
 [ApiController]
 [Route("api/donation-allocations")]
 [Authorize]
-public class DonationAllocationsController(AppDbContext db) : ControllerBase
+public class DonationAllocationsController(AppDbContext db, UserManager<ApplicationUser> userManager) : ControllerBase
 {
+    private async Task<int?> GetLinkedSupporterIdAsync()
+    {
+        if (User.IsInRole("Admin")) return null; // null means "no filter"
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var appUser = await userManager.FindByIdAsync(userId!);
+        return appUser?.LinkedSupporterId;
+    }
+
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary()
     {
-        // Total from all donations that have a monetary amount
-        var totalDonated = await db.Donations
-            .Where(d => d.Amount != null)
-            .SumAsync(d => d.Amount ?? 0m);
+        var linkedId = await GetLinkedSupporterIdAsync();
 
-        var totalAllocated = await db.DonationAllocations
+        // For donors: scope to their donations only
+        var donationsQuery = db.Donations.Where(d => d.Amount != null);
+        var allocationsQuery = db.DonationAllocations.AsQueryable();
+
+        if (linkedId.HasValue)
+        {
+            donationsQuery = donationsQuery.Where(d => d.SupporterId == linkedId.Value);
+            var donorDonationIds = db.Donations
+                .Where(d => d.SupporterId == linkedId.Value)
+                .Select(d => d.DonationId);
+            allocationsQuery = allocationsQuery.Where(da => donorDonationIds.Contains(da.DonationId));
+        }
+        else if (!User.IsInRole("Admin"))
+        {
+            // Donor with no linked supporter — show empty
+            return Ok(new { totalDonated = 0m, totalAllocated = 0m, unallocated = 0m });
+        }
+
+        var totalDonated = await donationsQuery.SumAsync(d => d.Amount ?? 0m);
+
+        var totalAllocated = await allocationsQuery
             .SumAsync(da => (decimal?)da.AmountAllocated) ?? 0m;
 
-        // Per-donation remaining: only count positive remainders (ignore over-allocated ones)
-        var allocatedPerDonation = await db.DonationAllocations
+        var allocatedPerDonation = await allocationsQuery
             .GroupBy(da => da.DonationId)
             .Select(g => new { DonationId = g.Key, Total = g.Sum(da => da.AmountAllocated) })
             .ToListAsync();
 
         var allocatedLookup = allocatedPerDonation.ToDictionary(x => x.DonationId, x => x.Total);
 
-        var donationsWithAmount = await db.Donations
-            .Where(d => d.Amount != null)
+        var donationsWithAmount = await donationsQuery
             .Select(d => new { d.DonationId, Amount = d.Amount ?? 0m })
             .ToListAsync();
 
@@ -62,6 +87,20 @@ public class DonationAllocationsController(AppDbContext db) : ControllerBase
     {
         var query = db.DonationAllocations.AsNoTracking().AsQueryable();
 
+        // Scope to donor's own donations
+        var linkedId = await GetLinkedSupporterIdAsync();
+        if (linkedId.HasValue)
+        {
+            var donorDonationIds = db.Donations
+                .Where(d => d.SupporterId == linkedId.Value)
+                .Select(d => d.DonationId);
+            query = query.Where(da => donorDonationIds.Contains(da.DonationId));
+        }
+        else if (!User.IsInRole("Admin"))
+        {
+            return Ok(new { items = new List<DonationAllocation>(), totalCount = 0, page, pageSize, totalPages = 0 });
+        }
+
         if (donationId.HasValue)
             query = query.Where(da => da.DonationId == donationId.Value);
         if (safehouseId.HasValue)
@@ -76,8 +115,16 @@ public class DonationAllocationsController(AppDbContext db) : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var entity = await db.DonationAllocations.AsNoTracking().FirstOrDefaultAsync(e => e.AllocationId == id);
+        var entity = await db.DonationAllocations.AsNoTracking()
+            .Include(da => da.Donation)
+            .FirstOrDefaultAsync(e => e.AllocationId == id);
         if (entity == null) return NotFound(new { success = false, message = "Not found" });
+
+        // Donor can only view allocations from their own donations
+        var linkedId = await GetLinkedSupporterIdAsync();
+        if (linkedId.HasValue && entity.Donation.SupporterId != linkedId.Value)
+            return Forbid();
+
         return Ok(entity);
     }
 

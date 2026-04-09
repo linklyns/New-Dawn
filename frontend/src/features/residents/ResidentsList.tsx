@@ -267,7 +267,7 @@ export function ResidentsList() {
           <div className="min-w-[200px]">
             <Input
               label="Search"
-              placeholder="Case no. or code..."
+              placeholder="Smart search (e.g. LS 001, 1)"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);

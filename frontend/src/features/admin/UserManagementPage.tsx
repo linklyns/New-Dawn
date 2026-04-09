@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck, ChevronDown } from 'lucide-react';
+import { ShieldCheck, ChevronDown, Search, ArrowUpDown } from 'lucide-react';
 import { api } from '../../lib/api';
+import { smartMatch } from '../../lib/smartSearch';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Spinner';
@@ -30,15 +31,21 @@ const roleBadgeVariant: Record<string, 'danger' | 'info' | 'success'> = {
   Donor: 'success',
 };
 
+type SortKey = 'name' | 'email' | 'role';
+
 export function UserManagementPage() {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
-  const [page, setPage] = useState(1);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [mfaFilter, setMfaFilter] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const { data, isLoading } = useQuery<UsersResponse>({
-    queryKey: ['users', page],
-    queryFn: () => api.get(`/api/users?page=${page}&pageSize=20`),
+    queryKey: ['users'],
+    queryFn: () => api.get(`/api/users?page=1&pageSize=100`),
   });
 
   const updateRole = useMutation({
@@ -68,6 +75,42 @@ export function UserManagementPage() {
     },
   });
 
+  const processed = useMemo(() => {
+    let items = data?.items ?? [];
+    if (roleFilter) items = items.filter((u) => u.role === roleFilter);
+    if (mfaFilter === 'on') items = items.filter((u) => u.has2fa);
+    if (mfaFilter === 'off') items = items.filter((u) => !u.has2fa);
+    if (search.trim()) {
+      items = items.filter((u) =>
+        smartMatch(search, [u.displayName, u.email, u.role]),
+      );
+    }
+    return [...items].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') cmp = a.displayName.localeCompare(b.displayName);
+      else if (sortKey === 'email') cmp = a.email.localeCompare(b.email);
+      else if (sortKey === 'role') cmp = a.role.localeCompare(b.role);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [data, search, roleFilter, mfaFilter, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  }
+
+  function SortBtn({ col }: { col: SortKey }) {
+    return (
+      <button
+        className={`ml-1 inline-flex items-center hover:opacity-100 ${sortKey === col ? 'text-golden-honey opacity-100' : 'opacity-50'}`}
+        onClick={() => toggleSort(col)}
+        type="button"
+      >
+        <ArrowUpDown size={13} />
+      </button>
+    );
+  }
+
   if (isLoading) return <Spinner size="lg" />;
 
   return (
@@ -80,19 +123,57 @@ export function UserManagementPage() {
       </div>
 
       <Card>
+        {/* Toolbar */}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
+            <input
+              className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
+              placeholder="Smart search (e.g. ti br.)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="">All Roles</option>
+            <option value="Admin">Admin</option>
+            <option value="Staff">Staff</option>
+            <option value="Donor">Donor</option>
+          </select>
+          <select
+            className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
+            value={mfaFilter}
+            onChange={(e) => setMfaFilter(e.target.value)}
+          >
+            <option value="">All 2FA</option>
+            <option value="on">2FA Enabled</option>
+            <option value="off">2FA Off</option>
+          </select>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-navy/10 dark:border-white/10">
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">Name</th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">Email</th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">Role</th>
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                  <span className="flex items-center">Name <SortBtn col="name" /></span>
+                </th>
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                  <span className="flex items-center">Email <SortBtn col="email" /></span>
+                </th>
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                  <span className="flex items-center">Role <SortBtn col="role" /></span>
+                </th>
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">2FA</th>
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {data?.items.map((user) => (
+              {processed.map((user) => (
                 <tr key={user.id} className="border-b border-slate-navy/5 dark:border-white/5">
                   <td className="py-3 text-slate-navy dark:text-white">{user.displayName}</td>
                   <td className="py-3 text-warm-gray dark:text-white/60">{user.email}</td>
@@ -139,33 +220,12 @@ export function UserManagementPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {data && data.totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between border-t border-slate-navy/10 pt-4 dark:border-white/10">
-            <p className="text-sm text-warm-gray">
-              {data.totalCount} users total
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-lg border border-slate-navy/20 px-3 py-1 text-sm disabled:opacity-50 dark:border-white/20 dark:text-white"
-              >
-                Previous
-              </button>
-              <span className="px-2 py-1 text-sm text-warm-gray">
-                {page} / {data.totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-                disabled={page === data.totalPages}
-                className="rounded-lg border border-slate-navy/20 px-3 py-1 text-sm disabled:opacity-50 dark:border-white/20 dark:text-white"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Results count */}
+        <div className="mt-4 border-t border-slate-navy/10 pt-4 dark:border-white/10">
+          <p className="text-sm text-warm-gray">
+            Showing {processed.length} of {data?.totalCount ?? 0} users
+          </p>
+        </div>
       </Card>
     </div>
   );

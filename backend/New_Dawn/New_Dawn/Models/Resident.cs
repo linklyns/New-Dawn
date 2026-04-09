@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace New_Dawn.Models;
 
@@ -156,6 +157,7 @@ public class Resident
 
     // Navigation properties
     [ForeignKey("SafehouseId")]
+    [ValidateNever]
     public Safehouse Safehouse { get; set; } = null!;
 
     public ICollection<ProcessRecording> ProcessRecordings { get; set; } = new List<ProcessRecording>();

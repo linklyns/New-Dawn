@@ -26,6 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<PartnerAssignment> PartnerAssignments => Set<PartnerAssignment>();
     public DbSet<SafehouseMonthlyMetric> SafehouseMonthlyMetrics => Set<SafehouseMonthlyMetric>();
     public DbSet<PublicImpactSnapshot> PublicImpactSnapshots => Set<PublicImpactSnapshot>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -229,5 +230,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         // ProcessRecordings indexes
         builder.Entity<ProcessRecording>()
             .HasIndex(pr => pr.SessionDate);
+
+        // Notifications indexes
+        builder.Entity<Notification>()
+            .HasIndex(n => n.IsRead);
+        builder.Entity<Notification>()
+            .HasIndex(n => n.CreatedAt);
+        builder.Entity<Notification>()
+            .HasIndex(n => n.Type);
     }
 }

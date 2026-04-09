@@ -369,24 +369,28 @@ function HealthForm({
         <Input
           label="General Health Score (1-5)"
           type="number"
+          step="any"
           error={errors.generalHealthScore?.message}
           {...register('generalHealthScore')}
         />
         <Input
           label="Nutrition Score (1-5)"
           type="number"
+          step="any"
           error={errors.nutritionScore?.message}
           {...register('nutritionScore')}
         />
         <Input
           label="Sleep Quality Score (1-5)"
           type="number"
+          step="any"
           error={errors.sleepQualityScore?.message}
           {...register('sleepQualityScore')}
         />
         <Input
           label="Energy Level Score (1-5)"
           type="number"
+          step="any"
           error={errors.energyLevelScore?.message}
           {...register('energyLevelScore')}
         />

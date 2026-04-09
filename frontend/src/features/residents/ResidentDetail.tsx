@@ -135,8 +135,14 @@ export function ResidentDetail() {
   );
 
   const updateMutation = useMutation({
-    mutationFn: (data: ResidentFormData) =>
-      api.put(`/api/residents/${id}`, data),
+    mutationFn: (data: ResidentFormData) => {
+      // Convert empty strings to null for nullable date fields
+      const cleaned = { ...data } as Record<string, unknown>;
+      for (const key of ['dateColbRegistered', 'dateColbObtained', 'dateCaseStudyPrepared', 'dateClosed'] as const) {
+        if (cleaned[key] === '') cleaned[key] = null;
+      }
+      return api.put(`/api/residents/${id}`, cleaned);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resident', id] });
       queryClient.invalidateQueries({ queryKey: ['residents'] });
@@ -145,8 +151,13 @@ export function ResidentDetail() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: ResidentFormData) =>
-      api.post<Resident>('/api/residents', data),
+    mutationFn: (data: ResidentFormData) => {
+      const cleaned = { ...data } as Record<string, unknown>;
+      for (const key of ['dateColbRegistered', 'dateColbObtained', 'dateCaseStudyPrepared', 'dateClosed'] as const) {
+        if (cleaned[key] === '') cleaned[key] = null;
+      }
+      return api.post<Resident>('/api/residents', cleaned);
+    },
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
       navigate(`/admin/residents/${(created as Resident).residentId}`);

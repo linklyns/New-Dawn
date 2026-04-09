@@ -16,6 +16,7 @@ import {
   Share2,
   Sparkles,
   Handshake,
+  Building2,
   ShieldCheck,
   ChevronDown,
   ChevronRight,
@@ -104,6 +105,7 @@ const navGroups: NavGroup[] = [
     roles: ['Admin'],
     items: [
       { to: '/admin/partners', label: 'Partners', icon: <Handshake size={18} /> },
+      { to: '/admin/safehouses', label: 'Safehouses', icon: <Building2 size={18} /> },
       { to: '/admin/users', label: 'User Management', icon: <ShieldCheck size={18} /> },
     ],
   },
@@ -223,7 +225,7 @@ export function Sidebar() {
         }`}
       >
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 border-b border-slate-navy/10 px-4 py-4 dark:border-white/10">
+        <Link to={userRole === 'Donor' ? '/admin/donate' : '/admin'} className="flex items-center gap-3 border-b border-slate-navy/10 px-4 py-4 dark:border-white/10">
           <img src={logo} alt="New Dawn" className="h-8 w-8" />
           <span className="font-heading text-lg font-bold text-slate-navy dark:text-white">
             New Dawn

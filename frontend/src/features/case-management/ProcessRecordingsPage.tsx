@@ -411,6 +411,7 @@ function RecordingForm({
         <Input
           label="Duration (minutes)"
           type="number"
+          step="any"
           error={errors.sessionDurationMinutes?.message}
           {...register('sessionDurationMinutes')}
         />

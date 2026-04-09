@@ -26,3 +26,4 @@ export type {
   ReintegrationFactor,
   RiskPrediction,
 } from './predictions';
+export type { Notification, NotificationPagedResult } from './notifications';

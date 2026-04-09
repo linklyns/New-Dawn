@@ -19,7 +19,7 @@ export function Navbar() {
 
   const getHomeLink = () => {
     if (isAuthenticated) {
-      return userRole === 'Donor' ? '/donate' : '/admin';
+      return userRole === 'Donor' ? '/admin/donate' : '/admin';
     }
     return '/';
   };
