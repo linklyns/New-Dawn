@@ -396,8 +396,11 @@ public class AuthController(
 
     private Task<string> GenerateJwtToken(ApplicationUser user, IEnumerable<string> roles)
     {
-        var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
-            ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong";
+        var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+        if (string.IsNullOrWhiteSpace(jwtSecret))
+        {
+            throw new InvalidOperationException("JWT_SECRET is missing. Configure it in the environment or host settings before issuing JWT tokens.");
+        }
 
         var claims = new List<Claim>
         {

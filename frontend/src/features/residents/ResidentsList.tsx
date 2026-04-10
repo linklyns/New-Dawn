@@ -258,7 +258,7 @@ export function ResidentsList() {
             </select>
           </div>
 
-          <div className="min-w-[200px]">
+          <div className="min-w-0 sm:min-w-[200px]">
             <Input
               label={t('common.search')}
               placeholder="Smart search (e.g. LS 001, 1)"

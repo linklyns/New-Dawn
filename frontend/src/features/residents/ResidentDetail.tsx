@@ -62,7 +62,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">
         {label}
       </span>
-      <span className="text-sm text-slate-navy dark:text-white">{value ?? '--'}</span>
+      <span className="break-words text-sm text-slate-navy dark:text-white">{value ?? '--'}</span>
     </div>
   );
 }
@@ -280,7 +280,7 @@ export function ResidentDetail() {
         title={r.internalCode}
         subtitle={r.caseControlNo}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
               <Pencil size={16} />
               {t('common.edit')}
@@ -327,7 +327,7 @@ export function ResidentDetail() {
               <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
                 Demographics
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <InfoRow label="Sex" value={r.sex} />
                 <InfoRow label={t('residents.dateOfBirth')} value={formatDate(r.dateOfBirth)} />
                 <InfoRow label={t('residents.birthStatus')} value={r.birthStatus} />
@@ -341,7 +341,7 @@ export function ResidentDetail() {
               <h3 className="mb-4 font-heading text-base font-semibold text-slate-navy dark:text-white">
                 Case Information
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <InfoRow label={t('residents.caseControlNo')} value={r.caseControlNo} />
                 <InfoRow label={t('residents.internalCode')} value={r.internalCode} />
                 <InfoRow
@@ -376,7 +376,7 @@ export function ResidentDetail() {
             <h3 className="mb-3 font-heading text-base font-semibold text-slate-navy dark:text-white">
               Risk Levels
             </h3>
-            <div className="flex gap-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
               <InfoRow
                 label={t('residents.initialRiskLevel')}
                 value={

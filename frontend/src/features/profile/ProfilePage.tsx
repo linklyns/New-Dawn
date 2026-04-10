@@ -404,7 +404,7 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              <div className="ml-9 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:ml-9 sm:grid-cols-2 lg:grid-cols-3">
                 {(Object.keys(appInstructions) as Exclude<AuthApp, null>[]).map((key) => {
                   const app = appInstructions[key];
                   const isSelected = selectedApp === key;

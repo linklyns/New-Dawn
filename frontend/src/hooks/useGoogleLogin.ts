@@ -53,10 +53,11 @@ export function useGoogleLogin({ onCredential, buttonElementId, buttonText = 'si
 
     const el = document.getElementById(buttonElementId);
     if (el && !el.hasChildNodes()) {
+      const measuredWidth = Math.min(el.clientWidth || el.parentElement?.clientWidth || 280, 320);
       window.google.accounts.id.renderButton(el, {
         theme: 'outline',
-        size: 'large',
-        width: 384,
+        size: 'medium',
+        width: measuredWidth,
         text: buttonText,
         shape: 'rectangular',
         logo_alignment: 'left',

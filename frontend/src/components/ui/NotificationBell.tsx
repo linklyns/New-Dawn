@@ -137,11 +137,11 @@ export function NotificationBell() {
         {open && (
           <div
             ref={panelRef}
-            className="absolute right-0 top-full mt-2 w-[26rem] max-h-[32rem] overflow-hidden rounded-xl border border-slate-navy/10 bg-white shadow-xl dark:border-white/10 dark:bg-dark-surface"
+            className="fixed left-3 right-3 top-16 z-50 max-h-[min(32rem,calc(100vh-5rem))] overflow-hidden rounded-xl border border-slate-navy/10 bg-white shadow-xl md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[26rem] md:max-w-[calc(100vw-2rem)] dark:border-white/10 dark:bg-dark-surface"
             role="dialog"
             aria-label={t('notifications.title')}
           >
-            <div className="flex items-center justify-between border-b border-slate-navy/10 px-4 py-3 dark:border-white/10">
+            <div className="flex flex-col gap-3 border-b border-slate-navy/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
               <h3 className="text-base font-semibold text-slate-navy dark:text-white">
                 {t('notifications.title')} {count > 0 && <span className="text-sm font-normal text-slate-navy/60 dark:text-white/60">({count} unread)</span>}
               </h3>

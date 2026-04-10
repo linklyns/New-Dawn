@@ -93,8 +93,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // JWT Authentication
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
-    ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong";
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET is missing. Configure it in the environment or host settings before starting the API.");
+}
 
 builder.Services.AddAuthentication(options =>
 {

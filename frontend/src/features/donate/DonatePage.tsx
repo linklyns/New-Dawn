@@ -11,6 +11,7 @@ export function DonatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userRole = useAuthStore((s) => s.user?.role);
   const [customAmount, setCustomAmount] = useState('');
 
   const donationTiers = [
@@ -21,7 +22,8 @@ export function DonatePage() {
   ];
 
   const openPrefilledDonate = (amount: number) => {
-    navigate(`/admin/donations?openNew=1&amount=${amount}&donationType=Monetary&channelSource=Website`);
+    const donatePath = userRole === 'Donor' ? '/app/donations' : '/admin/donations';
+    navigate(`${donatePath}?openNew=1&amount=${amount}&donationType=Monetary&channelSource=Website`);
   };
 
   const handleCustomDonate = () => {

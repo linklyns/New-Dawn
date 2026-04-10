@@ -225,7 +225,7 @@ function FacebookDraftPreview({ draft, attachments }: SocialDraftPreviewProps) {
           </div>
         )}
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-navy/10 p-3 text-sm text-warm-gray dark:border-white/10 dark:text-white/70">
+      <div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl border border-slate-navy/10 p-3 text-sm text-warm-gray sm:grid-cols-3 dark:border-white/10 dark:text-white/70">
         <div className="flex items-center justify-center gap-2"><ThumbsUp size={16} />Like</div>
         <div className="flex items-center justify-center gap-2"><MessageSquare size={16} />Comment</div>
         <div className="flex items-center justify-center gap-2"><Repeat2 size={16} />Share</div>

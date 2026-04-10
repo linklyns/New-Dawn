@@ -308,7 +308,7 @@ export function ResidentForm({
         </div>
 
         <SectionHeader title="Sub-Categories" />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <CheckboxField
             label="Orphaned"
             checked={watch('subCatOrphaned')}
@@ -365,7 +365,7 @@ export function ResidentForm({
       {/* Disability & Special Needs */}
       <Card>
         <SectionHeader title="Disability & Special Needs" />
-        <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
           <CheckboxField
             label="Person with Disability"
             checked={isPwd}
@@ -396,7 +396,7 @@ export function ResidentForm({
       {/* Family Profile */}
       <Card>
         <SectionHeader title="Family Profile" />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <CheckboxField
             label="4Ps Beneficiary"
             checked={watch('familyIs4ps')}
