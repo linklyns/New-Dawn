@@ -8,7 +8,12 @@ interface SocialDraftPreviewProps {
 }
 
 function RichBody({ html, className, fallback }: { html: string; className: string; fallback: string }) {
-  const sanitizedHtml = html.trim() ? DOMPurify.sanitize(html).replace(/<br\s*\/?>/gi, '') : '';
+  const sanitizedHtml = html.trim()
+    ? DOMPurify.sanitize(html)
+        .replace(/<br\s*\/?>/gi, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/[\u00A0\u202F\u2007]/g, ' ')
+    : '';
   const contentClassName = `${className} min-w-0 break-words [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-0 [&_p+p]:mt-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-1 [&_a]:break-all [&_a]:text-inherit [&_strong]:font-semibold [&_em]:italic`;
 
   if (!sanitizedHtml) {
