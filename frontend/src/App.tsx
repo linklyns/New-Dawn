@@ -54,8 +54,13 @@ const queryClient = new QueryClient({
 });
 
 function NotFoundRedirect() {
-  const { isAuthenticated } = useAuthStore();
-  return <Navigate to={isAuthenticated ? '/admin' : '/'} replace />;
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Navigate to={user?.role === 'Donor' ? '/app/donate' : '/admin'} replace />;
 }
 
 function RouteLoadingFallback() {
@@ -108,7 +113,7 @@ function AppContent() {
 
   function handleMfaSetupNow() {
     setShowMfaPrompt(false);
-    navigate('/admin/profile');
+    navigate(user?.role === 'Donor' ? '/app/profile' : '/admin/profile');
   }
 
   function handleMfaRemindLater() {
@@ -153,37 +158,64 @@ function AppContent() {
         }
       >
         <Route
+          path="/app"
+          element={<Navigate to={user?.role === 'Donor' ? '/app/donate' : '/admin'} replace />}
+        />
+        <Route path="/app/impact" element={<ImpactDashboard />} />
+        <Route path="/app/donate" element={<DonatePage />} />
+        <Route path="/app/supporters" element={
+          <ProtectedRoute allowedRoles={['Admin', 'Donor']}>
+            <Suspense fallback={<RouteLoadingFallback />}><SupportersList /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/app/supporters/:id" element={
+          <ProtectedRoute allowedRoles={['Admin', 'Donor']}>
+            <Suspense fallback={<RouteLoadingFallback />}><SupporterDetail /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/app/donations" element={
+          <ProtectedRoute allowedRoles={['Admin', 'Donor']}>
+            <Suspense fallback={<RouteLoadingFallback />}><DonationsList /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/app/allocations" element={
+          <ProtectedRoute allowedRoles={['Admin', 'Donor']}>
+            <Suspense fallback={<RouteLoadingFallback />}><AllocationsList /></Suspense>
+          </ProtectedRoute>
+        } />
+        <Route path="/app/profile" element={<Suspense fallback={<RouteLoadingFallback />}><ProfilePage /></Suspense>} />
+        <Route
           path="/admin"
           element={
             user?.role === 'Donor'
-              ? <Navigate to="/admin/impact" replace />
+              ? <Navigate to="/app/donate" replace />
               : <Suspense fallback={<RouteLoadingFallback />}><AdminDashboard /></Suspense>
           }
         />
-        <Route path="/admin/impact" element={<ImpactDashboard />} />
-        <Route path="/admin/donate" element={<DonatePage />} />
-        <Route path="/admin/residents" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentsList /></Suspense>} />
-        <Route path="/admin/residents/new" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
-        <Route path="/admin/residents/:id" element={<Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense>} />
-        <Route path="/admin/case/recordings" element={<Suspense fallback={<RouteLoadingFallback />}><AllRecordingsPage /></Suspense>} />
-        <Route path="/admin/case/visits" element={<Suspense fallback={<RouteLoadingFallback />}><AllVisitationsPage /></Suspense>} />
-        <Route path="/admin/case/education" element={<Suspense fallback={<RouteLoadingFallback />}><AllEducationPage /></Suspense>} />
-        <Route path="/admin/case/health" element={<Suspense fallback={<RouteLoadingFallback />}><AllHealthPage /></Suspense>} />
-        <Route path="/admin/case/interventions" element={<Suspense fallback={<RouteLoadingFallback />}><AllInterventionsPage /></Suspense>} />
-        <Route path="/admin/case/incidents" element={<Suspense fallback={<RouteLoadingFallback />}><AllIncidentsPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/recordings" element={<Suspense fallback={<RouteLoadingFallback />}><ProcessRecordingsPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/visits" element={<Suspense fallback={<RouteLoadingFallback />}><HomeVisitationsPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/education" element={<Suspense fallback={<RouteLoadingFallback />}><EducationRecordsPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/health" element={<Suspense fallback={<RouteLoadingFallback />}><HealthRecordsPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/interventions" element={<Suspense fallback={<RouteLoadingFallback />}><InterventionPlansPage /></Suspense>} />
-        <Route path="/admin/case/:residentId/incidents" element={<Suspense fallback={<RouteLoadingFallback />}><IncidentReportsPage /></Suspense>} />
-        <Route path="/admin/supporters" element={<Suspense fallback={<RouteLoadingFallback />}><SupportersList /></Suspense>} />
-        <Route path="/admin/supporters/:id" element={<Suspense fallback={<RouteLoadingFallback />}><SupporterDetail /></Suspense>} />
-        <Route path="/admin/donations" element={<Suspense fallback={<RouteLoadingFallback />}><DonationsList /></Suspense>} />
-        <Route path="/admin/allocations" element={<Suspense fallback={<RouteLoadingFallback />}><AllocationsList /></Suspense>} />
-        <Route path="/admin/reports" element={<Suspense fallback={<RouteLoadingFallback />}><ReportsPage /></Suspense>} />
-        <Route path="/admin/social" element={<Suspense fallback={<RouteLoadingFallback />}><SocialAnalyticsPage /></Suspense>} />
-        <Route path="/admin/social/editor" element={<Suspense fallback={<RouteLoadingFallback />}><SocialEditorPage /></Suspense>} />
+        <Route path="/admin/impact" element={user?.role === 'Donor' ? <Navigate to="/app/impact" replace /> : <ImpactDashboard />} />
+        <Route path="/admin/donate" element={user?.role === 'Donor' ? <Navigate to="/app/donate" replace /> : <DonatePage />} />
+        <Route path="/admin/residents" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><ResidentsList /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/residents/new" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/residents/:id" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><ResidentDetail /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/recordings" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllRecordingsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/visits" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllVisitationsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/education" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllEducationPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/health" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllHealthPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/interventions" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllInterventionsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/incidents" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><AllIncidentsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/recordings" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><ProcessRecordingsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/visits" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><HomeVisitationsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/education" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><EducationRecordsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/health" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><HealthRecordsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/interventions" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><InterventionPlansPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/case/:residentId/incidents" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><IncidentReportsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/supporters" element={<ProtectedRoute allowedRoles={['Admin']}><Suspense fallback={<RouteLoadingFallback />}><SupportersList /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/supporters/:id" element={<ProtectedRoute allowedRoles={['Admin']}><Suspense fallback={<RouteLoadingFallback />}><SupporterDetail /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/donations" element={<ProtectedRoute allowedRoles={['Admin']}><Suspense fallback={<RouteLoadingFallback />}><DonationsList /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/allocations" element={<ProtectedRoute allowedRoles={['Admin']}><Suspense fallback={<RouteLoadingFallback />}><AllocationsList /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><ReportsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/social" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><SocialAnalyticsPage /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/social/editor" element={<ProtectedRoute allowedRoles={['Admin', 'Staff']}><Suspense fallback={<RouteLoadingFallback />}><SocialEditorPage /></Suspense></ProtectedRoute>} />
         <Route path="/admin/partners" element={
           <ProtectedRoute requiredRole="Admin">
             <Suspense fallback={<RouteLoadingFallback />}><PartnersList /></Suspense>
@@ -194,7 +226,7 @@ function AppContent() {
             <Suspense fallback={<RouteLoadingFallback />}><SafehousesPage /></Suspense>
           </ProtectedRoute>
         } />
-        <Route path="/admin/profile" element={<Suspense fallback={<RouteLoadingFallback />}><ProfilePage /></Suspense>} />
+        <Route path="/admin/profile" element={user?.role === 'Donor' ? <Navigate to="/app/profile" replace /> : <Suspense fallback={<RouteLoadingFallback />}><ProfilePage /></Suspense>} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="Admin">
             <Suspense fallback={<RouteLoadingFallback />}><UserManagementPage /></Suspense>

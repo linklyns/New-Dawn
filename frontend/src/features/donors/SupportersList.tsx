@@ -372,7 +372,7 @@ function SupporterForm({
           {error}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input label="First Name" error={errors.firstName?.message} {...register('firstName')} />
         <Input label="Last Name" error={errors.lastName?.message} {...register('lastName')} />
       </div>
@@ -392,12 +392,12 @@ function SupporterForm({
       </div>
       <Input label={t('donors.organization')} {...register('organizationName')} />
       <Input label="Phone" {...register('phone')} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input label="Region" {...register('region')} />
         <Input label="Country" {...register('country')} />
       </div>
       <Input label={t('donors.channel')} {...register('acquisitionChannel')} />
-      <div className="flex justify-end gap-3 pt-2">
+      <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
         <Button variant="ghost" type="button" onClick={onCancel}>
           {t('common.cancel')}
         </Button>

@@ -172,7 +172,7 @@ export function InterventionPlansPage() {
           <ArrowLeft size={16} />
           {t('common.back')}
         </Button>
-        <div className="relative min-w-48 flex-1">
+        <div className="relative min-w-0 flex-1 sm:min-w-48">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray" />
           <input
             type="text"

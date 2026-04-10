@@ -21,10 +21,12 @@ export function Navbar() {
 
   const getHomeLink = () => {
     if (isAuthenticated) {
-      return userRole === 'Donor' ? '/admin/donate' : '/admin';
+      return userRole === 'Donor' ? '/app/donate' : '/admin';
     }
     return '/';
   };
+
+  const dashboardPath = userRole === 'Donor' ? '/app/donate' : '/admin';
 
   return (
     <nav className="sticky top-0 z-40 border-b border-sky-blue/20 bg-white shadow-md transition-all dark:border-white/10 dark:bg-dark-surface">
@@ -53,7 +55,7 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <div className="hidden md:block">
             {isAuthenticated ? (
-              <Link to="/admin" className="transition-opacity hover:opacity-80">
+              <Link to={dashboardPath} className="transition-opacity hover:opacity-80">
                 <Button variant="primary" size="sm">
                   {t('nav.dashboard')}
                 </Button>
@@ -97,7 +99,7 @@ export function Navbar() {
               </Link>
             ))}
             {isAuthenticated ? (
-              <Link to="/admin" onClick={() => setMobileOpen(false)} className="mt-2">
+              <Link to={dashboardPath} onClick={() => setMobileOpen(false)} className="mt-2">
                 <Button variant="primary" size="sm" className="w-full">
                   {t('nav.dashboard')}
                 </Button>

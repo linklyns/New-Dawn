@@ -242,12 +242,12 @@ function SelectField({
   getOptionLabel?: (value: string) => string;
 }) {
   return (
-    <label className="flex flex-col gap-2">
+    <label className="flex min-w-0 flex-col gap-2">
       <span className="text-sm font-medium text-slate-navy dark:text-white">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
+        className="w-full min-w-0 rounded-2xl border border-slate-navy/15 bg-white px-4 py-3 text-sm text-slate-navy focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/30 dark:border-white/10 dark:bg-slate-navy dark:text-white"
       >
         {options.map((option) => (
           <option key={option} value={option}>{getOptionLabel ? getOptionLabel(option) : OPTION_LABELS[option] ?? option}</option>
@@ -260,7 +260,7 @@ function SelectField({
 
 function StagePill({ active, children }: { active: boolean; children: React.ReactNode }) {
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${active ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-warm-gray dark:bg-white/10 dark:text-white/60'}`}>
+    <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${active ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-warm-gray dark:bg-white/10 dark:text-white/60'}`}>
       {children}
     </span>
   );
@@ -966,7 +966,7 @@ export function SocialEditorPage() {
 
   const savedPostsCard = (
     <Card className="flex h-full self-stretch flex-col space-y-4 p-0">
-      <div className="border-b border-slate-navy/10 px-5 py-5 dark:border-white/10">
+      <div className="border-b border-slate-navy/10 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10">
         <div className="min-w-0">
           <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('social.savedPosts', { defaultValue: 'Saved Posts' })}</p>
           <p className="mt-1 text-sm text-warm-gray">{t('social.savedPostsHelper', { defaultValue: 'Resume any saved draft and keep working with AI.' })}</p>
@@ -1007,7 +1007,7 @@ export function SocialEditorPage() {
                 contentTopic: getContentTopicLabel(draft.contentTopic).toLowerCase(),
               })}</p>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-warm-gray">
+            <div className="mt-3 flex flex-col gap-1 text-xs text-warm-gray sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <span className="truncate">{t('social.updatedAtLabel', { defaultValue: 'Updated {{value}}', value: formatUpdatedAt(draft.updatedAt) })}</span>
               <span className="shrink-0">{t('social.mediaCountLabel', { defaultValue: '{{count}} media', count: draft.mediaCount })}</span>
             </div>
@@ -1018,12 +1018,12 @@ export function SocialEditorPage() {
   );
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <PageHeader
         title={t('social.aiPostBuilderTitle', { defaultValue: 'AI Post Builder' })}
         subtitle={t('social.aiPostBuilderSubtitle', { defaultValue: 'Build a draft brief, generate a post, then keep refining it with AI or direct edits.' })}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             {currentStage === 'compose' && activeDraft.draftId > 0 && (
               <Button
                 variant="ghost"
@@ -1049,10 +1049,10 @@ export function SocialEditorPage() {
         </div>
       )}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[360px_minmax(0,1fr)]">
-        {savedPostsCard}
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="min-w-0">{savedPostsCard}</div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
         {currentStage === 'compose' && (
           <Card className="space-y-4 bg-gradient-to-r from-sky-blue/12 via-white to-golden-honey/12 dark:from-sky-blue/10 dark:via-slate-navy/70 dark:to-golden-honey/10">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1060,7 +1060,7 @@ export function SocialEditorPage() {
                 <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('social.performanceAndTiming', { defaultValue: 'Performance & Timing' })}</p>
                 <p className="mt-1 text-sm text-warm-gray">{t('social.performanceTimingHelper', { defaultValue: 'Predict content performance, or let AI suggest optimal posting times. Select a time slot to see a time-adjusted value estimate.' })}</p>
               </div>
-              <div className="flex shrink-0 gap-2 self-start lg:self-auto">
+              <div className="flex w-full flex-col gap-2 self-start sm:w-auto sm:flex-row lg:self-auto">
                 <Button variant="ghost" onClick={() => void fetchPerformance()} loading={performanceLoading} className="border border-slate-navy/15 dark:border-white/15">
                   <BarChart2 size={16} />
                   {t('social.predictPerformance', { defaultValue: 'Predict Performance' })}
@@ -1075,12 +1075,12 @@ export function SocialEditorPage() {
             {performanceError && <p className="text-sm text-red-600">{performanceError}</p>}
             {timesError && <p className="text-sm text-red-600">{timesError}</p>}
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_260px]">
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_260px]">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {performanceMetrics.map((metric) => (
                   <div key={metric.label} className="rounded-2xl border border-slate-navy/10 bg-white/80 p-4 dark:border-white/10 dark:bg-slate-navy/60">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-xs uppercase tracking-[0.2em] text-warm-gray">{metric.label}</p>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="break-words text-xs uppercase tracking-[0.2em] text-warm-gray sm:truncate">{metric.label}</p>
                       {metric.timeAdjusted && (
                         <span className="shrink-0 rounded-full bg-sky-blue/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-navy dark:bg-sky-blue/25 dark:text-sky-blue">
                           {t('social.timeAdjusted', { defaultValue: 'time-adjusted' })}
@@ -1105,7 +1105,7 @@ export function SocialEditorPage() {
                       type="button"
                       key={`${slot.dayOfWeek}-${slot.postHour}`}
                       onClick={() => setActiveDraft((prev) => ({ ...prev, scheduledDay: slot.dayOfWeek, scheduledHour: slot.postHour }))}
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors ${activeDraft.scheduledDay === slot.dayOfWeek && activeDraft.scheduledHour === slot.postHour ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-slate-navy hover:bg-slate-navy/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'}`}
+                      className={`flex w-full flex-col items-start gap-1 rounded-xl px-3 py-2 text-left text-sm transition-colors sm:flex-row sm:items-center sm:justify-between ${activeDraft.scheduledDay === slot.dayOfWeek && activeDraft.scheduledHour === slot.postHour ? 'bg-golden-honey text-slate-navy' : 'bg-slate-navy/5 text-slate-navy hover:bg-slate-navy/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'}`}
                     >
                       <span>{t('social.suggestedTimeSlot', { defaultValue: '{{day}} {{time}}', day: slot.dayOfWeek, time: formatHour(slot.postHour) })}</span>
                       <span className="text-xs">{t('social.rankLabel', { defaultValue: '#{{rank}}', rank: slot.rank })}</span>
@@ -1119,10 +1119,10 @@ export function SocialEditorPage() {
 
             {currentStage === 'compose' ? (
               <>
-                <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-                  <div className="space-y-6">
+                <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+                  <div className="min-w-0 space-y-6">
                     <Card className="space-y-6">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="font-heading text-xl font-semibold text-slate-navy dark:text-white">{t('social.stageTwoTitle', { defaultValue: 'Stage 2: Refine the Post' })}</p>
                           <p className="mt-1 text-sm text-warm-gray">{t('social.stageTwoHelper', { defaultValue: 'Edit the generated content directly or use chat to revise it.' })}</p>
@@ -1171,7 +1171,7 @@ export function SocialEditorPage() {
                               {item.mediaKind === 'image' && item.previewUrl && <img src={item.previewUrl} alt={item.fileName} className="h-40 w-full rounded-xl object-cover" />}
                               {item.mediaKind === 'video' && item.previewUrl && <video src={item.previewUrl} controls className="h-40 w-full rounded-xl object-cover bg-black" />}
                               {item.mediaKind === 'file' && <div className="flex h-40 items-center justify-center rounded-xl bg-slate-navy/5 text-sm text-warm-gray dark:bg-white/5">{item.fileName}</div>}
-                              <div className="mt-3 flex items-center justify-between gap-3">
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-slate-navy dark:text-white">{item.fileName}</p>
                                   <p className="text-xs text-warm-gray">{Math.round(item.fileSizeBytes / 1024)} KB</p>
@@ -1189,14 +1189,14 @@ export function SocialEditorPage() {
                     </Card>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="min-w-0 space-y-6">
                     <Card className="space-y-5 bg-gradient-to-br from-white via-coral-pink/12 to-sky-blue/14 dark:from-slate-navy/70 dark:via-coral-pink/10 dark:to-sky-blue/10">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="font-heading text-lg font-semibold text-slate-navy dark:text-white">{t('common.preview')}</p>
                           <p className="mt-1 text-sm text-warm-gray">{t('social.platformPreviewHelper', { defaultValue: 'Styled to feel native to the selected platform, but every field stays editable.' })}</p>
                         </div>
-                        <div className="text-right text-xs text-warm-gray">
+                        <div className="text-left text-xs text-warm-gray sm:text-right">
                           {activeDraft.scheduledDay && activeDraft.scheduledHour !== null ? (
                             <span>{t('social.suggestedSlotLabel', { defaultValue: 'Suggested slot: {{day}} {{time}}', day: activeDraft.scheduledDay, time: formatHour(activeDraft.scheduledHour) })}</span>
                           ) : (
@@ -1227,7 +1227,7 @@ export function SocialEditorPage() {
                 </div>
 
                 <Card className="overflow-hidden border border-slate-navy/10 bg-gradient-to-br from-white via-sky-blue/6 to-coral-pink/10 p-0 dark:border-white/10 dark:from-slate-navy/80 dark:via-slate-navy/70 dark:to-sky-blue/8">
-                  <div className="border-b border-slate-navy/10 px-6 py-5 dark:border-white/10">
+                  <div className="border-b border-slate-navy/10 px-4 py-4 sm:px-6 sm:py-5 dark:border-white/10">
                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <div className="flex items-center gap-3 text-slate-navy dark:text-white">
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-golden-honey/20 text-golden-honey-text dark:text-golden-honey">
@@ -1242,7 +1242,7 @@ export function SocialEditorPage() {
                     </div>
                   </div>
 
-                  <div ref={chatScrollContainerRef} className="max-h-[34rem] min-h-[24rem] space-y-4 overflow-y-auto bg-white/70 px-6 py-6 dark:bg-slate-navy/40">
+                  <div ref={chatScrollContainerRef} className="max-h-[34rem] min-h-[24rem] space-y-4 overflow-y-auto bg-white/70 px-4 py-4 sm:px-6 sm:py-6 dark:bg-slate-navy/40">
                     {activeDraft.chatHistory.length === 0 && !chatIsThinking ? (
                       <div className="rounded-3xl border border-dashed border-slate-navy/15 bg-white/80 px-5 py-8 text-sm text-warm-gray dark:border-white/10 dark:bg-white/5 dark:text-white/60">
                         {t('social.emptyChatHint', { defaultValue: 'Ask AI to tighten the caption, shift the tone, rewrite the CTA, adapt this into a Reel hook, or make it sound more donor-facing.' })}
@@ -1251,7 +1251,7 @@ export function SocialEditorPage() {
                       <>
                         {activeDraft.chatHistory.map((message, index) => (
                           <div key={`${message.role}-${index}`} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
-                            <div className={`max-w-[min(85%,56rem)] rounded-[1.75rem] px-5 py-4 text-sm leading-7 shadow-sm ${message.role === 'assistant' ? 'border border-slate-navy/10 bg-white text-slate-navy dark:border-white/10 dark:bg-slate-navy dark:text-white' : 'bg-golden-honey text-slate-navy'}`}>
+                            <div className={`max-w-[min(92%,56rem)] rounded-[1.75rem] px-4 py-3 text-sm leading-7 shadow-sm sm:max-w-[min(85%,56rem)] sm:px-5 sm:py-4 ${message.role === 'assistant' ? 'border border-slate-navy/10 bg-white text-slate-navy dark:border-white/10 dark:bg-slate-navy dark:text-white' : 'bg-golden-honey text-slate-navy'}`}>
                               {message.role === 'assistant' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">{t('social.aiAssistant', { defaultValue: 'AI Assistant' })}</p>}
                               {message.role === 'user' && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-navy/60">{t('social.you', { defaultValue: 'You' })}</p>}
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -1261,7 +1261,7 @@ export function SocialEditorPage() {
 
                         {chatIsThinking && (
                           <div className="flex justify-start">
-                            <div className="max-w-[min(85%,56rem)] rounded-[1.75rem] border border-slate-navy/10 bg-white px-5 py-4 text-sm text-slate-navy shadow-sm dark:border-white/10 dark:bg-slate-navy dark:text-white">
+                            <div className="max-w-[min(92%,56rem)] rounded-[1.75rem] border border-slate-navy/10 bg-white px-4 py-3 text-sm text-slate-navy shadow-sm sm:max-w-[min(85%,56rem)] sm:px-5 sm:py-4 dark:border-white/10 dark:bg-slate-navy dark:text-white">
                               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-warm-gray">{t('social.aiAssistant', { defaultValue: 'AI Assistant' })}</p>
                               <div className="flex items-center gap-3">
                                 <div className="flex gap-1.5">
@@ -1279,7 +1279,7 @@ export function SocialEditorPage() {
                     <div ref={chatEndRef} />
                   </div>
 
-                  <div className="border-t border-slate-navy/10 bg-white/90 px-6 py-5 dark:border-white/10 dark:bg-slate-navy/70">
+                  <div className="border-t border-slate-navy/10 bg-white/90 px-4 py-4 sm:px-6 sm:py-5 dark:border-white/10 dark:bg-slate-navy/70">
                     <div className="rounded-[1.75rem] border border-slate-navy/12 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-navy">
                       <textarea
                         value={chatInput}
@@ -1290,7 +1290,7 @@ export function SocialEditorPage() {
                         disabled={chatIsThinking}
                         className="max-h-40 min-h-[5.5rem] w-full resize-y border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-navy placeholder:text-warm-gray/60 focus:outline-none dark:text-white"
                       />
-                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-navy/10 px-2 pt-3 dark:border-white/10">
+                      <div className="mt-3 flex flex-col gap-3 border-t border-slate-navy/10 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
                         <p className="text-xs text-warm-gray">{t('social.chatExamples', { defaultValue: 'Examples: “Make it more donor-focused”, “Shorten this for X”, “Write a stronger hook”.' })}</p>
                         <Button onClick={() => void handleChatSend()} disabled={!chatInput.trim()} loading={chatIsThinking}>
                           <Sparkles size={16} />
@@ -1356,7 +1356,7 @@ export function SocialEditorPage() {
                               {item.mediaKind === 'image' && item.previewUrl && <img src={item.previewUrl} alt={item.fileName} className="h-40 w-full rounded-xl object-cover" />}
                               {item.mediaKind === 'video' && item.previewUrl && <video src={item.previewUrl} controls className="h-40 w-full rounded-xl object-cover bg-black" />}
                               {item.mediaKind === 'file' && <div className="flex h-40 items-center justify-center rounded-xl bg-slate-navy/5 text-sm text-warm-gray dark:bg-white/5">{item.fileName}</div>}
-                              <div className="mt-3 flex items-center justify-between gap-3">
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-slate-navy dark:text-white">{item.fileName}</p>
                                   <p className="text-xs text-warm-gray">{Math.round(item.fileSizeBytes / 1024)} KB</p>

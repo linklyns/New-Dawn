@@ -102,11 +102,19 @@ export function UserManagementPage() {
   }
 
   function SortBtn({ col }: { col: SortKey }) {
+    const columnLabel = col === 'name'
+      ? t('common.name')
+      : col === 'email'
+        ? t('common.email')
+        : t('partners.role');
+    const nextDirection = sortKey === col && sortDir === 'asc' ? 'descending' : 'ascending';
+
     return (
       <button
         className={`ml-1 inline-flex items-center hover:opacity-100 ${sortKey === col ? 'text-golden-honey opacity-100' : 'opacity-50'}`}
         onClick={() => toggleSort(col)}
         type="button"
+        aria-label={`Sort by ${columnLabel} ${nextDirection}`}
       >
         <ArrowUpDown size={13} />
       </button>
@@ -127,47 +135,63 @@ export function UserManagementPage() {
       <Card>
         {/* Toolbar */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[200px] flex-1">
+          <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
+            <label htmlFor="user-management-search" className="sr-only">
+              {t('common.search')}
+            </label>
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
+              id="user-management-search"
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"
               placeholder={t('userManagement.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select
-            className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-          >
-            <option value="">{t('userManagement.allRoles')}</option>
-            <option value="Admin">{t('userManagement.admin')}</option>
-            <option value="Staff">{t('userManagement.staff')}</option>
-            <option value="Donor">{t('userManagement.donor')}</option>
-          </select>
-          <select
-            className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
-            value={mfaFilter}
-            onChange={(e) => setMfaFilter(e.target.value)}
-          >
-            <option value="">{t('userManagement.all2fa')}</option>
-            <option value="on">{t('userManagement.twoFaEnabled')}</option>
-            <option value="off">{t('userManagement.twoFaOff')}</option>
-          </select>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="user-management-role-filter" className="sr-only">
+              {t('userManagement.allRoles')}
+            </label>
+            <select
+              id="user-management-role-filter"
+              className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="">{t('userManagement.allRoles')}</option>
+              <option value="Admin">{t('userManagement.admin')}</option>
+              <option value="Staff">{t('userManagement.staff')}</option>
+              <option value="Donor">{t('userManagement.donor')}</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="user-management-mfa-filter" className="sr-only">
+              {t('userManagement.all2fa')}
+            </label>
+            <select
+              id="user-management-mfa-filter"
+              className="rounded-lg border border-slate-navy/20 bg-white px-3 py-2 text-sm text-slate-navy focus:border-golden-honey focus:outline-none dark:border-white/20 dark:bg-dark-surface dark:text-white"
+              value={mfaFilter}
+              onChange={(e) => setMfaFilter(e.target.value)}
+            >
+              <option value="">{t('userManagement.all2fa')}</option>
+              <option value="on">{t('userManagement.twoFaEnabled')}</option>
+              <option value="off">{t('userManagement.twoFaOff')}</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-navy/10 dark:border-white/10">
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white" aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <span className="flex items-center">{t('common.name')} <SortBtn col="name" /></span>
                 </th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white" aria-sort={sortKey === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <span className="flex items-center">{t('common.email')} <SortBtn col="email" /></span>
                 </th>
-                <th className="pb-3 font-semibold text-slate-navy dark:text-white">
+                <th className="pb-3 font-semibold text-slate-navy dark:text-white" aria-sort={sortKey === 'role' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <span className="flex items-center">{t('partners.role')} <SortBtn col="role" /></span>
                 </th>
                 <th className="pb-3 font-semibold text-slate-navy dark:text-white">{t('userManagement.twoFa')}</th>
@@ -187,6 +211,7 @@ export function UserManagementPage() {
                           onChange={(e) => updateRole.mutate({ userId: user.id, role: e.target.value })}
                           onBlur={() => setEditingUserId(null)}
                           autoFocus
+                          aria-label={`Change role for ${user.displayName}`}
                           className="appearance-none rounded-lg border border-slate-navy/20 bg-white py-1 pl-3 pr-8 text-sm dark:border-white/20 dark:bg-dark-surface dark:text-white"
                         >
                           <option value="Admin">{t('userManagement.admin')}</option>

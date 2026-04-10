@@ -12,6 +12,7 @@ interface AppShellProps {
 
 export function AppShell({ variant }: AppShellProps) {
   const { user, logout } = useAuthStore();
+  const profilePath = user?.role === 'Donor' ? '/app/profile' : '/admin/profile';
 
   if (variant === 'public') {
     return (
@@ -36,16 +37,16 @@ export function AppShell({ variant }: AppShellProps) {
       <Sidebar />
 
       {/* Main content area offset by sidebar */}
-      <div className="lg:ml-64">
+      <div className="min-w-0 lg:ml-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-end gap-4 border-b border-white/65 bg-white/90 pl-16 pr-6 py-3 backdrop-blur-sm lg:pl-6 dark:border-white/10 dark:bg-dark-surface">
+        <header className="sticky top-0 z-30 flex items-center justify-end gap-3 border-b border-white/65 bg-white/90 py-3 pl-14 pr-4 backdrop-blur-sm sm:gap-4 sm:pr-6 lg:pl-6 dark:border-white/10 dark:bg-dark-surface">
           {user?.role === 'Admin' && <NotificationBell />}
           {user && (
-            <Link to="/admin/profile" className="flex items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-sky-blue/10 dark:hover:bg-white/10">
+            <Link to={profilePath} className="flex min-w-0 items-center gap-2 rounded-xl px-2 py-1 transition-colors hover:bg-sky-blue/10 dark:hover:bg-white/10">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-sky-blue/35 to-sage-green/35 text-sky-blue-text dark:bg-sky-blue/12 dark:text-sky-blue">
                 <User size={16} />
               </span>
-              <span className="text-sm font-medium text-slate-navy dark:text-white">
+              <span className="max-w-[8rem] truncate text-sm font-medium text-slate-navy sm:max-w-[12rem] dark:text-white">
                 {user.displayName}
               </span>
             </Link>
@@ -60,7 +61,7 @@ export function AppShell({ variant }: AppShellProps) {
         </header>
 
         {/* Page content */}
-        <main id="main-content" className="p-6">
+        <main id="main-content" className="p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

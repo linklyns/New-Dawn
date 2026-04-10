@@ -75,6 +75,13 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-slate-navy) 12%, transparent);
     background: color-mix(in srgb, var(--color-coral-pink) 35%, white);
     padding: 0.75rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .rich-text-editor .ql-toolbar .ql-formats {
+    margin-right: 0;
   }
 
   .dark .rich-text-editor .ql-toolbar {

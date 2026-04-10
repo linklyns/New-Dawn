@@ -22,10 +22,9 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  X,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import logo from '../../assets/favicon.png';
+import logo from '../../assets/newdawnlogo.png';
 
 interface NavItem {
   to: string;
@@ -57,8 +56,10 @@ const navGroups: NavGroup[] = [
     label: '',
     roles: ['Donor'],
     items: [
-      { to: '/admin/impact', label: 'nav.impact', icon: <Heart size={18} /> },
-      { to: '/admin/donate', label: 'nav.donate', icon: <DollarSign size={18} /> },
+      { to: '/app/impact', label: 'nav.impact', icon: <Heart size={18} /> },
+      { to: '/app/donate', label: 'nav.donate', icon: <DollarSign size={18} /> },
+      { to: '/app/donations', label: 'nav.donations', icon: <DollarSign size={18} /> },
+      { to: '/app/allocations', label: 'nav.allocations', icon: <PieChart size={18} /> },
     ],
   },
   {
@@ -78,8 +79,8 @@ const navGroups: NavGroup[] = [
     label: 'nav.donors',
     items: [
       { to: '/admin/supporters', label: 'nav.supporters', icon: <UserPlus size={18} />, roles: ['Admin'] },
-      { to: '/admin/donations', label: 'nav.donations', icon: <DollarSign size={18} /> },
-      { to: '/admin/allocations', label: 'nav.allocations', icon: <PieChart size={18} /> },
+      { to: '/admin/donations', label: 'nav.donations', icon: <DollarSign size={18} />, roles: ['Admin'] },
+      { to: '/admin/allocations', label: 'nav.allocations', icon: <PieChart size={18} />, roles: ['Admin'] },
     ],
   },
   {
@@ -209,7 +210,7 @@ export function Sidebar() {
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label={t('nav.toggleMenu')}
       >
-        {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+        <Menu size={20} />
       </button>
 
       {/* Backdrop for mobile */}
@@ -222,13 +223,13 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-white/60 bg-linear-to-b from-white via-white to-sky-blue/12 backdrop-blur-sm transition-transform dark:border-white/10 dark:bg-none dark:bg-dark-surface dark:backdrop-blur-none lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-white/60 bg-white shadow-[0_16px_40px_rgba(45,58,74,0.16)] transition-transform dark:border-white/10 dark:bg-dark-surface lg:translate-x-0 lg:bg-linear-to-b lg:from-white lg:via-white lg:to-sky-blue/12 lg:shadow-none lg:backdrop-blur-sm dark:lg:bg-none dark:lg:bg-dark-surface dark:lg:backdrop-blur-none ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Logo */}
-        <Link to={userRole === 'Donor' ? '/admin/donate' : '/admin'} className="flex items-center gap-3 border-b border-sky-blue/20 px-4 py-4 dark:border-white/10">
-          <img src={logo} alt={t('brand.newDawn')} className="h-8 w-8" />
+        <Link to={userRole === 'Donor' ? '/app/donate' : '/admin'} className="flex items-center gap-3 border-b border-sky-blue/20 px-4 py-4 dark:border-white/10">
+          <img src={logo} alt={t('brand.newDawn')} className="h-10 w-auto object-contain" />
           <span className="font-heading text-lg font-bold text-slate-navy dark:text-white">
             {t('brand.newDawn')}
           </span>

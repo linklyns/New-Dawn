@@ -61,7 +61,7 @@ export function ImpactDashboard() {
               {t('impact.residentsServed')}
             </h2>
             <div className="h-72 sm:h-80">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={data?.residentsOverTime ?? []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
                   <XAxis
@@ -97,8 +97,8 @@ export function ImpactDashboard() {
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
                 {t('impact.programOutcomes')}
               </h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-72 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart
                     data={outcomesData}
                     layout="vertical"
@@ -145,8 +145,8 @@ export function ImpactDashboard() {
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
                 {t('impact.donationImpact')}
               </h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-72 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={data?.donationByProgram ?? []}

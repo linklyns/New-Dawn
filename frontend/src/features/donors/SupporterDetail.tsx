@@ -119,7 +119,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs font-medium uppercase tracking-wide text-warm-gray">{label}</span>
-      <span className="text-sm text-slate-navy dark:text-white">{value ?? '--'}</span>
+      <span className="break-words text-sm text-slate-navy dark:text-white">{value ?? '--'}</span>
     </div>
   );
 }
@@ -133,7 +133,8 @@ export function SupporterDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const preferences = resolveUserPreferences(useAuthStore((s) => s.user));
+  const currentUser = useAuthStore((s) => s.user);
+  const preferences = resolveUserPreferences(currentUser);
 
   const [activeTab, setActiveTab] = useState<Tab>('donations');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -174,7 +175,7 @@ export function SupporterDetail() {
     mutationFn: () => api.delete(`/api/supporters/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supporters'] });
-      navigate('/admin/supporters');
+      navigate(currentUser?.role === 'Donor' ? '/app/supporters' : '/admin/supporters');
     },
   });
 
@@ -261,7 +262,7 @@ export function SupporterDetail() {
         title={s.displayName}
         subtitle={`${s.firstName} ${s.lastName}`}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setActiveTab('edit')}>
               <Pencil size={16} />
               {t('common.edit')}
@@ -283,7 +284,7 @@ export function SupporterDetail() {
 
       {/* Profile Summary */}
       <Card className="mb-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoRow
             label={t('common.type')}
             value={<Badge variant={typeVariant(s.supporterType)}>{getSupporterTypeLabel(s.supporterType, t)}</Badge>}

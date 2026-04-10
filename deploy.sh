@@ -22,6 +22,9 @@ STATIC_APP_NAME="newdawn-web"
 RUNTIME="DOTNETCORE:10.0"
 SKU="B1"
 
+: "${SUPABASE_CONNECTION_STRING:?Set SUPABASE_CONNECTION_STRING before running deploy.sh}"
+: "${JWT_SECRET:?Set JWT_SECRET before running deploy.sh}"
+
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend/New_Dawn/New_Dawn"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
@@ -56,8 +59,8 @@ az webapp config appsettings set \
   --name "$API_APP_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --settings \
-    SUPABASE_CONNECTION_STRING="Host=aws-1-us-west-2.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.otluyiykkmsnacuubczm;Password=7Hu6EWkXf?JQp@m;SSL Mode=Require;Trust Server Certificate=true" \
-    JWT_SECRET="NewDawnSecureJwtKey2026ForIS414ProjectAtBYU!" \
+    SUPABASE_CONNECTION_STRING="$SUPABASE_CONNECTION_STRING" \
+    JWT_SECRET="$JWT_SECRET" \
     ASPNETCORE_ENVIRONMENT="Production" \
   --output none
 echo "  App settings configured"

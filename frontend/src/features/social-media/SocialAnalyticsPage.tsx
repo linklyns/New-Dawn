@@ -439,8 +439,8 @@ export function SocialAnalyticsPage() {
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
               {t('social.platformComparison')}
             </h2>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-72 min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={platformComparison}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
                   <XAxis
@@ -479,8 +479,8 @@ export function SocialAnalyticsPage() {
             <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
               {t('social.contentTypePerformance')}
             </h2>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-72 min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={contentTypePerformance}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2D3A4A20" />
                   <XAxis
@@ -583,8 +583,8 @@ export function SocialAnalyticsPage() {
           <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
             {t('social.topPostsByDonationReferrals', { defaultValue: 'Top Posts By Donation Referrals' })}
           </h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-80 min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart
                 data={topDonationPosts}
                 layout="vertical"

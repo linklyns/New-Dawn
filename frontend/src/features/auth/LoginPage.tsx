@@ -96,7 +96,7 @@ export function LoginPage() {
           preferredLanguage: res.preferredLanguage,
           preferredCurrency: res.preferredCurrency,
         });
-        navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
+        navigate(res.role === 'Donor' ? '/app/donate' : '/admin');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.loginFailed'));
@@ -121,7 +121,7 @@ export function LoginPage() {
         preferredLanguage: res.preferredLanguage,
         preferredCurrency: res.preferredCurrency,
       });
-      navigate(res.role === 'Donor' ? '/admin/donate' : '/admin');
+      navigate(res.role === 'Donor' ? '/app/donate' : '/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.verifyFailed'));
     } finally {
@@ -179,7 +179,7 @@ export function LoginPage() {
               </div>
             </div>
 
-            <div id="google-signin-btn" className="flex justify-center" />
+            <div id="google-signin-btn" className="mx-auto flex w-full max-w-[280px] justify-center" />
 
             <p className="text-center text-sm text-warm-gray">
               {t('auth.noAccount')}{' '}

@@ -165,7 +165,7 @@ export function AllVisitationsPage() {
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[200px] flex-1">
+          <div className="relative min-w-0 flex-1 sm:min-w-[200px]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-gray dark:text-white/40" />
             <input
               className="w-full rounded-lg border border-slate-navy/20 bg-white py-2 pl-9 pr-3 text-sm text-slate-navy placeholder:text-warm-gray/60 focus:border-golden-honey focus:outline-none focus:ring-2 focus:ring-golden-honey/40 dark:border-white/20 dark:bg-dark-surface dark:text-white"

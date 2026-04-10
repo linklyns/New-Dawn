@@ -277,8 +277,8 @@ export function ReportsPage() {
             </h2>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-72 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={safehouseData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
@@ -316,8 +316,8 @@ export function ReportsPage() {
             </h2>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-72 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <LineChart data={healthChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
@@ -383,8 +383,8 @@ export function ReportsPage() {
             </h2>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-72 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={eduData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
@@ -427,8 +427,8 @@ export function ReportsPage() {
             </h2>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-72 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <AreaChart data={donationChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridStroke} />
                       <XAxis
@@ -475,8 +475,8 @@ export function ReportsPage() {
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
                 {t('reports.reintegrationRates')}
               </h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-72 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart
                     data={reintData}
                     layout="vertical"
@@ -518,8 +518,8 @@ export function ReportsPage() {
               <h2 className="mb-6 font-heading text-xl font-semibold text-slate-navy dark:text-white">
                 Incident Summary By Type
               </h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-72 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={incidentByType}

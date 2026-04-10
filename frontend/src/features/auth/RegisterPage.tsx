@@ -89,7 +89,7 @@ export function RegisterPage() {
         preferredLanguage: res.preferredLanguage,
         preferredCurrency: res.preferredCurrency,
       });
-      navigate(redirectTo || '/admin');
+      navigate(redirectTo || (res.role === 'Donor' ? '/app/donate' : '/admin'));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.googleSignUpFailed'));
     } finally {
@@ -123,7 +123,7 @@ export function RegisterPage() {
         preferredLanguage: res.preferredLanguage,
         preferredCurrency: res.preferredCurrency,
       });
-      navigate(redirectTo || '/admin');
+      navigate(redirectTo || (res.role === 'Donor' ? '/app/donate' : '/admin'));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.registrationFailed'));
     } finally {
@@ -251,7 +251,7 @@ export function RegisterPage() {
             </div>
           </div>
 
-          <div id="google-signup-btn" className="flex justify-center" />
+          <div id="google-signup-btn" className="mx-auto flex w-full max-w-[280px] justify-center" />
 
           <p className="text-center text-sm text-warm-gray">
             {t('auth.hasAccount')}{' '}

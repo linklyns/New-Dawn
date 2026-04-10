@@ -57,8 +57,53 @@ export function Table<T extends Record<string, unknown>>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+    <div>
+      <div className="space-y-3 md:hidden">
+        {data.map((row, idx) => {
+          const content = (
+            <div className="grid gap-3">
+              {columns.map((col) => (
+                <div key={col.key} className="space-y-1">
+                  <div className="text-[11px] font-heading font-semibold uppercase tracking-[0.16em] text-warm-gray">
+                    {col.header}
+                  </div>
+                  <div className="break-words text-sm text-slate-navy dark:text-white">
+                    {col.render ? col.render(row) : String(row[col.key] ?? '')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+
+          return onRowClick ? (
+            <div
+              key={idx}
+              className={`w-full rounded-2xl border border-slate-navy/10 bg-white p-4 text-left shadow-sm transition-colors dark:border-white/10 dark:bg-dark-surface ${idx % 2 === 1 ? 'bg-slate-navy/[0.02] dark:bg-white/[0.02]' : ''} hover:border-sky-blue/25 hover:bg-sky-blue/10`}
+              role="button"
+              tabIndex={0}
+              onClick={() => onRowClick(row)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onRowClick(row);
+                }
+              }}
+            >
+              {content}
+            </div>
+          ) : (
+            <div
+              key={idx}
+              className={`rounded-2xl border border-slate-navy/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-dark-surface ${idx % 2 === 1 ? 'bg-slate-navy/[0.02] dark:bg-white/[0.02]' : ''}`}
+            >
+              {content}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+      <table className="min-w-full text-left text-sm">
         <thead>
           <tr className="border-b border-slate-navy/10 dark:border-white/10">
             {columns.map((col) => (
@@ -79,7 +124,7 @@ export function Table<T extends Record<string, unknown>>({
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
               {columns.map((col) => (
-                <td key={col.key} className="px-4 py-3 text-slate-navy dark:text-white">
+                <td key={col.key} className="px-4 py-3 align-top break-words text-slate-navy dark:text-white">
                   {col.render ? col.render(row) : String(row[col.key] ?? '')}
                 </td>
               ))}
@@ -87,6 +132,7 @@ export function Table<T extends Record<string, unknown>>({
           ))}
         </tbody>
       </table>
+      </div>
 
       {page !== undefined && totalPages !== undefined && onPageChange && (
         <div className="flex flex-col gap-4 border-t border-slate-navy/10 px-4 py-3 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
@@ -134,7 +180,7 @@ export function Table<T extends Record<string, unknown>>({
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -146,7 +192,7 @@ export function Table<T extends Record<string, unknown>>({
 
               {totalPages <= 10 ? (
                 // Show all pages if 10 or fewer
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                     <Button
                       key={pageNum}

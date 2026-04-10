@@ -91,7 +91,7 @@ export function LandingPage() {
 
       {/* Impact Stats Strip */}
       <section className="bg-sage-green/10 px-4 py-16 dark:bg-sage-green/5 sm:px-6">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 sm:gap-8 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <p className="font-heading text-4xl font-bold text-golden-honey-text dark:text-golden-honey sm:text-5xl">
